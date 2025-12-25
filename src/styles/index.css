@@ -1,0 +1,40 @@
+/* Prevent page scroll */
+body {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+/* Video must fully cover container */
+#html5qr-code-full-region video {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  border-radius: 16px;
+}
+
+/* Remove all library-imposed sizing */
+#html5qr-code-full-region,
+#html5qr-code-full-region > div {
+  width: 100% !important;
+  height: 100% !important;
+  border: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+/* 🔥 Kill the shaded overlay + focus box */
+.qr-shaded-region,
+.qr-shaded-region * {
+  display: none !important;
+}
+
+/* 🔥 Kill the default scanning border */
+#html5qr-code-full-region__scan_region {
+  border: none !important;
+}
+
+/* Remove any injected images (corner guides) */
+#html5qr-code-full-region img {
+  display: none !important;
+}
