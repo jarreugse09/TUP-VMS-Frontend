@@ -170,7 +170,7 @@ const Login = () => {
     <Container>
       <StyledCard>
         <Header>
-  <div className="emoji">👋</div>
+  <div className="emoji">🫆</div>
   <Title level={2} style={{ marginBottom: 0 }}>
     Welcome to TUP-VMS
   </Title>

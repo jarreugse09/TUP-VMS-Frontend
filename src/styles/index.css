@@ -2,7 +2,6 @@
 body {
   margin: 0;
   padding: 0;
-  overflow: hidden;
 }
 
 /* Video must fully cover container */
@@ -37,4 +36,20 @@ body {
 /* Remove any injected images (corner guides) */
 #html5qr-code-full-region img {
   display: none !important;
+}
+
+.camera-header {
+  margin-bottom: 16px;
+}
+
+.camera-title {
+  display: block;
+  font-size: 15px;
+  margin-bottom: 4px;
+}
+
+.camera-subtitle {
+  display: block;
+  font-size: 13px;
+  opacity: 0.85;
 }

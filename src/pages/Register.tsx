@@ -17,6 +17,8 @@ import {
   login as apiLogin,
 } from "../services/authService";
 import { useAuth } from "../contexts/AuthContext";
+import { Row, Col } from "antd";
+
 
 const { Option } = Select;
 const { Title, Text } = Typography;
@@ -28,8 +30,8 @@ const Container = styled.div`
   justify-content: center;
   align-items: center;
   background:
-    linear-gradient(rgba(255, 77, 79, 0.85), rgba(255, 77, 79, 0.85)),
-    url("/images/login-bg.jpg");
+    linear-gradient(rgba(255, 77, 79, 0.80), rgba(255, 77, 79, 0.80)),
+    url("/images/tup-bg.png");
   background-size: cover;
   background-position: center;
   padding: 24px;
@@ -172,29 +174,60 @@ const Register = () => {
     }
   };
 
+  const LoginLink = styled(Button)`
+  display: block;
+  margin: 18px auto 0;
+  font-weight: 500;
+  font-size: 14px;
+  color: #ff4d4f;
+
+  &:hover {
+    color: #d9363e;
+    text-decoration: underline;
+  }
+`;
+
+
   return (
     <Container>
       <StyledCard>
         <Header>
-          <div className="emoji">✨</div>
+          <div className="emoji">🫆</div>
           <Title level={2}>Create Your Account</Title>
           <Text type="secondary">
-            Join us and experience a secure & seamless system
+            Join us and start your TUPian journey!
           </Text>
           <div className="divider" />
         </Header>
 
         <StyledForm layout="vertical" onFinish={onFinish}>
-          <Form.Item name="firstName" rules={[{ required: true }]}>
-            <Input placeholder="First Name" />
-          </Form.Item>
+          <Row gutter={16}>
+  <Col xs={24} sm={12}>
+    <Form.Item
+      name="firstName"
+      rules={[{ required: true, message: "First name is required" }]}
+    >
+      <Input placeholder="First Name" />
+    </Form.Item>
+  </Col>
 
-          <Form.Item name="surname" rules={[{ required: true }]}>
-            <Input placeholder="Surname" />
-          </Form.Item>
+  <Col xs={24} sm={12}>
+    <Form.Item
+      name="surname"
+      rules={[{ required: true, message: "Surname is required" }]}
+    >
+      <Input placeholder="Surname" />
+    </Form.Item>
+  </Col>
+</Row>
+
 
           <Form.Item name="birthdate" rules={[{ required: true }]}>
             <DatePicker style={{ width: "100%" }} placeholder="Birthdate" />
+          </Form.Item>
+
+          <Form.Item name="email" rules={[{ required: true, type: "email" }]}>
+            <Input placeholder="Email Address" />
           </Form.Item>
 
           <Form.Item name="role" rules={[{ required: true }]}>
@@ -216,9 +249,7 @@ const Register = () => {
             </Form.Item>
           )}
 
-          <Form.Item name="email" rules={[{ required: true, type: "email" }]}>
-            <Input placeholder="Email Address" />
-          </Form.Item>
+          
 
           <Form.Item name="password" rules={[{ required: true, min: 6 }]}>
             <Input.Password placeholder="Password" />
@@ -229,31 +260,47 @@ const Register = () => {
           </Form.Item>
 
           <CameraBox>
-            <Text strong>Identity Verification</Text>
-            <br />
-            <Text type="secondary">
-              Please capture a clear photo of yourself
-            </Text>
+  <div className="camera-header">
+  <Text strong className="camera-title">
+    Identity Verification
+  </Text>
 
-            <Webcam
-              audio={false}
-              ref={webcamRef}
-              screenshotFormat="image/jpeg"
-              width={260}
-            />
+  <Text type="secondary" className="camera-subtitle">
+    Capture a clear photo for identity confirmation
+  </Text>
+</div>
 
-            <Button onClick={capture} style={{ marginTop: 12 }}>
-              Capture Photo
-            </Button>
+  <div className="camera-content">
+    <Webcam
+      audio={false}
+      ref={webcamRef}
+      screenshotFormat="image/jpeg"
+      width={260}
+    />
+  </div>
 
-            {photoURL && <img src={photoURL} alt="Captured" />}
-          </CameraBox>
+  <Button className="capture-btn" onClick={capture}>
+    Capture Photo
+  </Button>
+
+  {photoURL && (
+    <div className="preview">
+      <Text type="secondary">Preview</Text>
+      <img src={photoURL} alt="Captured" />
+    </div>
+  )}
+</CameraBox>
+
 
           <Form.Item style={{ marginTop: 32 }}>
             <Button type="primary" htmlType="submit" block>
               Create Account
             </Button>
           </Form.Item>
+          <LoginLink type="link" onClick={() => navigate("/login")}>
+  Already have an account? Sign in
+</LoginLink>
+
         </StyledForm>
       </StyledCard>
     </Container>
