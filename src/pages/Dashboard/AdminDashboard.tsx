@@ -25,8 +25,8 @@ import {
   CheckCircleFilled,
   LogoutOutlined,
   LoginOutlined,
+  EditOutlined,
 } from '@ant-design/icons';
-import { EditOutlined } from '@ant-design/icons';
 
 const { Title, Text } = Typography;
 const qrcodeRegionId = 'html5qr-code-full-region';
@@ -50,6 +50,9 @@ const AdminDashboard = () => {
   const [approvedBy, setApprovedBy] = useState('');
   const [plateNumber, setPlateNumber] = useState('');
 
+  // Detect mobile
+  const isMobile = window.innerWidth < 768;
+
   useEffect(() => {
     if (cooldown <= 0) {
       processingRef.current = false;
@@ -57,10 +60,7 @@ const AdminDashboard = () => {
       return;
     }
 
-    const timer = setTimeout(() => {
-      setCooldown(prev => prev - 1);
-    }, 1000);
-
+    const timer = setTimeout(() => setCooldown(prev => prev - 1), 1000);
     return () => clearTimeout(timer);
   }, [cooldown]);
 
@@ -72,9 +72,33 @@ const AdminDashboard = () => {
     processingRef.current = true;
     lastScannedRef.current = decodedText;
 
-    setPendingQR(decodedText);
+    if (isMobile) {
+  try {
+    const payload = {
+      reason: 'attendance', // always required
+      ...(mode === 'checkout' && approvedChecked ? { approvedBy } : {}),
+      ...(plateNumber ? { plateNumber } : {}),
+    };
+    const result = await scanQR(decodedText, mode, payload);
+    setScanResult({ ...result, time: new Date() });
+    setCooldown(2);
     setModalOpen(true);
-  }, []);
+
+    setTimeout(() => {
+      setModalOpen(false);
+      setScanResult(null);
+      processingRef.current = false;
+    }, 2000);
+  } catch {
+    message.error('Scan failed');
+    processingRef.current = false;
+  }
+}
+ else {
+      setPendingQR(decodedText);
+      setModalOpen(true);
+    }
+  }, [mode, isMobile]);
 
   // ===== MANUAL SUBMIT =====
   const handleManualSubmit = async () => {
@@ -88,8 +112,28 @@ const AdminDashboard = () => {
     processingRef.current = true;
     lastScannedRef.current = manualQR.trim();
 
-    setPendingQR(manualQR.trim());
+    if (isMobile) {
+  try {
+    const result = await scanQR(manualQR.trim(), mode, { reason: 'attendance' });
+    setScanResult({ ...result, time: new Date() });
+    setCooldown(2);
     setModalOpen(true);
+
+    setTimeout(() => {
+      setModalOpen(false);
+      setScanResult(null);
+      processingRef.current = false;
+    }, 2000);
+  } catch {
+    message.error('Scan failed');
+    processingRef.current = false;
+  }
+}
+else {
+      setPendingQR(manualQR.trim());
+      setModalOpen(true);
+    }
+
     setManualQR('');
   };
 
@@ -131,9 +175,7 @@ const AdminDashboard = () => {
       })
       .catch(err => {
         console.error(err);
-        setScannerError(
-          'Failed to start camera. Please check permissions and try again.'
-        );
+        setScannerError('Failed to start camera. Please check permissions.');
       });
 
     return () => {
@@ -144,20 +186,12 @@ const AdminDashboard = () => {
   }, [handleScan, scannerStarted]);
 
   return (
-    <div
-      style={{
-        minHeight: '100vh',
-        padding: '24px',
-      }}
-    >
+    <div style={{ minHeight: '100vh', padding: '0px' }}>
       <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-        <Row gutter={24} style={{ alignItems: 'stretch' }}>
-          {' '}
-          {/* gutter adds the gap */}
+        <Row gutter={[24, 24]} style={{ alignItems: 'stretch' }}>
           {/* Left Side: Scanner */}
-          <Col span={12} style={{ display: 'flex' }}>
+          <Col xs={24} md={12} style={{ display: 'flex' }}>
             <Card
-              variant="borderless"
               style={{
                 borderRadius: '20px',
                 boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
@@ -165,104 +199,57 @@ const AdminDashboard = () => {
                 display: 'flex',
                 flexDirection: 'column',
               }}
-              styles={{
-                body: {
-                  padding: 24,
-                  flex: 1,
-                  display: 'flex',
-                  flexDirection: 'column',
-                },
-              }}
             >
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  marginBottom: 20,
-                }}
-              >
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20 }}>
                 <Space>
                   <ScanOutlined style={{ color: '#1677ff', fontSize: 20 }} />
-                  <Text strong style={{ fontSize: 16 }}>
-                    Live Scanner
-                  </Text>
+                  <Text strong style={{ fontSize: 16 }}>Live Scanner</Text>
                 </Space>
-                <Badge
-                  status={scannerError ? 'error' : 'processing'}
-                  text={
-                    <Text type="secondary">
-                      {scannerError ? 'Error' : 'Active'}
-                    </Text>
-                  }
-                />
+                <Badge status={scannerError ? 'error' : 'processing'} text={<Text type="secondary">{scannerError ? 'Error' : 'Active'}</Text>} />
               </div>
 
-              {/* Scanner Container */}
-              <div
-                style={{
-                  position: 'relative',
-                  alignItems: 'center',
-                  width: '100%',
-                  aspectRatio: '1.3 / 1',
-                  background: '#000',
-                  borderRadius: 16,
-                  overflow: 'hidden',
-                }}
-              >
-                <div
-                  id={qrcodeRegionId}
-                  style={{
-                    width: '100%',
-                    height: '100%',
-                  }}
-                />
+              <div style={{
+                position: 'relative',
+                alignItems: 'center',
+                width: '100%',
+                aspectRatio: '1.3 / 1',
+                background: '#000',
+                borderRadius: 16,
+                overflow: 'hidden',
+              }}>
+                <div id={qrcodeRegionId} style={{ width: '100%', height: '100%' }} />
 
-                {/* Focus Frame - This stays centered regardless of video size */}
-                <div
-                  style={{
-                    position: 'absolute',
-                    top: '50%',
-                    left: '50%',
-                    transform: 'translate(-50%, -50%)',
-                    width: '250px',
-                    height: '250px',
-                    border: '2px solid #1677ff',
-                    borderRadius: '12px',
-                    pointerEvents: 'none',
-                    zIndex: 5,
-                    /* Darkens everything outside the focus square */
-                    boxShadow: '0 0 0 1000px rgba(0, 0, 0, 0.4)',
-                  }}
-                />
+                <div style={{
+                  position: 'absolute',
+                  top: '50%',
+                  left: '50%',
+                  transform: 'translate(-50%, -50%)',
+                  width: '250px',
+                  height: '250px',
+                  border: '2px solid #1677ff',
+                  borderRadius: '12px',
+                  pointerEvents: 'none',
+                  zIndex: 5,
+                  boxShadow: '0 0 0 1000px rgba(0, 0, 0, 0.4)',
+                }} />
 
                 {cooldown > 0 && (
-                  <div
-                    style={{
-                      position: 'absolute',
-                      top: 0,
-                      left: 0,
-                      width: '100%',
-                      height: '100%',
-                      background: 'rgba(255, 255, 255, 0.9)',
-                      backdropFilter: 'blur(4px)',
-                      display: 'flex',
-                      justifyContent: 'center',
-                      alignItems: 'center',
-                      zIndex: 10,
-                    }}
-                  >
+                  <div style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    height: '100%',
+                    background: 'rgba(255, 255, 255, 0.9)',
+                    backdropFilter: 'blur(4px)',
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    zIndex: 10,
+                  }}>
                     <div style={{ textAlign: 'center' }}>
-                      <ClockCircleOutlined
-                        style={{
-                          fontSize: 48,
-                          color: '#1677ff',
-                          marginBottom: 16,
-                        }}
-                      />
-                      <Title level={4} style={{ margin: 0 }}>
-                        Processing...
-                      </Title>
+                      <ClockCircleOutlined style={{ fontSize: 48, color: '#1677ff', marginBottom: 16 }} />
+                      <Title level={4} style={{ margin: 0 }}>Processing...</Title>
                       <Text type="secondary">Next scan in {cooldown}s</Text>
                     </div>
                   </div>
@@ -271,34 +258,23 @@ const AdminDashboard = () => {
 
               {scannerError && (
                 <div style={{ textAlign: 'center', marginTop: 16 }}>
-                  <Text
-                    type="danger"
-                    style={{ display: 'block', marginBottom: 8 }}
-                  >
-                    {scannerError}
-                  </Text>
-                  <Button type="primary" onClick={restartScanner}>
-                    Restart Scanner
-                  </Button>
+                  <Text type="danger" style={{ display: 'block', marginBottom: 8 }}>{scannerError}</Text>
+                  <Button type="primary" onClick={restartScanner}>Restart Scanner</Button>
                 </div>
               )}
 
-              {/* Manual QR Entry */}
               <Divider style={{ margin: '24px 0 16px' }}>
                 <Text type="secondary">Manual Entry</Text>
               </Divider>
 
-              <Space.Compact>
+              <Space.Compact style={{ width: '100%' }}>
                 <Input
                   placeholder="Enter QR code manually"
                   value={manualQR}
                   disabled={cooldown > 0}
                   onChange={e => setManualQR(e.target.value)}
                   onPressEnter={handleManualSubmit}
-                  style={{
-                    width: 'calc(100% - 48px)',
-                    borderRadius: '8px 0 0 8px',
-                  }}
+                  style={{ flex: 1, borderRadius: '8px 0 0 8px' }}
                   prefix={<EditOutlined />}
                 />
                 <Button
@@ -306,24 +282,19 @@ const AdminDashboard = () => {
                   icon={<ScanOutlined />}
                   disabled={cooldown > 0}
                   onClick={handleManualSubmit}
-                  style={{
-                    borderRadius: '0 8px 8px 0',
-                  }}
+                  style={{ borderRadius: '0 8px 8px 0' }}
                 />
               </Space.Compact>
 
-              <Text
-                type="secondary"
-                style={{ display: 'block', marginTop: 8, fontSize: 12 }}
-              >
+              <Text type="secondary" style={{ display: 'block', marginTop: 8, fontSize: 12 }}>
                 Use this if the QR code cannot be scanned by the camera
               </Text>
             </Card>
           </Col>
+
           {/* Right Side: Result */}
-          <Col span={12} style={{ display: 'flex' }}>
+          <Col xs={24} md={12} style={{ display: 'flex' }}>
             <Card
-              variant="borderless"
               style={{
                 borderRadius: '20px',
                 boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
@@ -333,16 +304,11 @@ const AdminDashboard = () => {
               }}
               title={<Text strong>Current Action</Text>}
               extra={
-                <div
-                  style={{ background: '#f0f2f5', padding: 4, borderRadius: 8 }}
-                >
+                <div style={{ background: '#f0f2f5', padding: 4, borderRadius: 8 }}>
                   <Button
                     type={mode === 'checkin' ? 'primary' : 'text'}
                     icon={<LoginOutlined />}
-                    onClick={() => {
-                      setMode('checkin');
-                      setScanResult(null);
-                    }}
+                    onClick={() => { setMode('checkin'); setScanResult(null); }}
                     style={{ borderRadius: 6 }}
                   >
                     In
@@ -350,54 +316,25 @@ const AdminDashboard = () => {
                   <Button
                     type={mode === 'checkout' ? 'primary' : 'text'}
                     icon={<LogoutOutlined />}
-                    onClick={() => {
-                      setMode('checkout');
-                      setScanResult(null);
-                    }}
+                    onClick={() => { setMode('checkout'); setScanResult(null); }}
                     style={{ borderRadius: 6 }}
                   >
                     Out
                   </Button>
                 </div>
               }
-              styles={{
-                body: {
-                  padding: 24,
-                  flex: 1,
-                  display: 'flex',
-                  flexDirection: 'column',
-                },
-              }}
             >
               {scanResult ? (
-                <div
-                  style={{
-                    textAlign: 'center',
-                    padding: '40px 0',
-                    flex: 1,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    justifyContent: 'center',
-                  }}
-                >
-                  <div
-                    style={{
-                      position: 'relative',
-                      display: 'inline-block',
-                      marginBottom: 24,
-                    }}
-                  >
+                <div style={{ textAlign: 'center', padding: '40px 0', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                  <div style={{ position: 'relative', display: 'inline-block', marginBottom: 24 }}>
                     <Avatar
-                      size={140}
+                      size={isMobile ? 100 : 140}
                       src={scanResult.user.photoURL}
                       icon={<UserOutlined />}
-                      style={{
-                        border: '4px solid #fff',
-                        boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                      }}
+                      style={{ border: '4px solid #fff', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}
                     />
-                    <div
-                      style={{
+                    {!isMobile && (
+                      <div style={{
                         position: 'absolute',
                         bottom: 5,
                         right: 5,
@@ -409,27 +346,17 @@ const AdminDashboard = () => {
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                      }}
-                    >
-                      <CheckCircleFilled
-                        style={{ color: '#fff', fontSize: 16 }}
-                      />
-                    </div>
+                      }}>
+                        <CheckCircleFilled style={{ color: '#fff', fontSize: 16 }} />
+                      </div>
+                    )}
                   </div>
 
-                  <Title level={2} style={{ marginBottom: 4 }}>
+                  <Title level={isMobile ? 3 : 2} style={{ marginBottom: 4 }}>
                     {scanResult.user.firstName} {scanResult.user.surname}
                   </Title>
                   <div style={{ marginBottom: 24 }}>
-                    <Tag
-                      color="blue"
-                      style={{
-                        borderRadius: 20,
-                        padding: '2px 16px',
-                        border: 'none',
-                        fontWeight: 600,
-                      }}
-                    >
+                    <Tag color="blue" style={{ borderRadius: 20, padding: '2px 16px', border: 'none', fontWeight: 600 }}>
                       {scanResult.user.role.toUpperCase()}
                     </Tag>
                   </div>
@@ -438,57 +365,28 @@ const AdminDashboard = () => {
 
                   <Row gutter={16}>
                     <Col span={12}>
-                      <Text
-                        type="secondary"
-                        style={{ display: 'block', marginBottom: 4 }}
-                      >
-                        Status
-                      </Text>
-                      <Text strong style={{ fontSize: 18 }}>
-                        {mode === 'checkin' ? 'CHECKED IN' : 'CHECKED OUT'}
-                      </Text>
+                      <Text type="secondary" style={{ display: 'block', marginBottom: 4 }}>Status</Text>
+                      <Text strong style={{ fontSize: 18 }}>{mode === 'checkin' ? 'CHECKED IN' : 'CHECKED OUT'}</Text>
                     </Col>
                     <Col span={12}>
-                      <Text
-                        type="secondary"
-                        style={{ display: 'block', marginBottom: 4 }}
-                      >
-                        Timestamp
-                      </Text>
+                      <Text type="secondary" style={{ display: 'block', marginBottom: 4 }}>Timestamp</Text>
                       <Text strong style={{ fontSize: 18 }}>
-                        {scanResult.time.toLocaleTimeString([], {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
+                        {scanResult.time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </Text>
                     </Col>
                   </Row>
                 </div>
               ) : (
-                <div
-                  style={{
-                    flex: 1,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    background: '#fafafa',
-                    borderRadius: 16,
-                    border: '2px dashed #e8e8e8',
-                  }}
-                >
-                  <ScanOutlined
-                    style={{ fontSize: 64, color: '#d9d9d9', marginBottom: 16 }}
-                  />
-                  <Text style={{ color: '#8c8c8c', fontSize: 16 }}>
-                    Awaiting QR Scan...
-                  </Text>
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', background: '#fafafa', borderRadius: 16, border: '2px dashed #e8e8e8' }}>
+                  <ScanOutlined style={{ fontSize: 64, color: '#d9d9d9', marginBottom: 16 }} />
+                  <Text style={{ color: '#8c8c8c', fontSize: 16 }}>Awaiting QR Scan...</Text>
                 </div>
               )}
             </Card>
           </Col>
         </Row>
       </div>
+
       {/* ===== MODAL ===== */}
       <Modal
         open={modalOpen}
@@ -500,6 +398,7 @@ const AdminDashboard = () => {
           setApprovedChecked(false);
           setApprovedBy('');
           setPlateNumber('');
+          processingRef.current = false;
         }}
         onOk={async () => {
           if (!reason) {
@@ -520,20 +419,15 @@ const AdminDashboard = () => {
             setModalOpen(false);
           } catch {
             message.error('Scan failed');
+          } finally {
+            processingRef.current = false;
           }
         }}
       >
-        {/* MODE (read-only display) */}
         <Text type="secondary">Mode</Text>
-        <Input
-          value={mode.toUpperCase()}
-          disabled
-          style={{ marginBottom: 12 }}
-        />
+        <Input value={mode.toUpperCase()} disabled style={{ marginBottom: 12 }} />
 
         <Divider />
-
-        {/* REASON */}
         <Text type="secondary">Reason</Text>
         <Select
           placeholder="Select reason"
@@ -544,36 +438,19 @@ const AdminDashboard = () => {
             { label: 'Attendance', value: 'attendance' },
             { label: 'Break', value: 'break' },
             { label: 'Go Out', value: 'go out' },
-            { label: 'Transaction', value: 'Transaction' },
+            { label: 'Transaction', value: 'transaction' },
           ]}
         />
 
         <Divider />
-        {/* OPTIONAL PLATE NUMBER */}
         <Text type="secondary">Plate Number (optional)</Text>
-        <Input
-          value={plateNumber}
-          onChange={e => setPlateNumber(e.target.value)}
-        />
+        <Input value={plateNumber} onChange={e => setPlateNumber(e.target.value)} />
 
         {mode === 'checkout' && (
           <>
             <Divider />
-            <Checkbox
-              checked={approvedChecked}
-              onChange={e => setApprovedChecked(e.target.checked)}
-            >
-              Approved by
-            </Checkbox>
-
-            {approvedChecked && (
-              <Input
-                placeholder="Full name"
-                value={approvedBy}
-                onChange={e => setApprovedBy(e.target.value)}
-                style={{ marginTop: 8 }}
-              />
-            )}
+            <Checkbox checked={approvedChecked} onChange={e => setApprovedChecked(e.target.checked)}>Approved by</Checkbox>
+            {approvedChecked && <Input placeholder="Full name" value={approvedBy} onChange={e => setApprovedBy(e.target.value)} style={{ marginTop: 8 }} />}
           </>
         )}
       </Modal>
