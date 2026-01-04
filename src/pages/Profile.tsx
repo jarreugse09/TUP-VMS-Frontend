@@ -21,6 +21,7 @@ import {
 } from "@ant-design/icons";
 import { useEffect, useState } from "react";
 import { getProfile, requestQRChange } from "../services/userService";
+import html2canvas from "html2canvas"; 
 
 const { Title, Text } = Typography;
 
@@ -54,6 +55,33 @@ const Profile = () => {
       message.error("Failed to request QR change");
     } finally {
       setRequesting(false);
+    }
+  };
+
+  const handleDownloadQR = async () => {
+    const qrContainer = document.getElementById("qr-download-container");
+    if (!qrContainer) {
+      message.error("Failed to find QR code container");
+      return;
+    }
+
+    try {
+      const canvas = await html2canvas(qrContainer, {
+        scale: 2, // Higher scale for better quality
+        useCORS: true, // Enable cross-origin resource sharing
+      });
+      const image = canvas.toDataURL("image/png");
+
+      // Create a temporary link to trigger the download
+      const link = document.createElement("a");
+      link.href = image;
+      link.download = `${profile.user.firstName}_${profile.user.surname}_QR.png`;
+      link.click();
+
+      message.success("QR Code downloaded successfully!");
+    } catch (error) {
+      console.error("Failed to download QR code:", error);
+      message.error("Failed to download QR code");
     }
   };
 
@@ -174,8 +202,7 @@ const Profile = () => {
             }}
             title={
               <Space>
-                <QrcodeOutlined style={{ color: "#DC143C" }} />{" "}
-                {/* Fixed casing here */}
+                <QrcodeOutlined style={{ color: "#DC143C" }} />
                 <Text strong>Access Control</Text>
               </Space>
             }
@@ -191,23 +218,40 @@ const Profile = () => {
                   padding: "20px 0",
                 }}
               >
+                {/* QR Code Container */}
                 <div
+                  id="qr-download-container"
                   style={{
                     padding: "20px",
                     background: "#fff",
                     borderRadius: "16px",
                     boxShadow: "0 4px 20px rgba(0,0,0,0.08)",
                     marginBottom: "20px",
+                    textAlign: "center",
                   }}
                 >
+                  <Title level={3} style={{ marginBottom: "8px" }}>
+                    {profile.user.firstName} {profile.user.surname}
+                  </Title>
+                  <Tag
+                    color="#DC143C"
+                    style={{
+                      marginBottom: "16px",
+                      borderRadius: 10,
+                      padding: "0 12px",
+                    }}
+                  >
+                    {profile.user.role.toUpperCase()}
+                  </Tag>
                   <QRCode
                     value={profile.qrCode.qrString}
-                    size={280} // Made the QR code significantly bigger
-                    color="#000000ff" // Matching Crimson theme
+                    size={280}
+                    color="#000000ff"
                     bordered={false}
                   />
                 </div>
 
+                {/* Buttons */}
                 <Space
                   direction="vertical"
                   size="middle"
@@ -238,8 +282,23 @@ const Profile = () => {
                       padding: "0 32px",
                     }}
                   >
-                    Reuest New QR Code
+                    Request New QR Code
                   </Button>
+
+                  {/* Download QR Button */}
+                  <Button
+                    type="default"
+                    size="large"
+                    onClick={handleDownloadQR}
+                    style={{
+                      borderRadius: "8px",
+                      height: "50px",
+                      padding: "0 32px",
+                    }}
+                  >
+                    Download QR Code
+                  </Button>
+
                   <Text type="secondary" style={{ fontSize: "12px" }}>
                     Requesting a new code will deactivate the current one.
                   </Text>
