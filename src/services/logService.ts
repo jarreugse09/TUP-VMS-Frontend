@@ -65,3 +65,8 @@ export const createLog = async (logData: any) => {
   const response = await api.post("/logs", logData);
   return response.data;
 };
+
+export const exportLogs = async (payload: { startDate?: string; endDate?: string; month?: string; format: 'csv' | 'xlsx'; password: string }) => {
+  const response = await api.post('/logs/export', payload, { responseType: 'blob' });
+  return response;
+};

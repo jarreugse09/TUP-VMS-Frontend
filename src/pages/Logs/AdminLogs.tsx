@@ -11,6 +11,7 @@ import {
   Modal,
   Avatar,
   Drawer,
+  message,
 } from 'antd';
 import {
   SearchOutlined,
@@ -20,7 +21,7 @@ import {
   UserOutlined,
 } from '@ant-design/icons';
 import { useEffect, useState, useMemo } from 'react';
-import { getLogs } from '../../services/logService';
+import { getLogs, exportLogs } from '../../services/logService';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
 
@@ -95,6 +96,15 @@ const Logs = () => {
   const [selectedLog, setSelectedLog] = useState<LogItem | null>(null);
   const [drawerVisible, setDrawerVisible] = useState(false);
 
+  // Export modal state
+  const [exportModalOpen, setExportModalOpen] = useState(false);
+  const [exportMode, setExportMode] = useState<'month' | 'range'>('month');
+  const [exportMonth, setExportMonth] = useState<any>(null);
+  const [exportRange, setExportRange] = useState<any>(null);
+  const [exportFormat, setExportFormat] = useState<'csv' | 'xlsx'>('csv');
+  const [exportPassword, setExportPassword] = useState('');
+  const [exporting, setExporting] = useState(false);
+
   const fetchLogs = async () => {
     setLoading(true);
     try {
@@ -102,6 +112,56 @@ const Logs = () => {
       setLogs(data);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleExport = async () => {
+    if (!exportPassword) {
+      message.error('Please enter your password to confirm');
+      return;
+    }
+
+    let payload: any = { format: exportFormat, password: exportPassword };
+    if (exportMode === 'month') {
+      if (!exportMonth) return message.error('Please select a month');
+      payload.month = exportMonth.format('YYYY-MM');
+    } else {
+      if (!exportRange || exportRange.length !== 2) return message.error('Please select a date range');
+      payload.startDate = exportRange[0].startOf('day').toISOString();
+      payload.endDate = exportRange[1].endOf('day').toISOString();
+    }
+
+    setExporting(true);
+    try {
+      const res = await exportLogs(payload);
+      const blob = new Blob([res.data], { type: res.headers['content-type'] });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      // try to extract filename from headers
+      const disposition = res.headers['content-disposition'];
+      let filename = 'logs_export';
+      if (disposition) {
+        const match = disposition.match(/filename="?(.*)"?/);
+        if (match && match[1]) filename = match[1];
+      }
+      link.href = url;
+      link.setAttribute('download', filename);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+
+      message.success('Export started');
+      setExportModalOpen(false);
+      setExportPassword('');
+    } catch (err: any) {
+      if (err.response && err.response.status === 401) {
+        message.error('Incorrect password');
+      } else {
+        message.error('Export failed');
+      }
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -232,9 +292,14 @@ const Logs = () => {
           </Space>
         }
         extra={
-          <Button icon={<ReloadOutlined />} onClick={fetchLogs}>
-            Refresh
-          </Button>
+          <Space>
+            <Button icon={<ReloadOutlined />} onClick={fetchLogs}>
+              Refresh
+            </Button>
+            <Button onClick={() => setExportModalOpen(true)}>
+              Download
+            </Button>
+          </Space>
         }
       >
         <Space wrap style={{ marginBottom: 16 }}>
@@ -308,6 +373,42 @@ const Logs = () => {
           }
         />
       </Drawer>
+
+      {/* EXPORT MODAL */}
+      <Modal
+        title="Export Logs"
+        open={exportModalOpen}
+        onCancel={() => setExportModalOpen(false)}
+        onOk={handleExport}
+        okText="Export"
+        confirmLoading={exporting}
+      >
+        <p>
+          Export log data for a specific month or date range. For security, you must confirm your account password before the download will start.
+        </p>
+
+        <Space style={{ marginBottom: 12 }}>
+          <Select value={exportMode} onChange={(v) => setExportMode(v as any)} style={{ width: 160 }}>
+            <Option value="month">Month</Option>
+            <Option value="range">Date Range</Option>
+          </Select>
+
+          {exportMode === 'month' ? (
+            <DatePicker picker="month" onChange={(d) => setExportMonth(d)} />
+          ) : (
+            <RangePicker onChange={(d) => setExportRange(d)} />
+          )}
+        </Space>
+
+        <Space direction="vertical" style={{ width: '100%' }}>
+          <Select value={exportFormat} onChange={(v) => setExportFormat(v as any)} style={{ width: 160 }}>
+            <Option value="csv">CSV</Option>
+            <Option value="xlsx">Excel (.xlsx)</Option>
+          </Select>
+
+          <Input.Password placeholder="Confirm your password" value={exportPassword} onChange={e => setExportPassword(e.target.value)} />
+        </Space>
+      </Modal>
 
       {/* DETAILS MODAL */}
       <Modal
