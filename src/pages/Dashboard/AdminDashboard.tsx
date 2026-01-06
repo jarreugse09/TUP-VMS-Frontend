@@ -397,7 +397,7 @@ const AdminDashboard = () => {
                   >
                     <Avatar
                       size={isMobile ? 100 : 140}
-                      src={scanResult.user.photoURL}
+                      src={scanResult?.user?.photoURL}
                       icon={<UserOutlined />}
                       style={{
                         border: '4px solid #fff',
@@ -428,7 +428,7 @@ const AdminDashboard = () => {
                   </div>
 
                   <Title level={isMobile ? 3 : 2} style={{ marginBottom: 4 }}>
-                    {scanResult.user.firstName} {scanResult.user.surname}
+                    {scanResult?.user ? `${scanResult.user.firstName} ${scanResult.user.surname}` : 'Unknown User'}
                   </Title>
                   <div style={{ marginBottom: 24 }}>
                     <Tag
@@ -440,7 +440,7 @@ const AdminDashboard = () => {
                         fontWeight: 600,
                       }}
                     >
-                      {scanResult.user.role.toUpperCase()}
+                      {scanResult?.user?.role ? scanResult.user.role.toUpperCase() : '-'}
                     </Tag>
                   </div>
 

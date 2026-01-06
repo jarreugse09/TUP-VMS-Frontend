@@ -44,7 +44,7 @@ const Profile = () => {
       setLoading(true);
       const data = await getProfile();
       setProfile(data);
-    } catch (error) {
+    } catch {
       message.error("Failed to load profile");
     } finally {
       setLoading(false);
@@ -56,7 +56,6 @@ const Profile = () => {
   }, []);
 
   const handleRequestQRChange = () => {
-    // open modal to collect reason and QR string/image
     setShowRequestModal(true);
   };
 
@@ -75,10 +74,8 @@ const Profile = () => {
       setShowRequestModal(false);
       form.resetFields();
       setUploadingFile(null);
-    } catch (error) {
-      if ((error as any).errorFields) {
-        // validation error
-      } else {
+    } catch (error: any) {
+      if (!error?.errorFields) {
         message.error("Failed to request QR change");
       }
     } finally {
@@ -103,23 +100,22 @@ const Profile = () => {
       link.click();
 
       message.success("QR Code downloaded successfully!");
-    } catch (error) {
-      console.error("Failed to download QR code:", error);
+    } catch {
       message.error("Failed to download QR code");
     }
   };
 
   if (loading) {
     return (
-      <div style={{ padding: "24px" }}>
+      <div style={{ padding: 24 }}>
         <Row gutter={24}>
           <Col span={12}>
-            <Card bordered={false} style={{ borderRadius: "20px" }}>
+            <Card variant="borderless" style={{ borderRadius: 20 }}>
               <Skeleton active avatar paragraph={{ rows: 4 }} />
             </Card>
           </Col>
           <Col span={12}>
-            <Card bordered={false} style={{ borderRadius: "20px" }}>
+            <Card variant="borderless" style={{ borderRadius: 20 }}>
               <Skeleton active paragraph={{ rows: 6 }} />
             </Card>
           </Col>
@@ -128,129 +124,119 @@ const Profile = () => {
     );
   }
 
-  const renderQRCard = () => (
-    <Card
-      bordered={false}
-      style={{
-        borderRadius: "20px",
-        boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
-        width: "100%",
-        display: "flex",
-        flexDirection: "column",
-        textAlign: "center",
-      }}
-      title={
-        <Space>
-          <QrcodeOutlined style={{ color: "#DC143C" }} />
-          <Text strong>Access Control</Text>
-        </Space>
-      }
-    >
-      {profile.qrCode ? (
+const renderQRCard = () => (
+  <Card
+    variant="borderless"
+    style={{
+      borderRadius: 20,
+      boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
+      width: "100%",
+      display: "flex",
+      flexDirection: "column",
+      textAlign: "center",
+    }}
+    title={
+      <Space>
+        <QrcodeOutlined style={{ color: "#DC143C" }} />
+        <Text strong>Access Control</Text>
+      </Space>
+    }
+  >
+    {profile.qrCode ? (
+      <div
+        style={{
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
+          alignItems: "center",
+          padding: "20px 0",
+        }}
+      >
+        {/* QR CONTAINER */}
         <div
+          id="qr-download-container"
           style={{
-            flex: 1,
-            display: "flex",
-            flexDirection: "column",
-            justifyContent: "center",
-            alignItems: "center",
-            padding: "20px 0",
+            padding: 20,
+            background: "#fff",
+            borderRadius: 16,
+            boxShadow: "0 4px 20px rgba(0,0,0,0.08)",
+            marginBottom: 20,
+            textAlign: "center",
           }}
         >
+
+          {/* CENTERED QR */}
           <div
-            id="qr-download-container"
             style={{
-              padding: "20px",
-              background: "#fff",
-              borderRadius: "16px",
-              boxShadow: "0 4px 20px rgba(0,0,0,0.08)",
-              marginBottom: "20px",
-              textAlign: "center",
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
             }}
           >
-            <Title level={3} style={{ marginBottom: "8px", whiteSpace: "nowrap" }}>
-  {profile.user.firstName} {profile.user.surname}
-</Title>
+            <QRCode
+              value={profile.qrCode.qrString}
+              size={280}
+              color="#000000ff"
+            />
+          </div>
+        </div>
 
-<Tag
-  color="#DC143C"
-  style={{
-    marginBottom: "16px",
-    borderRadius: 10,
-    padding: "0 12px",
-    whiteSpace: "nowrap",
-  }}
->
-  {profile.user.role.toUpperCase()}
-</Tag>
-
-            <QRCode value={profile.qrCode.qrString} size={280} color="#000000ff" bordered={false} />
+        {/* ACTIONS */}
+        <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+          <div>
+            <Text type="secondary" style={{ display: "block" }}>
+              Code
+            </Text>
+            <Text code style={{ fontSize: 16 }}>
+              {profile.qrCode.qrString}
+            </Text>
           </div>
 
-          <Space direction="vertical" size="middle" style={{ width: "100%" }}>
-            <div>
-              <Text type="secondary" style={{ display: "block" }}>
-                Code
-              </Text>
-              <Text code style={{ fontSize: "16px" }}>
-                {profile.qrCode.qrString}
-              </Text>
-            </div>
+          <Divider style={{ margin: "12px 0" }} />
 
-            <Divider style={{ margin: "12px 0" }} />
+          <Button
+            type="primary"
+            size="large"
+            icon={<ReloadOutlined />}
+            loading={requesting}
+            onClick={handleRequestQRChange}
+            style={{
+              backgroundColor: "#DC143C",
+              borderColor: "#DC143C",
+              borderRadius: 8,
+              height: 50,
+              padding: "0 32px",
+            }}
+          >
+            Request New QR Code
+          </Button>
 
-            <Button
-              type="primary"
-              size="large"
-              icon={<ReloadOutlined />}
-              loading={requesting}
-              onClick={handleRequestQRChange}
-              style={{
-                backgroundColor: "#DC143C",
-                borderColor: "#DC143C",
-                borderRadius: "8px",
-                height: "50px",
-                padding: "0 32px",
-              }}
-            >
-              Request New QR Code
-            </Button>
+          <Button
+            size="large"
+            onClick={handleDownloadQR}
+            style={{ borderRadius: 8, height: 50, padding: "0 32px" }}
+          >
+            Download QR Code
+          </Button>
+        </Space>
+      </div>
+    ) : (
+      <Text type="secondary">No QR Code assigned.</Text>
+    )}
+  </Card>
+);
 
-            <Button
-              type="default"
-              size="large"
-              onClick={handleDownloadQR}
-              style={{ borderRadius: "8px", height: "50px", padding: "0 32px" }}
-            >
-              Download QR Code
-            </Button>
-
-            <Text type="secondary" style={{ fontSize: "12px" }}>
-              Requesting a new code will deactivate the current one.
-            </Text>
-          </Space>
-        </div>
-      ) : (
-        <div style={{ padding: "40px", color: "#8c8c8c" }}>
-          No QR Code assigned to this account.
-        </div>
-      )}
-    </Card>
-  );
 
   return (
-    <div style={{ maxWidth: "1200px", margin: "0 auto", padding: "12px" }}>
-      {/* Desktop + Tablet Layout */}
-      <Row gutter={24} style={{ alignItems: "stretch" }}>
+    <div style={{ maxWidth: 1200, margin: "0 auto", padding: 12 }}>
+      <Row gutter={24}>
         <Col xs={24} md={12}>
           <Card
-            bordered={false}
+            variant="borderless"
             style={{
-              borderRadius: "20px",
+              borderRadius: 20,
               boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
-              width: "100%",
-              display: "flex",
-              flexDirection: "column",
             }}
             title={
               <Space>
@@ -267,81 +253,57 @@ const Profile = () => {
               />
             }
           >
-            {/* PROFILE CONTENT WRAPPER */}
-            <div style={{ position: "relative", textAlign: "center", paddingBottom: "24px" }}>
-              {/* MOBILE QR BUTTON */}
-              <Button
-                type="primary"
-                icon={<QrcodeOutlined />}
-                onClick={() => setDrawerVisible(true)}
-                style={{
-                  position: "absolute",
-                  top: 16,
-                  right: 16,
-                  zIndex: 10,
-                  display: "none",
-                  backgroundColor: "#DC143C",
-                  borderColor: "#DC143C",
-                }}
-                className="mobile-qr-button"
-              />
-
-              {/* Avatar */}
+            <div style={{ textAlign: "center", paddingBottom: 24 }}>
               <Avatar
                 size={140}
                 src={profile.user.photoURL}
                 icon={<UserOutlined />}
-                style={{
-                  border: "4px solid #fff",
-                  boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-                  marginBottom: 16,
-                }}
+                style={{ marginBottom: 16 }}
               />
 
-              <Title level={2} style={{ margin: 0 }}>
+              <Title level={2}>
                 {profile.user.firstName} {profile.user.surname}
               </Title>
-              <Tag
-                color="#DC143C"
-                style={{ marginTop: 8, borderRadius: 10, padding: "0 12px" }}
-              >
+
+              <Tag color="#DC143C">
                 {profile.user.role.toUpperCase()}
               </Tag>
             </div>
 
-            <Divider dashed style={{ margin: "12px 0" }} />
+            <Divider dashed />
 
-            <Descriptions column={1} size="middle" labelStyle={{ color: "#8c8c8c" }}>
+            <Descriptions
+              column={1}
+              size="middle"
+              styles={{ label: { color: "#8c8c8c" } }}
+            >
               <Descriptions.Item label="Full Name">
-                <Text strong>
-                  {profile.user.firstName} {profile.user.surname}
-                </Text>
+                {profile.user.firstName} {profile.user.surname}
               </Descriptions.Item>
+
               <Descriptions.Item label="Account Status">
-                <Tag color={profile.user.status === "Active" ? "green" : "gold"}>
+                <Tag
+                  color={
+                    profile.user.status === "Active" ? "green" : "gold"
+                  }
+                >
                   {profile.user.status}
                 </Tag>
               </Descriptions.Item>
+
               <Descriptions.Item label="Birthdate">
-                {new Date(profile.user.birthdate).toLocaleDateString(undefined, {
-                  year: "numeric",
-                  month: "long",
-                  day: "numeric",
-                })}
+                {new Date(profile.user.birthdate).toLocaleDateString()}
               </Descriptions.Item>
             </Descriptions>
           </Card>
         </Col>
 
-        {/* Desktop QR Card */}
         <Col xs={0} md={12}>{renderQRCard()}</Col>
       </Row>
 
-      {/* Mobile QR Drawer */}
       <Drawer
         title="Access Control"
         placement="right"
-        closable
         onClose={() => setDrawerVisible(false)}
         open={drawerVisible}
         width="90%"
@@ -349,7 +311,6 @@ const Profile = () => {
         {renderQRCard()}
       </Drawer>
 
-      {/* QR Change Request Modal */}
       <Modal
         title="Request QR Change"
         open={showRequestModal}
@@ -361,40 +322,28 @@ const Profile = () => {
           <Form.Item
             name="reason"
             label="Reason"
-            rules={[{ required: true, message: "Please provide a reason" }]}
+            rules={[{ required: true }]}
           >
             <Input.TextArea rows={3} />
           </Form.Item>
 
           <Form.Item name="newQRString" label="New QR String (optional)">
-            <Input placeholder="Paste the QR code string if you have it" />
+            <Input />
           </Form.Item>
 
           <Form.Item label="Upload QR Image (optional)">
             <Upload
               beforeUpload={(file) => {
                 setUploadingFile(file);
-                return false; // prevent automatic upload
+                return false;
               }}
               maxCount={1}
             >
               <Button>Click to Upload</Button>
             </Upload>
-            <div style={{ marginTop: 8 }}>
-              <small>Provide either a QR text string or upload an image (admin will review).</small>
-            </div>
           </Form.Item>
         </Form>
       </Modal>
-
-      {/* Mobile Button Style */}
-      <style>{`
-        @media (max-width: 767px) {
-          .mobile-qr-button {
-            display: block !important;
-          }
-        }
-      `}</style>
     </div>
   );
 };
