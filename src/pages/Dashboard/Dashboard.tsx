@@ -28,7 +28,7 @@ import { EditOutlined } from '@ant-design/icons';
 const { Title, Text } = Typography;
 const qrcodeRegionId = 'html5qr-code-full-region';
 
-const StaffDashboard = () => {
+const Dashboard = () => {
   const [mode, setMode] = useState<'checkin' | 'checkout'>('checkin');
   const [scanResult, setScanResult] = useState<any>(null);
   const [cooldown, setCooldown] = useState(0);
@@ -525,4 +525,4 @@ const StaffDashboard = () => {
   );
 };
 
-export default StaffDashboard;
+export default Dashboard;

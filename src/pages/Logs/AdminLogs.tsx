@@ -21,7 +21,7 @@ import {
   UserOutlined,
 } from '@ant-design/icons';
 import { useEffect, useState, useMemo } from 'react';
-import { getLogs } from './../services/logService';
+import { getLogs } from '../../services/logService';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
 

@@ -21,7 +21,7 @@ import {
   UserOutlined,
 } from '@ant-design/icons';
 import { useEffect, useState, useMemo } from 'react';
-import { getLogs } from './../services/logService';
+import { getStaffLogs } from '../../services/logService';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
 
@@ -58,7 +58,7 @@ const { RangePicker } = DatePicker;
 const { Title, Text } = Typography;
 const { Option } = Select;
 
-const Logs = () => {
+const StaffLogs = () => {
   const [logs, setLogs] = useState<LogItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [filters, setFilters] = useState({
@@ -73,7 +73,7 @@ const Logs = () => {
   const fetchLogs = async () => {
     setLoading(true);
     try {
-      const data = await getLogs();
+      const data = await getStaffLogs();
       setLogs(data);
     } finally {
       setLoading(false);
@@ -315,4 +315,4 @@ const Logs = () => {
   );
 };
 
-export default Logs;
+export default StaffLogs;

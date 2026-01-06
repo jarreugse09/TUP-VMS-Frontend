@@ -5,6 +5,16 @@ export const getLogs = async () => {
   return response.data;
 };
 
+export const getStaffLogs = async () => {
+  const response = await api.get("/logs/logs/staff/");
+  return response.data;
+};
+
+export const getAttendance = async () => {
+  const response = await api.get("/attendance/logs");
+  return response.data;
+};
+
 export const scanQR = async (
   qrString: string,
   mode: 'checkin' | 'checkout',
