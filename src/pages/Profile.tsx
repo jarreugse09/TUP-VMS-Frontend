@@ -13,6 +13,10 @@ import {
   Row,
   Col,
   Drawer,
+  Modal,
+  Form,
+  Input,
+  Upload,
 } from "antd";
 import {
   ReloadOutlined,
@@ -31,6 +35,9 @@ const Profile = () => {
   const [loading, setLoading] = useState(true);
   const [requesting, setRequesting] = useState(false);
   const [drawerVisible, setDrawerVisible] = useState(false);
+  const [showRequestModal, setShowRequestModal] = useState(false);
+  const [uploadingFile, setUploadingFile] = useState<File | null>(null);
+  const [form] = Form.useForm();
 
   const fetchProfile = async () => {
     try {
@@ -48,13 +55,32 @@ const Profile = () => {
     fetchProfile();
   }, []);
 
-  const handleRequestQRChange = async () => {
-    setRequesting(true);
+  const handleRequestQRChange = () => {
+    // open modal to collect reason and QR string/image
+    setShowRequestModal(true);
+  };
+
+  const handleSubmitRequest = async () => {
     try {
-      await requestQRChange("User requested new QR code");
+      const values = await form.validateFields();
+      setRequesting(true);
+
+      await requestQRChange({
+        reason: values.reason,
+        newQRString: values.newQRString || undefined,
+        newQRImage: uploadingFile || null,
+      });
+
       message.success("QR change request submitted");
+      setShowRequestModal(false);
+      form.resetFields();
+      setUploadingFile(null);
     } catch (error) {
-      message.error("Failed to request QR change");
+      if ((error as any).errorFields) {
+        // validation error
+      } else {
+        message.error("Failed to request QR change");
+      }
     } finally {
       setRequesting(false);
     }
@@ -322,6 +348,44 @@ const Profile = () => {
       >
         {renderQRCard()}
       </Drawer>
+
+      {/* QR Change Request Modal */}
+      <Modal
+        title="Request QR Change"
+        open={showRequestModal}
+        onCancel={() => setShowRequestModal(false)}
+        onOk={handleSubmitRequest}
+        confirmLoading={requesting}
+      >
+        <Form form={form} layout="vertical">
+          <Form.Item
+            name="reason"
+            label="Reason"
+            rules={[{ required: true, message: "Please provide a reason" }]}
+          >
+            <Input.TextArea rows={3} />
+          </Form.Item>
+
+          <Form.Item name="newQRString" label="New QR String (optional)">
+            <Input placeholder="Paste the QR code string if you have it" />
+          </Form.Item>
+
+          <Form.Item label="Upload QR Image (optional)">
+            <Upload
+              beforeUpload={(file) => {
+                setUploadingFile(file);
+                return false; // prevent automatic upload
+              }}
+              maxCount={1}
+            >
+              <Button>Click to Upload</Button>
+            </Upload>
+            <div style={{ marginTop: 8 }}>
+              <small>Provide either a QR text string or upload an image (admin will review).</small>
+            </div>
+          </Form.Item>
+        </Form>
+      </Modal>
 
       {/* Mobile Button Style */}
       <style>{`

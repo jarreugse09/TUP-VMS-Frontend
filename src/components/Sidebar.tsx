@@ -4,6 +4,7 @@ import {
   HistoryOutlined,
   UserOutlined,
   LogoutOutlined,
+  QrcodeOutlined,
 } from '@ant-design/icons';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -31,6 +32,7 @@ const Sidebar = ({ collapsed, setCollapsed }: SidebarProps) => {
     if (location.pathname === '/dashboard') return '1';
     if (location.pathname === '/logs') return '2';
     if (location.pathname === '/attendance') return '3';
+    if (location.pathname === '/qr-requests') return '5';
     if (location.pathname === '/profile') return '4';
     return '1';
   };
@@ -52,6 +54,11 @@ const Sidebar = ({ collapsed, setCollapsed }: SidebarProps) => {
             key: '3',
             icon: <UserOutlined />,
             label: <Link to="/attendance">Attendance</Link>,
+          },
+          {
+            key: '5',
+            icon: <QrcodeOutlined />,
+            label: <Link to="/qr-requests">QR Requests</Link>,
           },
         ]
       : []),

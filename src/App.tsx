@@ -14,6 +14,7 @@ import AdminDashboard from './pages/Dashboard/AdminDashboard';
 import StaffDashboard from './pages/Dashboard/StaffDashboard';
 import AdminLogs from './pages/Logs/AdminLogs';
 import Logs from './pages/Logs/Logs';
+import QRRequests from './pages/QRRequests.tsx';
 
 import Attendance from './pages/Attendance';
 import Sidebar from './components/Sidebar';
@@ -54,8 +55,10 @@ function App() {
       extraRoutes: [
         <Route key="logs" path="/logs" element={<AdminLogs />} />,
         <Route key="attendance" path="/attendance" element={<Attendance />} />,
+        <Route key="qr-requests" path="/qr-requests" element={<QRRequests />} />,
       ],
     },
+
     Staff: {
       dashboardPath: '/staff/dashboard',
       dashboardElement: <StaffDashboard />,
