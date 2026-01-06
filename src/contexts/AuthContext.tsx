@@ -7,7 +7,7 @@ import React, {
 } from 'react';
 
 interface User {
-  id: string;
+  _id: string;
   role: string;
   firstName: string;
   surname: string;

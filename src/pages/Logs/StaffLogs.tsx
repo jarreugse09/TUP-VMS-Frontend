@@ -20,7 +20,7 @@ import {
   UserOutlined,
 } from '@ant-design/icons';
 import { useEffect, useState, useMemo } from 'react';
-import { getLogs } from '../../services/logService';
+import { getStaffLogs } from '../../services/logService';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
 
@@ -83,7 +83,7 @@ const getTimeOut = (log: LogItem) => {
 
 /* ================= COMPONENT ================= */
 
-const Logs = () => {
+const StaffLogs = () => {
   const [logs, setLogs] = useState<LogItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [filters, setFilters] = useState({
@@ -98,7 +98,7 @@ const Logs = () => {
   const fetchLogs = async () => {
     setLoading(true);
     try {
-      const data = await getLogs();
+      const data = await getStaffLogs();
       setLogs(data);
     } finally {
       setLoading(false);
@@ -219,10 +219,6 @@ const Logs = () => {
   return (
     <>
       <Card
-        style={{
-          borderRadius: 12,
-          boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
-        }}
         title={
           <Space>
             <FilterOutlined onClick={() => setDrawerVisible(true)} />
@@ -246,11 +242,10 @@ const Logs = () => {
               setFilters({ ...filters, name: e.target.value })
             }
           />
-
           <Select
             placeholder="Role"
             allowClear
-            style={{ width: 160 }}
+            style={{ width: 150 }}
             onChange={value =>
               setFilters({ ...filters, role: value })
             }
@@ -259,7 +254,6 @@ const Logs = () => {
             <Option value="Student">Student</Option>
             <Option value="Visitor">Visitor</Option>
           </Select>
-
           <RangePicker
             onChange={dates =>
               setFilters({ ...filters, dateRange: dates })
@@ -272,7 +266,6 @@ const Logs = () => {
           dataSource={filteredData}
           rowKey="_id"
           loading={loading}
-          pagination={{ pageSize: 10, showSizeChanger: true }}
         />
       </Card>
 
@@ -501,4 +494,4 @@ const Logs = () => {
   );
 };
 
-export default Logs;
+export default StaffLogs;

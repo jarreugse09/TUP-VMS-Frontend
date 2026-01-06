@@ -19,7 +19,7 @@ import QRRequests from './pages/QRRequests.tsx';
 import Attendance from './pages/Attendance';
 import Sidebar from './components/Sidebar';
 import { useAuth } from './contexts/AuthContext';
-import StaffLogs from '@/pages/Logs/Staff Logs';
+import StaffLogs from '@/pages/Logs/StaffLogs.tsx';
 
 const { Content } = Layout;
 
@@ -79,16 +79,14 @@ function App() {
       dashboardPath: '/user/dashboard',
       dashboardElement: <Dashboard />,
       extraRoutes: [
-        <Route key="logs" path="/logs" element={<Logs />} />,
-        <Route key="attendance" path="/attendance" element={<Attendance />} />,
+        <Route key="logs" path="/user/logs" element={<Logs />} />,
       ],
     },
     Student: {
       dashboardPath: '/user/dashboard',
       dashboardElement: <Dashboard />,
       extraRoutes: [
-        <Route key="logs" path="/logs" element={<Logs />} />,
-        <Route key="attendance" path="/attendance" element={<Attendance />} />,
+        <Route key="logs" path="/user/logs" element={<Logs />} />,
       ],
     },
   };
