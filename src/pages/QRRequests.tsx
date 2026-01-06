@@ -11,14 +11,11 @@ import {
   Input,
   Select,
   Typography,
-  Modal,
-  Descriptions,
 } from 'antd';
 import {
   ReloadOutlined,
   FilterOutlined,
   SearchOutlined,
-  EllipsisOutlined,
 } from '@ant-design/icons';
 import {
   getQRRequests,
@@ -39,9 +36,6 @@ const QRRequests = () => {
     role: undefined as string | undefined,
     status: undefined as string | undefined,
   });
-
-  const [selectedRequest, setSelectedRequest] = useState<any>(null);
-  const [modalVisible, setModalVisible] = useState(false);
 
   const fetch = async () => {
     try {
@@ -157,7 +151,7 @@ const QRRequests = () => {
       title: 'Status',
       dataIndex: 'status',
       render: (s: string) => {
-        const colors: any = {
+        const colors: Record<string, string> = {
           Pending: 'gold',
           Approved: 'green',
           Rejected: 'red',
@@ -173,175 +167,129 @@ const QRRequests = () => {
     {
       title: 'Actions',
       key: 'actions',
-      render: (_: any, record: any) => (
-        <Space>
-          <Button
-            type="primary"
-            shape="circle"
-            icon={<EllipsisOutlined />}
-            onClick={() => {
-              setSelectedRequest(record);
-              setModalVisible(true);
-            }}
-          />
+      render: (_: any, record: any) => {
+        // ⛔ Hide actions once resolved
+        if (record.status !== 'Pending') {
+          return <Text type="secondary">—</Text>;
+        }
 
-          <Popconfirm
-            title="Approve this request?"
-            onConfirm={() => onApprove(record._id)}
-          >
-            <Button
-              type="primary"
-              loading={actionLoading === record._id}
-              style={{
-                background: 'linear-gradient(135deg, #52c41a, #73d13d)',
-                border: 'none',
-              }}
+        return (
+          <Space>
+            <Popconfirm
+              title="Approve this request?"
+              onConfirm={() => onApprove(record._id)}
             >
-              Approve
-            </Button>
-          </Popconfirm>
+              <Button
+                type="primary"
+                loading={actionLoading === record._id}
+                style={{
+                  background: 'linear-gradient(135deg, #52c41a, #73d13d)',
+                  border: 'none',
+                }}
+              >
+                Approve
+              </Button>
+            </Popconfirm>
 
-          <Popconfirm
-            title="Reject this request?"
-            onConfirm={() => onReject(record._id)}
-          >
-            <Button
-              danger
-              loading={actionLoading === record._id}
+            <Popconfirm
+              title="Reject this request?"
+              onConfirm={() => onReject(record._id)}
             >
-              Reject
-            </Button>
-          </Popconfirm>
-        </Space>
-      ),
+              <Button
+                danger
+                loading={actionLoading === record._id}
+              >
+                Reject
+              </Button>
+            </Popconfirm>
+          </Space>
+        );
+      },
     },
   ];
 
   /* ================= RENDER ================= */
 
   return (
-    <>
-      <Card
-        style={{
-          height: '100%',
-          borderRadius: 12,
-          boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
-        }}
-        title={
-          <Space>
-            <FilterOutlined style={{ color: '#1677ff' }} />
-            <Title level={4} style={{ margin: 0 }}>
-              QR Change Requests
-            </Title>
-          </Space>
-        }
-        extra={
-          <Button
-            icon={<ReloadOutlined />}
-            onClick={fetch}
-            loading={loading}
-          >
-            Refresh
-          </Button>
-        }
-      >
-        {/* Filters */}
-        <div
-          style={{
-            marginBottom: 20,
-            display: 'flex',
-            gap: 12,
-            flexWrap: 'wrap',
-          }}
-        >
-          <Input
-            placeholder="Search name..."
-            prefix={<SearchOutlined />}
-            allowClear
-            style={{ width: 250 }}
-            onChange={e =>
-              setFilters({ ...filters, name: e.target.value })
-            }
-          />
-
-          <Select
-            placeholder="Filter by Role"
-            allowClear
-            style={{ width: 160 }}
-            onChange={value =>
-              setFilters({ ...filters, role: value })
-            }
-          >
-            <Option value="Staff">Staff</Option>
-            <Option value="Student">Student</Option>
-            <Option value="Visitor">Visitor</Option>
-          </Select>
-
-          <Select
-            placeholder="Status"
-            allowClear
-            style={{ width: 160 }}
-            onChange={value =>
-              setFilters({ ...filters, status: value })
-            }
-          >
-            <Option value="Pending">Pending</Option>
-            <Option value="Approved">Approved</Option>
-            <Option value="Rejected">Rejected</Option>
-          </Select>
-        </div>
-
-        <Table
-          columns={columns}
-          dataSource={filteredData}
-          rowKey="_id"
+    <Card
+      style={{
+        height: '100%',
+        borderRadius: 12,
+        boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
+      }}
+      title={
+        <Space>
+          <FilterOutlined style={{ color: '#1677ff' }} />
+          <Title level={4} style={{ margin: 0 }}>
+            QR Change Requests
+          </Title>
+        </Space>
+      }
+      extra={
+        <Button
+          icon={<ReloadOutlined />}
+          onClick={fetch}
           loading={loading}
-          pagination={{ pageSize: 10, showSizeChanger: true }}
-          bordered
-        />
-      </Card>
-
-      {/* DETAILS MODAL */}
-      <Modal
-        open={modalVisible}
-        onCancel={() => setModalVisible(false)}
-        footer={null}
-        centered
-        width={520}
-        title="QR Request Details"
+        >
+          Refresh
+        </Button>
+      }
+    >
+      {/* Filters */}
+      <div
+        style={{
+          marginBottom: 20,
+          display: 'flex',
+          gap: 12,
+          flexWrap: 'wrap',
+        }}
       >
-        {selectedRequest && (
-          <Descriptions bordered column={1}>
-            <Descriptions.Item label="User">
-              {selectedRequest.userId.firstName}{' '}
-              {selectedRequest.userId.surname}
-            </Descriptions.Item>
+        <Input
+          placeholder="Search name..."
+          prefix={<SearchOutlined />}
+          allowClear
+          style={{ width: 250 }}
+          onChange={e =>
+            setFilters({ ...filters, name: e.target.value })
+          }
+        />
 
-            <Descriptions.Item label="Role">
-              <Tag>{selectedRequest.userId.role}</Tag>
-            </Descriptions.Item>
+        <Select
+          placeholder="Filter by Role"
+          allowClear
+          style={{ width: 160 }}
+          onChange={value =>
+            setFilters({ ...filters, role: value })
+          }
+        >
+          <Option value="Staff">Staff</Option>
+          <Option value="Student">Student</Option>
+          <Option value="Visitor">Visitor</Option>
+        </Select>
 
-            <Descriptions.Item label="Reason">
-              {selectedRequest.reason}
-            </Descriptions.Item>
+        <Select
+          placeholder="Status"
+          allowClear
+          style={{ width: 160 }}
+          onChange={value =>
+            setFilters({ ...filters, status: value })
+          }
+        >
+          <Option value="Pending">Pending</Option>
+          <Option value="Approved">Approved</Option>
+          <Option value="Rejected">Rejected</Option>
+        </Select>
+      </div>
 
-            <Descriptions.Item label="Old QR">
-              <Text code>{selectedRequest.oldQR}</Text>
-            </Descriptions.Item>
-
-            {selectedRequest.newQR && (
-              <Descriptions.Item label="New QR">
-                <Text code>{selectedRequest.newQR}</Text>
-              </Descriptions.Item>
-            )}
-
-            <Descriptions.Item label="Status">
-              <Tag>{selectedRequest.status}</Tag>
-            </Descriptions.Item>
-          </Descriptions>
-        )}
-      </Modal>
-    </>
+      <Table
+        columns={columns}
+        dataSource={filteredData}
+        rowKey="_id"
+        loading={loading}
+        pagination={{ pageSize: 10, showSizeChanger: true }}
+        bordered
+      />
+    </Card>
   );
 };
 

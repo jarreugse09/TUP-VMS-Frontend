@@ -37,7 +37,6 @@ body {
 #html5qr-code-full-region img {
   display: none !important;
 }
-
 .camera-header {
   margin-bottom: 16px;
 }
@@ -52,4 +51,13 @@ body {
   display: block;
   font-size: 13px;
   opacity: 0.85;
+}
+.camera-content {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 12px;
+}
+
+.preview {
+  margin-top: 12px;
 }

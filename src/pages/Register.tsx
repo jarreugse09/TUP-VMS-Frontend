@@ -19,10 +19,10 @@ import {
 import { useAuth } from "../contexts/AuthContext";
 import { Row, Col } from "antd";
 
-
 const { Option } = Select;
 const { Title, Text } = Typography;
 
+/* ================= STYLES ================= */
 
 const Container = styled.div`
   min-height: 100vh;
@@ -96,16 +96,6 @@ const StyledForm = styled(Form)`
     background: linear-gradient(135deg, #ff4d4f, #ff7875);
     border: none;
     box-shadow: 0 12px 24px rgba(255, 77, 79, 0.45);
-    transition: all 0.3s ease;
-
-    &:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 16px 32px rgba(255, 77, 79, 0.6);
-    }
-
-    &:active {
-      transform: translateY(0);
-    }
   }
 `;
 
@@ -130,6 +120,20 @@ const CameraBox = styled.div`
   }
 `;
 
+const LoginLink = styled(Button)`
+  display: block;
+  margin: 18px auto 0;
+  font-weight: 500;
+  font-size: 14px;
+  color: #ff4d4f;
+
+  &:hover {
+    color: #d9363e;
+    text-decoration: underline;
+  }
+`;
+
+/* ================= COMPONENT ================= */
 
 const Register = () => {
   const navigate = useNavigate();
@@ -159,6 +163,7 @@ const Register = () => {
       await apiRegister({
         ...values,
         photoURL,
+        customQR: values.customQR || undefined, // 👈 OPTIONAL QR
       });
 
       const loginResponse = await apiLogin(values.email, values.password);
@@ -169,24 +174,10 @@ const Register = () => {
       navigate(
         loginResponse.user.role === "TUP" ? "/dashboard" : "/profile"
       );
-    } catch (error) {
+    } catch {
       message.error("Registration failed");
     }
   };
-
-  const LoginLink = styled(Button)`
-  display: block;
-  margin: 18px auto 0;
-  font-weight: 500;
-  font-size: 14px;
-  color: #ff4d4f;
-
-  &:hover {
-    color: #d9363e;
-    text-decoration: underline;
-  }
-`;
-
 
   return (
     <Container>
@@ -202,29 +193,40 @@ const Register = () => {
 
         <StyledForm layout="vertical" onFinish={onFinish}>
           <Row gutter={16}>
-  <Col xs={24} sm={12}>
-    <Form.Item
-      name="firstName"
-      rules={[{ required: true, message: "First name is required" }]}
-    >
-      <Input placeholder="First Name" />
-    </Form.Item>
-  </Col>
+            <Col xs={24} sm={12}>
+              <Form.Item
+                name="firstName"
+                rules={[{ required: true, message: "First name is required" }]}
+              >
+                <Input placeholder="First Name" />
+              </Form.Item>
+            </Col>
 
-  <Col xs={24} sm={12}>
-    <Form.Item
-      name="surname"
-      rules={[{ required: true, message: "Surname is required" }]}
-    >
-      <Input placeholder="Surname" />
-    </Form.Item>
-  </Col>
-</Row>
+            <Col xs={24} sm={12}>
+              <Form.Item
+                name="surname"
+                rules={[{ required: true, message: "Surname is required" }]}
+              >
+                <Input placeholder="Surname" />
+              </Form.Item>
+            </Col>
+          </Row>
 
+          <Form.Item
+  name="birthdate"
+  rules={[
+    { required: true, message: "Birthdate is required" },
+  ]}
+>
+  <DatePicker
+    style={{ width: "100%" }}
+    placeholder="MM/DD/YYYY"
+    format="MM/DD/YYYY"
+    allowClear
+    inputReadOnly={false}
+  />
+</Form.Item>
 
-          <Form.Item name="birthdate" rules={[{ required: true }]}>
-            <DatePicker style={{ width: "100%" }} placeholder="Birthdate" />
-          </Form.Item>
 
           <Form.Item name="email" rules={[{ required: true, type: "email" }]}>
             <Input placeholder="Email Address" />
@@ -249,7 +251,13 @@ const Register = () => {
             </Form.Item>
           )}
 
-          
+          {/* ✅ OPTIONAL CUSTOM QR */}
+          <Form.Item
+            name="customQR"
+            tooltip="Optional: provide your own QR string (subject to admin approval)"
+          >
+            <Input placeholder="Enter your own QR string (optional)" />
+          </Form.Item>
 
           <Form.Item name="password" rules={[{ required: true, min: 6 }]}>
             <Input.Password placeholder="Password" />
@@ -260,16 +268,18 @@ const Register = () => {
           </Form.Item>
 
           <CameraBox>
+  {/* Header */}
   <div className="camera-header">
-  <Text strong className="camera-title">
-    Identity Verification
-  </Text>
+    <Text strong className="camera-title">
+      Identity Verification
+    </Text>
 
-  <Text type="secondary" className="camera-subtitle">
-    Capture a clear photo for identity confirmation
-  </Text>
-</div>
+    <Text type="secondary" className="camera-subtitle">
+      Capture a clear photo for identity confirmation
+    </Text>
+  </div>
 
+  {/* Camera */}
   <div className="camera-content">
     <Webcam
       audio={false}
@@ -279,10 +289,15 @@ const Register = () => {
     />
   </div>
 
-  <Button className="capture-btn" onClick={capture}>
+  {/* Capture Button */}
+  <Button
+    onClick={capture}
+    style={{ marginTop: 12 }}
+  >
     Capture Photo
   </Button>
 
+  {/* Preview */}
   {photoURL && (
     <div className="preview">
       <Text type="secondary">Preview</Text>
@@ -297,10 +312,10 @@ const Register = () => {
               Create Account
             </Button>
           </Form.Item>
-          <LoginLink type="link" onClick={() => navigate("/login")}>
-  Already have an account? Sign in
-</LoginLink>
 
+          <LoginLink type="link" onClick={() => navigate("/login")}>
+            Already have an account? Sign in
+          </LoginLink>
         </StyledForm>
       </StyledCard>
     </Container>
