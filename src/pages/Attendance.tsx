@@ -397,164 +397,208 @@ const Logs = () => {
 
       {/* DETAILS MODAL */}
       <Modal
-  open={modalVisible}
-  onCancel={() => setModalVisible(false)}
-  footer={null}
-  centered
-  width={560}
-  title={null}
->
-  {selectedLog && (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      {/* HEADER */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 16,
-          paddingBottom: 16,
-          borderBottom: '1px solid #f0f0f0',
-        }}
-      >
-        <Avatar
-          size={72}
-          src={selectedLog.user.photoURL}
-          icon={<UserOutlined />}
-          style={{
-            border: '3px solid #DC143C',
-            boxShadow: '0 4px 12px rgba(220,20,60,0.3)',
-          }}
-        />
-
-        <div>
-          <Title level={4} style={{ margin: 0 }}>
-            {selectedLog.user.firstName} {selectedLog.user.surname}
-          </Title>
-
-          <Space size="small">
-            <Tag color="red">{selectedLog.user.role}</Tag>
-            <Text type="secondary">
-              {dayjs(selectedLog.user.birthdate).format('MMM DD, YYYY')}
-            </Text>
-          </Space>
-        </div>
-      </div>
-
-      {/* SUMMARY */}
-      <Card
-        size="small"
-        variant="borderless"
-        style={{
-          background: '#fff4f4',
-          borderRadius: 12,
-        }}
-      >
-        <Space
-          style={{ width: '100%', justifyContent: 'space-between' }}
-        >
-          <div>
-            <Text type="secondary">Time In</Text>
-            <Title level={5} style={{ margin: 0 }}>
-              {getTimeIn(selectedLog)
-                ? dayjs(getTimeIn(selectedLog)!).format('hh:mm A')
-                : '-'}
-            </Title>
-          </div>
-
-          <div>
-            <Text type="secondary">Time Out</Text>
-            <Title level={5} style={{ margin: 0 }}>
-              {getTimeOut(selectedLog)
-                ? dayjs(getTimeOut(selectedLog)!).format('hh:mm A')
-                : '-'}
-            </Title>
-          </div>
-        </Space>
-      </Card>
-
-      {/* ACTIVITIES */}
-      <div>
-        <Title level={5} style={{ marginBottom: 8 }}>
-          Activities
-        </Title>
-
-        {selectedLog.activities.length ? (
-          <Space direction="vertical" style={{ width: '100%' }}>
-            {selectedLog.activities.map((act, i) => (
-              <Card
-                key={i}
-                size="small"
-                variant="borderless"
-                style={{
-                  borderRadius: 12,
-                  borderLeft: `4px solid ${
-                    act.status === 'In TUP' ? '#52c41a' : '#f5222d'
-                  }`,
-                  background: '#fafafa',
-                }}
-              >
-                <Space
-                  direction="vertical"
-                  size={4}
-                  style={{ width: '100%' }}
+              open={modalVisible}
+              onCancel={() => setModalVisible(false)}
+              footer={null}
+              centered
+              width={620}
+              closeIcon={
+                <span
+                  style={{
+                    color: '#fff',
+                    fontSize: 18,
+                    fontWeight: 600,
+                  }}
                 >
-                  <Space
+                  ✕
+                </span>
+              }
+            >
+              {selectedLog && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                  {/* HEADER / HERO */}
+                  <div
                     style={{
-                      justifyContent: 'space-between',
-                      width: '100%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 16,
+                      padding: 16,
+                      borderRadius: 16,
+                      background: 'linear-gradient(135deg, #ff4d4f, #ff7875)',
+                      color: '#fff',
+                      position: 'relative',
                     }}
                   >
-                    <Text strong>{act.reason.toUpperCase()}</Text>
-                    <Tag
-                      color={act.status === 'In TUP' ? 'green' : 'volcano'}
+                    <Avatar
+                      size={72}
+                      src={selectedLog.user.photoURL}
+                      icon={<UserOutlined />}
+                      style={{
+                        border: '3px solid #fff',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
+                      }}
+                    />
+            
+                    <div style={{ flex: 1 }}>
+                      <Title level={4} style={{ margin: 0, color: '#fff' }}>
+                        {selectedLog.user.firstName} {selectedLog.user.surname}
+                      </Title>
+            
+                      <Space size="small">
+                        <Tag color="white" style={{ color: '#ff4d4f' }}>
+                          {selectedLog.user.role}
+                        </Tag>
+                        <Text style={{ color: 'rgba(255,255,255,0.85)' }}>
+                          Date Entered:{' '}
+                          {dayjs(selectedLog.date).format('MMM DD, YYYY')}
+                        </Text>
+                      </Space>
+                    </div>
+                  </div>
+            
+                  {/* COMBINED SUMMARY BOX */}
+                  <Card
+                    size="small"
+                    variant="borderless"
+                    style={{
+                      borderRadius: 16,
+                      background: '#fff',
+                      boxShadow: '0 6px 16px rgba(0,0,0,0.08)',
+                    }}
+                  >
+                    <Space
+                      style={{
+                        width: '100%',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                      }}
                     >
-                      {act.status}
-                    </Tag>
-                  </Space>
-
-                  <Text type="secondary">
-                    In:{' '}
-                    {act.timeIn
-                      ? dayjs(act.timeIn).format('hh:mm A')
-                      : '-'}
-                  </Text>
-
-                  <Text type="secondary">
-                    Out:{' '}
-                    {act.timeOut
-                      ? dayjs(act.timeOut).format('hh:mm A')
-                      : '-'}
-                  </Text>
-                </Space>
-              </Card>
-            ))}
-          </Space>
-        ) : (
-          <Text type="secondary">No activities recorded</Text>
-        )}
-      </div>
-
-      {/* ACTION */}
-      <div style={{ textAlign: 'center', marginTop: 8 }}>
-        <Button
-          type="primary"
-          onClick={() => setModalVisible(false)}
-          style={{
-            background: 'linear-gradient(135deg, #ff4d4f, #ff7875)',
-            border: 'none',
-            borderRadius: 12,
-            height: 44,
-            width: 140,
-            fontWeight: 600,
-            boxShadow: '0 8px 16px rgba(255,77,79,0.4)',
-          }}
-        >
-          Close
-        </Button>
-      </div>
-    </div>
-  )}
-</Modal>
+                      <div>
+                        <Text type="secondary">First Time In</Text>
+                        <Title level={5} style={{ margin: 0 }}>
+                          {getTimeIn(selectedLog)
+                            ? dayjs(getTimeIn(selectedLog)!).format('hh:mm A')
+                            : '-'}
+                        </Title>
+                      </div>
+            
+                      <div>
+                        <Text type="secondary">Last Time Out</Text>
+                        <Title level={5} style={{ margin: 0 }}>
+                          {getTimeOut(selectedLog)
+                            ? dayjs(getTimeOut(selectedLog)!).format('hh:mm A')
+                            : '-'}
+                        </Title>
+                      </div>
+            
+                      <div>
+                        <Text type="secondary">Status</Text>
+                        <Tag
+                          color={
+                            selectedLog.dailyStatus === 'In TUP'
+                              ? 'green'
+                              : 'volcano'
+                          }
+                          style={{ fontSize: 14, padding: '4px 12px' }}
+                        >
+                          {selectedLog.dailyStatus}
+                        </Tag>
+                      </div>
+                    </Space>
+                  </Card>
+            
+                  {/* ACTIVITIES */}
+                  <div>
+                    <Title level={5} style={{ marginBottom: 8 }}>
+                      Activity Details
+                    </Title>
+            
+                    {selectedLog.activities.length ? (
+                      <Space direction="vertical" style={{ width: '100%' }}>
+                        {selectedLog.activities.map((act, i) => (
+                          <Card
+                            key={i}
+                            size="small"
+                            variant="borderless"
+                            style={{
+                              borderRadius: 14,
+                              borderLeft: `5px solid ${
+                                act.status === 'In TUP'
+                                  ? '#52c41a'
+                                  : '#f5222d'
+                              }`,
+                              background: '#fafafa',
+                            }}
+                          >
+                            <Space
+                              direction="vertical"
+                              size={4}
+                              style={{ width: '100%' }}
+                            >
+                              <Space
+                                style={{
+                                  justifyContent: 'space-between',
+                                  width: '100%',
+                                }}
+                              >
+                                <Text strong>
+                                  {act.reason.toUpperCase()}
+                                </Text>
+                                <Tag
+                                  color={
+                                    act.status === 'In TUP'
+                                      ? 'green'
+                                      : 'volcano'
+                                  }
+                                >
+                                  {act.status}
+                                </Tag>
+                              </Space>
+            
+                              <Space size="large">
+                                <Text type="secondary">
+                                  In:{' '}
+                                  {act.timeIn
+                                    ? dayjs(act.timeIn).format('hh:mm A')
+                                    : '-'}
+                                </Text>
+                                <Text type="secondary">
+                                  Out:{' '}
+                                  {act.timeOut
+                                    ? dayjs(act.timeOut).format('hh:mm A')
+                                    : '-'}
+                                </Text>
+                              </Space>
+                            </Space>
+                          </Card>
+                        ))}
+                      </Space>
+                    ) : (
+                      <Text type="secondary">No activities recorded</Text>
+                    )}
+                  </div>
+            
+                  {/* ACTION */}
+                  <div style={{ textAlign: 'center', marginTop: 8 }}>
+                    <Button
+                      type="primary"
+                      onClick={() => setModalVisible(false)}
+                      style={{
+                        background: 'linear-gradient(135deg, #ff4d4f, #ff7875)',
+                        border: 'none',
+                        borderRadius: 14,
+                        height: 46,
+                        width: 160,
+                        fontWeight: 600,
+                        boxShadow: '0 8px 16px rgba(255,77,79,0.45)',
+                      }}
+                    >
+                      Close
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </Modal>
 
     </>
   );
