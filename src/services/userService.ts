@@ -51,3 +51,8 @@ export const rejectQRRequest = async (requestId: string) => {
   const response = await api.put(`/users/qr-requests/${requestId}/reject`);
   return response.data;
 };
+
+export const getAllUsers = async (params?: any) => {
+  const { data } = await api.get("/users/admin", { params });
+  return data;
+};

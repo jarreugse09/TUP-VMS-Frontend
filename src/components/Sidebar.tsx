@@ -6,6 +6,7 @@ import {
   LogoutOutlined,
   QrcodeOutlined,
   LineChartOutlined,
+  UsergroupDeleteOutlined,
 } from '@ant-design/icons';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -82,8 +83,14 @@ const Sidebar = ({ collapsed, setCollapsed }: SidebarProps) => {
         icon: <QrcodeOutlined />,
         label: <Link to="/qr-requests">QR Requests</Link>,
       },
+
       {
         key: '6',
+        icon: <UsergroupDeleteOutlined />,
+        label: <Link to="/admin/manage-users">Manage Users</Link>,
+      },
+      {
+        key: '7',
         icon: <LineChartOutlined />,
         label: <Link to="/admin/analytics">Analytics</Link>,
       }

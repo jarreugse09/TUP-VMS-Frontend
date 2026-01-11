@@ -21,6 +21,7 @@ import Sidebar from './components/Sidebar';
 import { useAuth } from './contexts/AuthContext';
 import StaffLogs from '@/pages/Logs/StaffLogs.tsx';
 import Analytics from '@/pages/Analytics.tsx';
+import ManageUsers from '@/pages/Manage User.tsx';
 
 const { Content } = Layout;
 
@@ -65,6 +66,11 @@ function App() {
           key="admin-analytics"
           path="/admin/analytics"
           element={<Analytics />}
+        />,
+        <Route
+          key="admin-manage-users"
+          path="/admin/manage-users"
+          element={<ManageUsers />}
         />,
       ],
     },
