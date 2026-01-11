@@ -5,6 +5,7 @@ import {
   UserOutlined,
   LogoutOutlined,
   QrcodeOutlined,
+  LineChartOutlined,
 } from '@ant-design/icons';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -40,13 +41,12 @@ const Sidebar = ({ collapsed, setCollapsed }: SidebarProps) => {
     }
 
     if (
-  path.startsWith('/logs') ||
-  path.startsWith('/staff/logs') ||
-  path.startsWith('/user/logs')
-) {
-  return '2';
-}
-
+      path.startsWith('/logs') ||
+      path.startsWith('/staff/logs') ||
+      path.startsWith('/user/logs')
+    ) {
+      return '2';
+    }
 
     if (path.startsWith('/attendance')) return '3';
     if (path.startsWith('/qr-requests')) return '5';
@@ -81,6 +81,11 @@ const Sidebar = ({ collapsed, setCollapsed }: SidebarProps) => {
         key: '5',
         icon: <QrcodeOutlined />,
         label: <Link to="/qr-requests">QR Requests</Link>,
+      },
+      {
+        key: '6',
+        icon: <LineChartOutlined />,
+        label: <Link to="/admin/analytics">Analytics</Link>,
       }
     );
   } else if (role === 'Staff') {

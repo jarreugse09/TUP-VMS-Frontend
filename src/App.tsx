@@ -20,6 +20,7 @@ import Attendance from './pages/Attendance';
 import Sidebar from './components/Sidebar';
 import { useAuth } from './contexts/AuthContext';
 import StaffLogs from '@/pages/Logs/StaffLogs.tsx';
+import Analytics from '@/pages/Analytics.tsx';
 
 const { Content } = Layout;
 
@@ -55,7 +56,16 @@ function App() {
       extraRoutes: [
         <Route key="logs" path="/logs" element={<AdminLogs />} />,
         <Route key="attendance" path="/attendance" element={<Attendance />} />,
-        <Route key="qr-requests" path="/qr-requests" element={<QRRequests />} />,
+        <Route
+          key="qr-requests"
+          path="/qr-requests"
+          element={<QRRequests />}
+        />,
+        <Route
+          key="admin-analytics"
+          path="/admin/analytics"
+          element={<Analytics />}
+        />,
       ],
     },
 
@@ -78,16 +88,12 @@ function App() {
     Visitor: {
       dashboardPath: '/user/dashboard',
       dashboardElement: <Dashboard />,
-      extraRoutes: [
-        <Route key="logs" path="/user/logs" element={<Logs />} />,
-      ],
+      extraRoutes: [<Route key="logs" path="/user/logs" element={<Logs />} />],
     },
     Student: {
       dashboardPath: '/user/dashboard',
       dashboardElement: <Dashboard />,
-      extraRoutes: [
-        <Route key="logs" path="/user/logs" element={<Logs />} />,
-      ],
+      extraRoutes: [<Route key="logs" path="/user/logs" element={<Logs />} />],
     },
   };
 
