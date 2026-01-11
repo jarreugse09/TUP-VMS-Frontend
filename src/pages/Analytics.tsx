@@ -156,9 +156,6 @@ const Analytics = () => {
       </Card>
 
       {/* ATTENDANCE DAILY CHART */}
-      <Card title="Daily Attendance (Staff)" bordered={false} loading={loading}>
-        {/* Use chart library here */}
-      </Card>
       <Chart
         title="Staff Attendance Chart"
         data={data.attendance.dailyAttendance}
