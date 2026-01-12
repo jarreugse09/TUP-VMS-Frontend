@@ -28,7 +28,6 @@ const Sidebar = ({ collapsed, setCollapsed }: SidebarProps) => {
     navigate('/login');
   };
 
-  // Determine active menu item
   const getSelectedKey = () => {
     const path = location.pathname;
 
@@ -37,21 +36,21 @@ const Sidebar = ({ collapsed, setCollapsed }: SidebarProps) => {
       path.startsWith('/staff/dashboard') ||
       path.startsWith('/user/dashboard') ||
       path.startsWith('/security/dashboard')
-    ) {
+    )
       return '1';
-    }
 
     if (
       path.startsWith('/logs') ||
       path.startsWith('/staff/logs') ||
       path.startsWith('/user/logs')
-    ) {
+    )
       return '2';
-    }
 
     if (path.startsWith('/attendance')) return '3';
     if (path.startsWith('/qr-requests')) return '5';
     if (path.startsWith('/profile')) return '4';
+    if (path.startsWith('/admin/manage-users')) return '6';
+    if (path.startsWith('/admin/analytics')) return '7';
 
     return '1';
   };
@@ -63,101 +62,38 @@ const Sidebar = ({ collapsed, setCollapsed }: SidebarProps) => {
 
   if (role === 'TUP') {
     roleItems.push(
-      {
-        key: '1',
-        icon: <DashboardOutlined />,
-        label: <Link to="/dashboard">Admin Dashboard</Link>,
-      },
-      {
-        key: '2',
-        icon: <HistoryOutlined />,
-        label: <Link to="/logs">Logs</Link>,
-      },
-      {
-        key: '3',
-        icon: <UserOutlined />,
-        label: <Link to="/attendance">Attendance</Link>,
-      },
-      {
-        key: '5',
-        icon: <QrcodeOutlined />,
-        label: <Link to="/qr-requests">QR Requests</Link>,
-      },
-
-      {
-        key: '6',
-        icon: <UsergroupDeleteOutlined />,
-        label: <Link to="/admin/manage-users">Manage Users</Link>,
-      },
-      {
-        key: '7',
-        icon: <LineChartOutlined />,
-        label: <Link to="/admin/analytics">Analytics</Link>,
-      }
+      { key: '1', icon: <DashboardOutlined />, label: <Link to="/dashboard">Dashboard</Link> },
+      { key: '2', icon: <HistoryOutlined />, label: <Link to="/logs">Logs</Link> },
+      { key: '3', icon: <UserOutlined />, label: <Link to="/attendance">Attendance</Link> },
+      { key: '5', icon: <QrcodeOutlined />, label: <Link to="/qr-requests">QR Requests</Link> },
+      { key: '6', icon: <UsergroupDeleteOutlined />, label: <Link to="/admin/manage-users">Manage Users</Link> },
+      { key: '7', icon: <LineChartOutlined />, label: <Link to="/admin/analytics">Analytics</Link> }
     );
   } else if (role === 'Staff') {
     roleItems.push(
-      {
-        key: '1',
-        icon: <DashboardOutlined />,
-        label: <Link to="/staff/dashboard">Staff Dashboard</Link>,
-      },
-      {
-        key: '2',
-        icon: <HistoryOutlined />,
-        label: <Link to="/staff/logs">Logs</Link>,
-      }
+      { key: '1', icon: <DashboardOutlined />, label: <Link to="/staff/dashboard">Dashboard</Link> },
+      { key: '2', icon: <HistoryOutlined />, label: <Link to="/staff/logs">Logs</Link> }
     );
   } else if (role === 'Security') {
     roleItems.push(
-      {
-        key: '1',
-        icon: <DashboardOutlined />,
-        label: <Link to="/security/dashboard">Dashboard</Link>,
-      },
-      {
-        key: '2',
-        icon: <HistoryOutlined />,
-        label: <Link to="/logs">Logs</Link>,
-      },
-      {
-        key: '3',
-        icon: <UserOutlined />,
-        label: <Link to="/attendance">Attendance</Link>,
-      }
+      { key: '1', icon: <DashboardOutlined />, label: <Link to="/security/dashboard">Dashboard</Link> },
+      { key: '2', icon: <HistoryOutlined />, label: <Link to="/logs">Logs</Link> },
+      { key: '3', icon: <UserOutlined />, label: <Link to="/attendance">Attendance</Link> }
     );
   } else {
-    // Student / Visitor
     roleItems.push(
-      {
-        key: '1',
-        icon: <DashboardOutlined />,
-        label: <Link to="/user/dashboard">Dashboard</Link>,
-      },
-      {
-        key: '2',
-        icon: <HistoryOutlined />,
-        label: <Link to="/user/logs">Logs</Link>,
-      }
+      { key: '1', icon: <DashboardOutlined />, label: <Link to="/user/dashboard">Dashboard</Link> },
+      { key: '2', icon: <HistoryOutlined />, label: <Link to="/user/logs">Logs</Link> }
     );
   }
 
   const menuItems = [
     ...roleItems,
-    {
-      key: '4',
-      icon: <UserOutlined />,
-      label: <Link to="/profile">Profile</Link>,
-    },
+    { key: '4', icon: <UserOutlined />, label: <Link to="/profile">Profile</Link> },
   ];
 
   const logoutItems = [
-    {
-      key: 'logout',
-      icon: <LogoutOutlined />,
-      label: 'Logout',
-      onClick: handleLogout,
-    },
+    { key: 'logout', icon: <LogoutOutlined />, label: 'Logout', onClick: handleLogout },
   ];
 
   /* ================= RENDER ================= */
@@ -167,92 +103,89 @@ const Sidebar = ({ collapsed, setCollapsed }: SidebarProps) => {
       collapsible
       collapsed={collapsed}
       onCollapse={setCollapsed}
-      width={200}
+      width={220}
       style={{
-        overflow: 'hidden',
         height: '100vh',
         position: 'fixed',
         left: 0,
         top: 0,
         bottom: 0,
+        background: 'linear-gradient(180deg, #b1122b 0%, #8c0d22 100%)',
+        boxShadow: '4px 0 16px rgba(0,0,0,0.15)',
         zIndex: 100,
-        backgroundColor: '#DC143C',
       }}
     >
       <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-        {/* Logo */}
+        {/* LOGO */}
         <div
           style={{
             height: 64,
             margin: 16,
-            background: 'rgba(255, 255, 255, 0.15)',
-            borderRadius: 8,
+            borderRadius: 12,
+            background: 'rgba(255,255,255,0.15)',
             display: 'flex',
-            justifyContent: 'center',
             alignItems: 'center',
-            border: '1px solid rgba(255, 255, 255, 0.1)',
+            justifyContent: 'center',
+            fontWeight: 800,
+            fontSize: collapsed ? 20 : 18,
+            color: '#fff',
+            letterSpacing: 1,
           }}
         >
-          <span
-            style={{
-              color: 'white',
-              fontWeight: 800,
-              fontSize: 20,
-              letterSpacing: 1,
-            }}
-          >
-            {collapsed ? 'T' : 'TUP VMS'}
-          </span>
+          {collapsed ? 'T' : 'TUP VMS'}
         </div>
 
-        {/* Menu */}
+        {/* MENU */}
         <div style={{ flex: 1, padding: '0 8px' }}>
           <Menu
             mode="inline"
             selectedKeys={[getSelectedKey()]}
             items={menuItems}
-            style={{ backgroundColor: 'transparent', borderRight: 'none' }}
+            style={{
+              background: 'transparent',
+              borderRight: 'none',
+              fontWeight: 500,
+            }}
           />
         </div>
 
-        {/* Logout */}
+        {/* LOGOUT */}
         <div style={{ padding: '0 8px 20px' }}>
-          <Divider
-            style={{ borderColor: 'rgba(255,255,255,0.2)', margin: '12px 0' }}
-          />
+          <Divider style={{ borderColor: 'rgba(255,255,255,0.25)' }} />
           <Menu
             mode="inline"
             selectable={false}
             items={logoutItems}
-            style={{ backgroundColor: 'transparent', borderRight: 'none' }}
+            style={{ background: 'transparent', borderRight: 'none' }}
           />
         </div>
       </div>
 
-      {/* Styles */}
+      {/* MENU STYLES */}
       <style>{`
         .ant-menu-item {
-          color: rgba(255, 255, 255, 0.85) !important;
-          border-radius: 8px !important;
-          margin-bottom: 4px !important;
+          color: rgba(255,255,255,0.85) !important;
+          border-radius: 10px !important;
+          margin: 6px 0 !important;
         }
 
         .ant-menu-item:hover {
-          background-color: rgba(255, 255, 255, 0.1) !important;
+          background: rgba(255,255,255,0.18) !important;
           color: #fff !important;
         }
 
         .ant-menu-item-selected {
-          background-color: #fff !important;
-          color: #DC143C !important;
+          background: #fff !important;
+          color: #8c0d22 !important;
+          font-weight: 600;
         }
 
         .ant-menu-item-selected .anticon {
-          color: #DC143C !important;
+          color: #8c0d22 !important;
         }
 
         .ant-layout-sider-trigger {
-          background: #b01030 !important;
+          background: rgba(0,0,0,0.25) !important;
         }
       `}</style>
     </Sider>
