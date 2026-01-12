@@ -28,19 +28,23 @@ export interface AvgPerHour {
     hour: number;
     avgCount: number;
 }
+
+export interface RoleDailyCount {
+    _id: string; // yyyy-mm-dd
+    count: number;
+}
+
+export interface RoleSummary {
+    totalUsers: number;
+    usersCurrentlyInside: number;
+    usersCheckedOut: number;
+    dailyCounts: RoleDailyCount[];
+}
+
 export interface AnalyticsResponse {
-    visitors: {
-        totals: number;
-        averageVisitorPerHour: AvgPerHour[]; visitorCheckedOutCount: number;
-        visitorCheckedIn: number;
-        avgVisitorperDay: number;
-    };
-    attendance: {
-        totalPresentToday: number;
-        checkedOutCount: number;
-        currentlyInside: number;
-        dailyAttendance: DailyAttendance[];
-    };
+    roles: Record<'Student' | 'Staff' | 'Visitor' | 'TUP', RoleSummary>;
+    combinedDaily: Array<{ _id: string; Student: number; Staff: number; Visitor: number; TUP: number }>;
+    dateRange: string[];
 }
 
 /**
