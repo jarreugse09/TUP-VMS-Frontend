@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_BACKEND_URL, // should include /api
+  baseURL: process.env.VITE_API_URL, // should include /api
   withCredentials: true,
 });
 
