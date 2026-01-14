@@ -1,13 +1,8 @@
 import axios from "axios";
 
-const BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000/api";
-
 const api = axios.create({
-  baseURL: BASE_URL,
-  withCredentials: true, // if you want to send cookies
-  headers: {
-    "Content-Type": "application/json",
-  },
+  baseURL: process.env.NEXT_PUBLIC_BACKEND_URL, // should include /api
+  withCredentials: true,
 });
 
 export default api;
