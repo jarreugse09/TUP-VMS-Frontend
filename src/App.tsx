@@ -3,25 +3,25 @@ import {
   Routes,
   Route,
   Navigate,
-} from 'react-router-dom';
-import { Layout } from 'antd';
-import { useState } from 'react';
-import Login from './pages/Login';
-import Register from './pages/Register';
-import Profile from './pages/Profile';
-import Dashboard from './pages/Dashboard/Dashboard';
-import AdminDashboard from './pages/Dashboard/AdminDashboard';
-import StaffDashboard from './pages/Dashboard/StaffDashboard';
-import AdminLogs from './pages/Logs/AdminLogs';
-import Logs from './pages/Logs/Logs';
-import QRRequests from './pages/QRRequests.tsx';
+} from "react-router-dom";
+import { Layout } from "antd";
+import { useState } from "react";
+import Login from "./pages/Login";
+import Register from "./pages/Register";
+import Profile from "./pages/Profile";
+import Dashboard from "./pages/Dashboard/Dashboard";
+import AdminDashboard from "./pages/Dashboard/AdminDashboard";
+import StaffDashboard from "./pages/Dashboard/StaffDashboard";
+import AdminLogs from "./pages/Logs/AdminLogs";
+import Logs from "./pages/Logs/Logs";
+import QRRequests from "./pages/QRRequests.tsx";
 
-import Attendance from './pages/Attendance';
-import Sidebar from './components/Sidebar';
-import { useAuth } from './contexts/AuthContext';
-import StaffLogs from '@/pages/Logs/StaffLogs.tsx';
-import Analytics from '@/pages/Analytics.tsx';
-import ManageUsers from '@/pages/Manage User.tsx';
+import Attendance from "./pages/Attendance";
+import Sidebar from "./components/Sidebar";
+import { useAuth } from "./contexts/AuthContext";
+import StaffLogs from "@/pages/Logs/StaffLogs.tsx";
+import Analytics from "@/pages/Analytics.tsx";
+import ManageUsers from "@/pages/Manage User.tsx";
 
 const { Content } = Layout;
 
@@ -52,7 +52,7 @@ function App() {
     }
   > = {
     TUP: {
-      dashboardPath: '/dashboard',
+      dashboardPath: "/dashboard",
       dashboardElement: <AdminDashboard />,
       extraRoutes: [
         <Route key="logs" path="/logs" element={<AdminLogs />} />,
@@ -76,7 +76,7 @@ function App() {
     },
 
     Staff: {
-      dashboardPath: '/staff/dashboard',
+      dashboardPath: "/staff/dashboard",
       dashboardElement: <StaffDashboard />,
       extraRoutes: [
         <Route key="logs" path="/staff/logs" element={<StaffLogs />} />,
@@ -84,7 +84,7 @@ function App() {
       ],
     },
     Security: {
-      dashboardPath: '/security/dashboard',
+      dashboardPath: "/security/dashboard",
       dashboardElement: <AdminDashboard />, // or a custom security dashboard
       extraRoutes: [
         <Route key="logs" path="/logs" element={<AdminLogs />} />,
@@ -92,32 +92,32 @@ function App() {
       ],
     },
     Visitor: {
-      dashboardPath: '/user/dashboard',
+      dashboardPath: "/user/dashboard",
       dashboardElement: <Dashboard />,
       extraRoutes: [<Route key="logs" path="/user/logs" element={<Logs />} />],
     },
     Student: {
-      dashboardPath: '/user/dashboard',
+      dashboardPath: "/user/dashboard",
       dashboardElement: <Dashboard />,
       extraRoutes: [<Route key="logs" path="/user/logs" element={<Logs />} />],
     },
   };
 
-  const currentRole = user?.role || user?.staffType || 'Visitor';
-  const roleConfig = roleRoutes[currentRole] || roleRoutes['Visitor'];
+  const currentRole = user?.role || user?.staffType || "Visitor";
+  const roleConfig = roleRoutes[currentRole] || roleRoutes["Visitor"];
   const contentMargin = collapsed ? 80 : 200;
 
   return (
     <Router>
-      <Layout style={{ minHeight: '100vh' }}>
+      <Layout style={{ minHeight: "100vh" }}>
         <Sidebar collapsed={collapsed} setCollapsed={setCollapsed} />
 
-        <Layout style={{ marginLeft: contentMargin, transition: 'all 0.2s' }}>
+        <Layout style={{ marginLeft: contentMargin, transition: "all 0.2s" }}>
           <Content
             style={{
-              padding: '24px',
-              minHeight: '100vh',
-              background: '#f0f2f5',
+              padding: "24px",
+              minHeight: "100vh",
+              background: "#f0f2f5",
             }}
           >
             <Routes>
@@ -129,7 +129,7 @@ function App() {
                 path={roleConfig.dashboardPath}
                 element={roleConfig.dashboardElement}
               />
-              {roleConfig.extraRoutes?.map(r => r)}
+              {roleConfig.extraRoutes?.map((r) => r)}
 
               {/* Redirect root & unknown paths */}
               <Route
