@@ -21,7 +21,8 @@ import {
   UserOutlined,
 } from '@ant-design/icons';
 import { useEffect, useState, useMemo } from 'react';
-import { getLogs } from '../../services/logService';
+import { getLogs, getStaffLogs } from '../../services/logService';
+import { useAuth } from '../../contexts/AuthContext';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
 
@@ -85,6 +86,7 @@ const getTimeOut = (log: LogItem) => {
 /* ================= COMPONENT ================= */
 
 const Logs = () => {
+  const { user } = useAuth();
   const [logs, setLogs] = useState<LogItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [filters, setFilters] = useState({
@@ -99,8 +101,19 @@ const Logs = () => {
   const fetchLogs = async () => {
     setLoading(true);
     try {
-      const data = await getLogs();
+      let data: LogItem[] = [];
+      if (user?.role === 'TUP') {
+        data = await getLogs();
+      } else if (user?.role === 'Staff') {
+        data = await getStaffLogs();
+      } else {
+        // Unauthorized roles: Students/Visitors do not have access
+        data = [];
+      }
       setLogs(data);
+    } catch (err) {
+      // Swallow errors to avoid unhandled promise rejections
+      setLogs([]);
     } finally {
       setLoading(false);
     }
