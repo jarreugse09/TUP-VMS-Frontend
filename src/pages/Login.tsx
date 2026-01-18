@@ -1,154 +1,149 @@
-import { Form, Input, Button, Card, message, Typography } from "antd";
+import { Form, Input, Button, message } from "antd";
 import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
-import { UserOutlined, LockOutlined } from "@ant-design/icons";
+import {
+  MailOutlined,
+  LockOutlined,
+  ArrowRightOutlined,
+} from "@ant-design/icons";
 import { login as apiLogin } from "../services/authService";
 import { useAuth } from "../contexts/AuthContext";
-
-const { Title, Text } = Typography;
 
 const Container = styled.div`
   min-height: 100vh;
   display: flex;
-  justify-content: center;
   align-items: center;
-  background: 
-    linear-gradient(
-      rgba(255, 77, 79, 0.80),
-      rgba(255, 77, 79, 0.80)
-    ),
+  justify-content: center;
+  background:
+    linear-gradient(135deg, rgba(128, 0, 32, 0.6), rgba(220, 20, 60, 0.6)),
     url("/images/tup-bg.png");
   background-size: cover;
   background-position: center;
-  padding: 20px;
+  padding: 24px;
 `;
 
-const StyledCard = styled(Card)`
-  position: relative;
+const FormContainer = styled.div`
   width: 100%;
-  max-width: 420px;
-  border-radius: 24px;
-  background: rgba(255, 255, 255, 0.9);
-  backdrop-filter: blur(16px);
-  box-shadow:
-    0 30px 60px rgba(0, 0, 0, 0.25),
-    0 0 0 1px rgba(255, 255, 255, 0.3);
-  border: none;
-  overflow: hidden;
+  max-width: 450px;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border-radius: 20px;
+  padding: 50px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
 
-  /* Gradient glow border illusion */
-  &::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    padding: 1.5px;
-    border-radius: 24px;
-    background: linear-gradient(135deg, #ff4d4f, #ff7875);
-    -webkit-mask:
-      linear-gradient(#fff 0 0) content-box,
-      linear-gradient(#fff 0 0);
-    -webkit-mask-composite: xor;
-    mask-composite: exclude;
-    pointer-events: none;
-  }
-
-  .ant-card-body {
-    padding: 44px 38px;
-  }
-
-  @media (max-width: 480px) {
-    .ant-card-body {
-      padding: 32px 24px;
-    }
+  @media (max-width: 500px) {
+    padding: 40px 30px;
   }
 `;
-
 
 const Header = styled.div`
   text-align: center;
-  margin-bottom: 32px;
+  margin-bottom: 40px;
+  color: white;
 
-  .emoji {
-    font-size: 36px;
+  .logo-text {
+    font-size: 42px;
+    font-weight: 800;
     margin-bottom: 8px;
+    letter-spacing: -1px;
   }
 
   .subtitle {
-    display: block;
-    margin-top: 6px;
-    font-size: 14px;
+    font-size: 16px;
     opacity: 0.8;
-  }
-
-  .divider {
-    width: 48px;
-    height: 4px;
-    margin: 16px auto 0;
-    border-radius: 4px;
-    background: linear-gradient(90deg, #ff4d4f, #ff7875);
   }
 `;
 
-
 const StyledForm = styled(Form)`
-  .ant-form-item {
-    margin-bottom: 22px;
+  .ant-form-item-label > label {
+    color: rgba(255, 255, 255, 0.8);
+    font-weight: 600;
   }
 
   .ant-input-affix-wrapper {
-    height: 50px;
-    border-radius: 12px;
-    border: 1px solid transparent;
-    box-shadow: 0 6px 14px rgba(0, 0, 0, 0.12);
-    transition: all 0.25s ease;
+    height: 52px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    background: rgba(255, 255, 255, 0.15);
+    transition: all 0.3s;
+    padding: 0 16px;
+
+    .anticon {
+      color: rgba(255, 255, 255, 0.6);
+    }
+
+    input {
+      font-size: 15px;
+      color: white;
+      background: transparent !important;
+      &::placeholder {
+        color: rgba(255, 255, 255, 0.5);
+      }
+      caret-color: white;
+    }
 
     &:hover {
-      box-shadow: 0 8px 18px rgba(0, 0, 0, 0.18);
+      border-color: #dc143c;
     }
 
     &.ant-input-affix-wrapper-focused {
-      border-color: #ff4d4f;
-      box-shadow: 0 0 0 4px rgba(255, 77, 79, 0.2);
+      border-color: #dc143c;
+      background: rgba(255, 255, 255, 0.2);
+      box-shadow: 0 0 0 3px rgba(220, 20, 60, 0.2);
     }
+  }
+
+  /* Prevent white background on focus/autofill */
+  .ant-input,
+  .ant-input-password {
+    background: transparent !important;
+    color: white;
+    caret-color: white;
+  }
+
+  input:-webkit-autofill,
+  input:-webkit-autofill:focus {
+    -webkit-text-fill-color: white;
+    transition:
+      background-color 600000s 0s,
+      color 600000s 0s;
+    box-shadow: 0 0 0px 1000px rgba(255, 255, 255, 0.1) inset;
   }
 
   .ant-btn-primary {
-    height: 52px;
-    border-radius: 14px;
+    height: 54px;
+    border-radius: 8px;
     font-weight: 600;
     font-size: 16px;
-    letter-spacing: 0.3px;
-    background: linear-gradient(135deg, #ff4d4f, #ff7875);
+    background: #8b0000;
     border: none;
-    box-shadow: 0 12px 24px rgba(255, 77, 79, 0.45);
-    transition: all 0.3s ease;
+    transition: all 0.3s;
 
     &:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 16px 32px rgba(255, 77, 79, 0.6);
-    }
-
-    &:active {
-      transform: translateY(0);
-      box-shadow: 0 8px 18px rgba(255, 77, 79, 0.4);
+      background: #dc143c;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(139, 0, 0, 0.4);
     }
   }
 `;
 
+const Footer = styled.div`
+  margin-top: 24px;
+  text-align: center;
+  font-size: 15px;
+  color: rgba(255, 255, 255, 0.7);
 
-const RegisterLink = styled(Button)`
-  display: block;
-  margin: 18px auto 0;
-  font-weight: 500;
-  font-size: 14px;
-  color: #ff4d4f;
+  a {
+    color: #ff6b6b;
+    font-weight: 600;
+    cursor: pointer;
 
-  &:hover {
-    color: #d9363e;
-    text-decoration: underline;
+    &:hover {
+      text-decoration: underline;
+    }
   }
 `;
-
 
 const Login = () => {
   const navigate = useNavigate();
@@ -168,51 +163,52 @@ const Login = () => {
 
   return (
     <Container>
-      <StyledCard>
+      <FormContainer>
         <Header>
-  <div className="emoji">🫆</div>
-  <Title level={2} style={{ marginBottom: 0 }}>
-    Welcome to TUP-VMS
-  </Title>
-  <Text className="subtitle">
-    Sign in to continue exploring us!
-  </Text>
-  <div className="divider" />
-</Header>
-
+          <div className="logo-text">TUP VMS</div>
+          <div className="subtitle">Sign in to access the portal</div>
+        </Header>
 
         <StyledForm layout="vertical" onFinish={onFinish}>
           <Form.Item
+            label="Email Address"
             name="email"
-            rules={[{ required: true, type: "email", message: "Enter a valid email" }]}
+            rules={[
+              { required: true, message: "Please enter your email" },
+              { type: "email", message: "Please enter a valid email" },
+            ]}
           >
             <Input
-              prefix={<UserOutlined />}
-              placeholder="Email address"
+              prefix={<MailOutlined />}
+              placeholder="you@example.com"
+              size="large"
             />
           </Form.Item>
 
           <Form.Item
+            label="Password"
             name="password"
-            rules={[{ required: true, message: "Password is required" }]}
+            rules={[{ required: true, message: "Please enter your password" }]}
           >
             <Input.Password
               prefix={<LockOutlined />}
-              placeholder="Password"
+              placeholder="Enter your password"
+              size="large"
             />
           </Form.Item>
 
           <Form.Item>
             <Button type="primary" htmlType="submit" block>
-              Sign In
+              Sign In <ArrowRightOutlined />
             </Button>
           </Form.Item>
         </StyledForm>
 
-        <RegisterLink type="link" onClick={() => navigate("/register")}>
-          Don’t have an account? Create one
-        </RegisterLink>
-      </StyledCard>
+        <Footer>
+          Don't have an account?{" "}
+          <a onClick={() => navigate("/register")}>Register here</a>
+        </Footer>
+      </FormContainer>
     </Container>
   );
 };
