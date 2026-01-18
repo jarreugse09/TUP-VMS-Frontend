@@ -108,7 +108,9 @@ const Analytics = () => {
     setSingleDate(date);
 
     if (type === "day") {
+      // For day view, fetch both hourly for chart AND daily for role cards
       fetchHourlyAnalytics(start.format("YYYY-MM-DD"));
+      fetchAnalytics(start.format("YYYY-MM-DD"), end.format("YYYY-MM-DD"));
     } else {
       fetchAnalytics(start.format("YYYY-MM-DD"), end.format("YYYY-MM-DD"));
     }
@@ -145,6 +147,7 @@ const Analytics = () => {
   ];
   const [selectedRoles, setSelectedRoles] = useState<string[]>(DEFAULT_ROLES);
 
+  // Need data for role summary cards regardless of view type
   if (!data) return null;
 
   const roleColors: Record<string, string> = {
