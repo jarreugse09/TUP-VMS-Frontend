@@ -15,11 +15,12 @@ const Container = styled.div`
   align-items: center;
   justify-content: center;
   background:
-    linear-gradient(135deg, rgba(128, 0, 32, 0.6), rgba(220, 20, 60, 0.6)),
+    linear-gradient(135deg, rgba(255, 117, 151, 0.6), rgba(220, 20, 60, 0.6)),
     url("/images/tup-bg.png");
   background-size: cover;
   background-position: center;
   padding: 24px;
+  overflow: hidden;
 `;
 
 const FormContainer = styled.div`
@@ -135,7 +136,7 @@ const Footer = styled.div`
   color: rgba(255, 255, 255, 0.7);
 
   a {
-    color: #ff6b6b;
+    color: #ffffff;
     font-weight: 600;
     cursor: pointer;
 
