@@ -17,6 +17,7 @@ import {
   Form,
   Input,
   Upload,
+  Radio,
 } from "antd";
 import {
   ReloadOutlined,
@@ -24,7 +25,7 @@ import {
   QrcodeOutlined,
   IdcardOutlined,
 } from "@ant-design/icons";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   getProfile,
   requestQRChange,
@@ -43,9 +44,22 @@ const Profile = () => {
   const [showPhotoRequestModal, setShowPhotoRequestModal] = useState(false);
   const [uploadingFile, setUploadingFile] = useState<File | null>(null);
   const [photoRequestFile, setPhotoRequestFile] = useState<File | null>(null);
+  const [photoInputMode, setPhotoInputMode] = useState<"upload" | "camera">(
+    "upload",
+  );
+  const [capturedPhoto, setCapturedPhoto] = useState<string | null>(null);
   const [photoRequesting, setPhotoRequesting] = useState(false);
+  const photoVideoRef = useRef<HTMLVideoElement | null>(null);
+  const photoStreamRef = useRef<MediaStream | null>(null);
   const [form] = Form.useForm();
   const [photoForm] = Form.useForm();
+
+  const stopPhotoCamera = () => {
+    if (photoStreamRef.current) {
+      photoStreamRef.current.getTracks().forEach((track) => track.stop());
+      photoStreamRef.current = null;
+    }
+  };
 
   const fetchProfile = async () => {
     try {
@@ -62,6 +76,76 @@ const Profile = () => {
   useEffect(() => {
     fetchProfile();
   }, []);
+
+  useEffect(() => {
+    if (
+      !showPhotoRequestModal ||
+      photoInputMode !== "camera" ||
+      capturedPhoto
+    ) {
+      stopPhotoCamera();
+      return;
+    }
+
+    const startCamera = async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: "user",
+            width: { ideal: 640 },
+            height: { ideal: 480 },
+          },
+          audio: false,
+        });
+        photoStreamRef.current = stream;
+        if (photoVideoRef.current) {
+          photoVideoRef.current.srcObject = stream;
+          await photoVideoRef.current.play();
+        }
+      } catch {
+        message.error("Camera access is required to take a photo.");
+        setPhotoInputMode("upload");
+      }
+    };
+
+    startCamera();
+
+    return () => {
+      stopPhotoCamera();
+    };
+  }, [showPhotoRequestModal, photoInputMode, capturedPhoto]);
+
+  const handleCapturePhoto = () => {
+    if (!photoVideoRef.current) return;
+
+    const canvas = document.createElement("canvas");
+    canvas.width = photoVideoRef.current.videoWidth || 640;
+    canvas.height = photoVideoRef.current.videoHeight || 480;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    ctx.drawImage(photoVideoRef.current, 0, 0, canvas.width, canvas.height);
+    const photoDataUrl = canvas.toDataURL("image/jpeg", 0.85);
+    setCapturedPhoto(photoDataUrl);
+
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) return;
+        const file = new File([blob], `profile-photo-${Date.now()}.jpg`, {
+          type: "image/jpeg",
+        });
+        setPhotoRequestFile(file);
+      },
+      "image/jpeg",
+      0.85,
+    );
+  };
+
+  const handleRetakePhoto = () => {
+    setCapturedPhoto(null);
+    setPhotoRequestFile(null);
+  };
 
   const handleRequestQRChange = () => {
     setShowRequestModal(true);
@@ -390,9 +474,12 @@ const renderQRCard = () => (
         title="Request Profile Photo Change"
         open={showPhotoRequestModal}
         onCancel={() => {
+          stopPhotoCamera();
           setShowPhotoRequestModal(false);
           photoForm.resetFields();
           setPhotoRequestFile(null);
+          setCapturedPhoto(null);
+          setPhotoInputMode("upload");
         }}
         onOk={handleSubmitPhotoRequest}
         confirmLoading={photoRequesting}
@@ -406,25 +493,94 @@ const renderQRCard = () => (
             <Input.TextArea rows={3} />
           </Form.Item>
 
-          <Form.Item
-            label="Upload New Profile Photo"
-            required
-            tooltip="This request requires admin approval before your profile photo is updated."
-          >
-            <Upload
-              beforeUpload={(file) => {
-                setPhotoRequestFile(file);
-                return false;
-              }}
-              accept="image/*"
-              maxCount={1}
-              onRemove={() => {
+          <Form.Item label="Photo Source" required>
+            <Radio.Group
+              value={photoInputMode}
+              onChange={(e) => {
+                const mode = e.target.value as "upload" | "camera";
+                setPhotoInputMode(mode);
                 setPhotoRequestFile(null);
+                setCapturedPhoto(null);
               }}
             >
-              <Button>Choose Photo</Button>
-            </Upload>
+              <Radio.Button value="upload">Upload</Radio.Button>
+              <Radio.Button value="camera">Take Photo</Radio.Button>
+            </Radio.Group>
           </Form.Item>
+
+          {photoInputMode === "upload" ? (
+            <Form.Item
+              label="Upload New Profile Photo"
+              required
+              tooltip="This request requires admin approval before your profile photo is updated."
+            >
+              <Upload
+                beforeUpload={(file) => {
+                  setPhotoRequestFile(file);
+                  return false;
+                }}
+                accept="image/*"
+                maxCount={1}
+                onRemove={() => {
+                  setPhotoRequestFile(null);
+                }}
+              >
+                <Button>Choose Photo</Button>
+              </Upload>
+            </Form.Item>
+          ) : (
+            <Form.Item
+              label="Take New Profile Photo"
+              required
+              tooltip="This request requires admin approval before your profile photo is updated."
+            >
+              <div
+                style={{
+                  width: "100%",
+                  background: "#111",
+                  borderRadius: 12,
+                  overflow: "hidden",
+                  minHeight: 240,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                {capturedPhoto ? (
+                  <img
+                    src={capturedPhoto}
+                    alt="Captured preview"
+                    style={{ width: "100%", maxHeight: 320, objectFit: "contain" }}
+                  />
+                ) : (
+                  <video
+                    ref={photoVideoRef}
+                    autoPlay
+                    playsInline
+                    muted
+                    style={{ width: "100%", maxHeight: 320, objectFit: "cover" }}
+                  />
+                )}
+              </div>
+
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "flex-end",
+                  gap: 8,
+                  marginTop: 12,
+                }}
+              >
+                {capturedPhoto ? (
+                  <Button onClick={handleRetakePhoto}>Retake</Button>
+                ) : (
+                  <Button type="primary" onClick={handleCapturePhoto}>
+                    Capture
+                  </Button>
+                )}
+              </div>
+            </Form.Item>
+          )}
         </Form>
       </Modal>
     </div>
