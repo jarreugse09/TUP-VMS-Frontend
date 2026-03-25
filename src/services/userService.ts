@@ -26,6 +26,21 @@ export const requestQRChange = async (payload: {
   return response.data;
 };
 
+export const requestProfilePhotoChange = async (payload: {
+  reason: string;
+  newPhotoImage: File;
+}) => {
+  const form = new FormData();
+  form.append("reason", payload.reason);
+  form.append("newPhotoImage", payload.newPhotoImage);
+
+  const response = await api.post("/users/request-profile-photo", form, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+
+  return response.data;
+};
+
 export const getUser = async (id: string) => {
   const response = await api.get(`/users/${id}`);
   return response.data;

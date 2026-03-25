@@ -25,7 +25,11 @@ import {
   IdcardOutlined,
 } from "@ant-design/icons";
 import { useEffect, useState } from "react";
-import { getProfile, requestQRChange } from "../services/userService";
+import {
+  getProfile,
+  requestQRChange,
+  requestProfilePhotoChange,
+} from "../services/userService";
 import html2canvas from "html2canvas";
 
 const { Title, Text } = Typography;
@@ -36,8 +40,12 @@ const Profile = () => {
   const [requesting, setRequesting] = useState(false);
   const [drawerVisible, setDrawerVisible] = useState(false);
   const [showRequestModal, setShowRequestModal] = useState(false);
+  const [showPhotoRequestModal, setShowPhotoRequestModal] = useState(false);
   const [uploadingFile, setUploadingFile] = useState<File | null>(null);
+  const [photoRequestFile, setPhotoRequestFile] = useState<File | null>(null);
+  const [photoRequesting, setPhotoRequesting] = useState(false);
   const [form] = Form.useForm();
+  const [photoForm] = Form.useForm();
 
   const fetchProfile = async () => {
     try {
@@ -102,6 +110,33 @@ const Profile = () => {
       message.success("QR Code downloaded successfully!");
     } catch {
       message.error("Failed to download QR code");
+    }
+  };
+
+  const handleSubmitPhotoRequest = async () => {
+    try {
+      const values = await photoForm.validateFields();
+      if (!photoRequestFile) {
+        message.error("Please upload your new profile photo");
+        return;
+      }
+
+      setPhotoRequesting(true);
+      await requestProfilePhotoChange({
+        reason: values.reason,
+        newPhotoImage: photoRequestFile,
+      });
+
+      message.success("Profile photo update request submitted for approval");
+      setShowPhotoRequestModal(false);
+      photoForm.resetFields();
+      setPhotoRequestFile(null);
+    } catch (error: any) {
+      if (!error?.errorFields) {
+        message.error("Failed to submit profile photo request");
+      }
+    } finally {
+      setPhotoRequesting(false);
     }
   };
 
@@ -261,6 +296,12 @@ const renderQRCard = () => (
                 style={{ marginBottom: 16 }}
               />
 
+              <div style={{ marginBottom: 12 }}>
+                <Button onClick={() => setShowPhotoRequestModal(true)}>
+                  Request Profile Photo Update
+                </Button>
+              </div>
+
               <Title level={2}>
                 {profile.user.firstName} {profile.user.surname}
               </Title>
@@ -340,6 +381,48 @@ const renderQRCard = () => (
               maxCount={1}
             >
               <Button>Click to Upload</Button>
+            </Upload>
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      <Modal
+        title="Request Profile Photo Change"
+        open={showPhotoRequestModal}
+        onCancel={() => {
+          setShowPhotoRequestModal(false);
+          photoForm.resetFields();
+          setPhotoRequestFile(null);
+        }}
+        onOk={handleSubmitPhotoRequest}
+        confirmLoading={photoRequesting}
+      >
+        <Form form={photoForm} layout="vertical">
+          <Form.Item
+            name="reason"
+            label="Reason"
+            rules={[{ required: true, message: "Reason is required" }]}
+          >
+            <Input.TextArea rows={3} />
+          </Form.Item>
+
+          <Form.Item
+            label="Upload New Profile Photo"
+            required
+            tooltip="This request requires admin approval before your profile photo is updated."
+          >
+            <Upload
+              beforeUpload={(file) => {
+                setPhotoRequestFile(file);
+                return false;
+              }}
+              accept="image/*"
+              maxCount={1}
+              onRemove={() => {
+                setPhotoRequestFile(null);
+              }}
+            >
+              <Button>Choose Photo</Button>
             </Upload>
           </Form.Item>
         </Form>

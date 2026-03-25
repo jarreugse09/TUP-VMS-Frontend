@@ -30,11 +30,14 @@ const { Option } = Select;
 
 interface QRRequestItem {
   _id: string;
+  requestType?: "QR" | "PROFILE_PHOTO";
   reason?: string;
   oldQR?: string;
   newQR?: string;
   newQRString?: string;
   newQRImage?: string;
+  oldPhotoURL?: string;
+  newPhotoImage?: string;
   status: "Pending" | "Approved" | "Rejected";
   createdAt: string;
   userId?: {
@@ -43,6 +46,7 @@ interface QRRequestItem {
     surname?: string;
     role?: string;
     qrString?: string | null;
+    photoURL?: string | null;
   };
 }
 
@@ -82,9 +86,13 @@ const QRRequests = () => {
             // Support both backend keys while preserving current API shape.
             newQR: item?.newQR ?? item?.newQRString ?? "",
             newQRString: item?.newQRString ?? item?.newQR ?? "",
+            requestType: item?.requestType || "QR",
+            oldPhotoURL: item?.oldPhotoURL || item?.userId?.photoURL || "",
+            newPhotoImage: item?.newPhotoImage || "",
             userId: {
               ...item?.userId,
               qrString: item?.userId?.qrString ?? null,
+              photoURL: item?.userId?.photoURL ?? null,
             },
           }))
         : [];
@@ -169,29 +177,45 @@ const QRRequests = () => {
       },
     },
     {
+      title: "Type",
+      dataIndex: "requestType",
+      render: (value: "QR" | "PROFILE_PHOTO") => (
+        <Tag color={value === "PROFILE_PHOTO" ? "magenta" : "geekblue"}>
+          {value === "PROFILE_PHOTO" ? "Profile Photo" : "QR Change"}
+        </Tag>
+      ),
+    },
+    {
       title: "Old QR",
       dataIndex: "oldQR",
-      render: (t: string) => <Text code>{t}</Text>,
+      render: (_: string, record: QRRequestItem) =>
+        record.requestType === "PROFILE_PHOTO" ? "-" : <Text code>{record.oldQR || "-"}</Text>,
     },
     {
       title: "New QR String",
       dataIndex: "newQRString",
       render: (_: string, record: QRRequestItem) => {
+        if (record.requestType === "PROFILE_PHOTO") return "-";
         const qrValue = record.newQRString || record.newQR;
         return qrValue ? <Text code>{qrValue}</Text> : "-";
       },
     },
     {
-      title: "New QR Image",
+      title: "Uploaded Image",
       dataIndex: "newQRImage",
-      render: (p: string) =>
-        p ? (
-          <a href={toAssetUrl(p)} target="_blank" rel="noreferrer">
-            <Image src={toAssetUrl(p)} width={80} />
+      render: (_: string, record: QRRequestItem) => {
+        const imagePath = record.requestType === "PROFILE_PHOTO"
+          ? record.newPhotoImage
+          : record.newQRImage;
+
+        return imagePath ? (
+          <a href={toAssetUrl(imagePath)} target="_blank" rel="noreferrer">
+            <Image src={toAssetUrl(imagePath)} width={80} />
           </a>
         ) : (
           "-"
-        ),
+        );
+      },
     },
     {
       title: "Status",
@@ -259,7 +283,7 @@ const QRRequests = () => {
         <Space>
           <FilterOutlined style={{ color: "#1677ff" }} />
           <Title level={4} style={{ margin: 0 }}>
-            QR Change Requests
+            Change Requests
           </Title>
         </Space>
       }
@@ -329,7 +353,7 @@ const QRRequests = () => {
       />
 
       <Modal
-        title="QR Request Details"
+        title="Request Details"
         open={!!selectedRequest}
         onCancel={() => setSelectedRequest(null)}
         footer={null}
@@ -343,11 +367,20 @@ const QRRequests = () => {
             <Descriptions.Item label="Role">
               {selectedRequest.userId?.role || "-"}
             </Descriptions.Item>
+            <Descriptions.Item label="Type">
+              {selectedRequest.requestType === "PROFILE_PHOTO"
+                ? "Profile Photo Change"
+                : "QR Change"}
+            </Descriptions.Item>
             <Descriptions.Item label="Current QR String">
-              {selectedRequest.userId?.qrString || "-"}
+              {selectedRequest.requestType === "PROFILE_PHOTO"
+                ? "-"
+                : selectedRequest.userId?.qrString || "-"}
             </Descriptions.Item>
             <Descriptions.Item label="Requested New QR">
-              {selectedRequest.newQRString || selectedRequest.newQR || "-"}
+              {selectedRequest.requestType === "PROFILE_PHOTO"
+                ? "-"
+                : selectedRequest.newQRString || selectedRequest.newQR || "-"}
             </Descriptions.Item>
             <Descriptions.Item label="Reason">
               {selectedRequest.reason || "-"}
@@ -358,14 +391,34 @@ const QRRequests = () => {
             <Descriptions.Item label="Created At">
               {new Date(selectedRequest.createdAt).toLocaleString()}
             </Descriptions.Item>
-            <Descriptions.Item label="New QR Image">
-              {selectedRequest.newQRImage ? (
+            <Descriptions.Item label="Current Profile Photo">
+              {selectedRequest.requestType === "PROFILE_PHOTO" &&
+              selectedRequest.userId?.photoURL ? (
                 <a
-                  href={toAssetUrl(selectedRequest.newQRImage)}
+                  href={toAssetUrl(selectedRequest.userId.photoURL)}
                   target="_blank"
                   rel="noreferrer"
                 >
-                  View Uploaded QR Image
+                  View Current Profile Photo
+                </a>
+              ) : (
+                "-"
+              )}
+            </Descriptions.Item>
+            <Descriptions.Item label="Requested Image">
+              {(selectedRequest.requestType === "PROFILE_PHOTO"
+                ? selectedRequest.newPhotoImage
+                : selectedRequest.newQRImage) ? (
+                <a
+                  href={toAssetUrl(
+                    selectedRequest.requestType === "PROFILE_PHOTO"
+                      ? selectedRequest.newPhotoImage
+                      : selectedRequest.newQRImage,
+                  )}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  View Uploaded Image
                 </a>
               ) : (
                 "-"
