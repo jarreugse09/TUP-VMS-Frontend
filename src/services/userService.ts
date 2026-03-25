@@ -10,7 +10,11 @@ export const getProfile = async () => {
   return response.data;
 };
 
-export const requestQRChange = async (payload: { reason: string; newQRString?: string; newQRImage?: File | null; }) => {
+export const requestQRChange = async (payload: {
+  reason: string;
+  newQRString?: string;
+  newQRImage?: File | null;
+}) => {
   const form = new FormData();
   form.append("reason", payload.reason);
   if (payload.newQRString) form.append("newQRString", payload.newQRString);
@@ -38,7 +42,7 @@ export const deleteUser = async (id: string) => {
 };
 
 export const getQRRequests = async () => {
-  const response = await api.get('/users/qr-requests');
+  const response = await api.get("/users/qr-requests");
   return response.data;
 };
 
@@ -54,5 +58,20 @@ export const rejectQRRequest = async (requestId: string) => {
 
 export const getAllUsers = async (params?: any) => {
   const { data } = await api.get("/users/admin", { params });
+  return data;
+};
+
+export const adminRegisterUser = async (payload: {
+  firstName: string;
+  surname: string;
+  birthdate: string;
+  role: "Staff" | "Student";
+  staffType?: string;
+  email: string;
+  password: string;
+  customQR: string;
+  photoURL?: string;
+}) => {
+  const { data } = await api.post("/users/admin/register", payload);
   return data;
 };

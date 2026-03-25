@@ -262,7 +262,7 @@ const Register = () => {
       key: "access",
       title: "Access",
       description: "Role & contact",
-      fields: ["email", "role", "staffType", "customQR"],
+      fields: ["email", "role", "staffType"],
     },
     {
       key: "security",
@@ -308,7 +308,6 @@ const Register = () => {
         password: values.password,
         confirmPassword: values.confirmPassword,
         photoURL,
-        customQR: values.customQR || undefined, // 👈 OPTIONAL QR
       };
 
       console.log("Register payload", payload);
@@ -448,14 +447,6 @@ const Register = () => {
                 <Option value="Admin">Admin</Option>
                 <Option value="Security">Security</Option>
               </Select>
-            </Form.Item>
-
-            <Form.Item
-              label="Custom QR (optional)"
-              name="customQR"
-              tooltip="Provide your own QR string (subject to admin approval)"
-            >
-              <Input placeholder="Enter your own QR string (optional)" />
             </Form.Item>
           </div>
 
