@@ -106,6 +106,7 @@ const Logs = () => {
   const [exportFormat, setExportFormat] = useState<"csv" | "xlsx">("csv");
   const [exportPassword, setExportPassword] = useState("");
   const [exporting, setExporting] = useState(false);
+  const [exportRole, setExportRole] = useState<string | undefined>(undefined);
 
   const fetchLogs = async () => {
     if (fetchingRef.current) return;
@@ -126,7 +127,11 @@ const Logs = () => {
       return;
     }
 
-    let payload: any = { format: exportFormat, password: exportPassword };
+    let payload: any = {
+      format: exportFormat,
+      password: exportPassword,
+      ...(exportRole ? { role: exportRole } : {}),
+    };
     if (exportMode === "month") {
       if (!exportMonth) return message.error("Please select a month");
       payload.month = exportMonth.format("YYYY-MM");
@@ -161,6 +166,7 @@ const Logs = () => {
       message.success("Export started");
       setExportModalOpen(false);
       setExportPassword("");
+      setExportRole(undefined);
     } catch (err: any) {
       if (err.response && err.response.status === 401) {
         message.error("Incorrect password");
@@ -345,7 +351,11 @@ const Logs = () => {
       <Modal
         title="Export Attendance"
         open={exportModalOpen}
-        onCancel={() => setExportModalOpen(false)}
+        onCancel={() => {
+          setExportModalOpen(false);
+          setExportPassword("");
+          setExportRole(undefined);
+        }}
         onOk={handleExport}
         okText="Export"
         confirmLoading={exporting}
@@ -374,14 +384,42 @@ const Logs = () => {
         </Space>
 
         <Space direction="vertical" style={{ width: "100%" }}>
-          <Select
-            value={exportFormat}
-            onChange={(v) => setExportFormat(v as any)}
-            style={{ width: 160 }}
-          >
-            <Option value="csv">CSV</Option>
-            <Option value="xlsx">Excel (.xlsx)</Option>
-          </Select>
+          <div>
+            <Text
+              type="secondary"
+              style={{ display: "block", marginBottom: 8 }}
+            >
+              Role Filter (Optional)
+            </Text>
+            <Select
+              placeholder="All Roles"
+              allowClear
+              value={exportRole}
+              onChange={(value) => setExportRole(value)}
+              style={{ width: "100%" }}
+            >
+              <Option value="Staff">Staff</Option>
+              <Option value="Student">Student</Option>
+              <Option value="Visitor">Visitor</Option>
+            </Select>
+          </div>
+
+          <div>
+            <Text
+              type="secondary"
+              style={{ display: "block", marginBottom: 8 }}
+            >
+              Format
+            </Text>
+            <Select
+              value={exportFormat}
+              onChange={(v) => setExportFormat(v as any)}
+              style={{ width: "100%" }}
+            >
+              <Option value="csv">CSV</Option>
+              <Option value="xlsx">Excel (.xlsx)</Option>
+            </Select>
+          </div>
 
           <Input.Password
             placeholder="Confirm your password"
