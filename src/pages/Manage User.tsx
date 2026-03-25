@@ -13,6 +13,9 @@ import {
   Col,
   Divider,
   message,
+  Drawer,
+  Descriptions,
+  Avatar,
 } from "antd";
 // import { useState, useEffect, useMemo } from 'react';
 import { useState, useEffect } from "react";
@@ -30,8 +33,10 @@ interface IUser {
   surname: string;
   birthdate: string;
   role: "TUP" | "Staff" | "Student" | "Visitor";
+  staffType?: string;
   status: "Active" | "In TUP" | "Inactive";
   photoURL: string;
+  email: string;
   createdAt: string;
 }
 
@@ -42,6 +47,7 @@ const ManageUsers = () => {
   const [loading, setLoading] = useState(false);
   const [registering, setRegistering] = useState(false);
   const [showRegisterForm, setShowRegisterForm] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<IUser | null>(null);
   const [filters, setFilters] = useState<{
     name?: string;
     role?: string;
@@ -350,7 +356,59 @@ const ManageUsers = () => {
             dataSource={users}
             rowKey="_id"
             loading={loading}
+            onRow={(record) => ({
+              onClick: () => setSelectedUser(record),
+              style: { cursor: "pointer" },
+            })}
           />
+
+          <Drawer
+            title="User Details"
+            open={!!selectedUser}
+            width={520}
+            onClose={() => setSelectedUser(null)}
+          >
+            {selectedUser && (
+              <Space direction="vertical" size={16} style={{ width: "100%" }}>
+                <Space align="center">
+                  <Avatar
+                    src={selectedUser.photoURL}
+                    size={64}
+                    alt={`${selectedUser.firstName} ${selectedUser.surname}`}
+                  />
+                  <div>
+                    <Title level={5} style={{ margin: 0 }}>
+                      {selectedUser.firstName} {selectedUser.surname}
+                    </Title>
+                    <Text type="secondary">User ID: {selectedUser._id}</Text>
+                  </div>
+                </Space>
+
+                <Descriptions bordered size="small" column={1}>
+                  <Descriptions.Item label="Email Address">
+                    {selectedUser.email}
+                  </Descriptions.Item>
+                  <Descriptions.Item label="Role">
+                    {selectedUser.role}
+                  </Descriptions.Item>
+                  <Descriptions.Item label="Staff Type">
+                    {selectedUser.staffType || "N/A"}
+                  </Descriptions.Item>
+                  <Descriptions.Item label="Status">
+                    {selectedUser.status}
+                  </Descriptions.Item>
+                  <Descriptions.Item label="Birthdate">
+                    {dayjs(selectedUser.birthdate).format("MMMM DD, YYYY")}
+                  </Descriptions.Item>
+                  <Descriptions.Item label="Date Joined">
+                    {dayjs(selectedUser.createdAt).format(
+                      "MMMM DD, YYYY hh:mm A",
+                    )}
+                  </Descriptions.Item>
+                </Descriptions>
+              </Space>
+            )}
+          </Drawer>
         </Card>
       )}
     </Space>
