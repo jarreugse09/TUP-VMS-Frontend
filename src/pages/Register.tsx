@@ -89,15 +89,21 @@ const StyledForm = styled(Form)`
     font-weight: 600;
   }
 
+  .ant-form-item-explain-error {
+    color: #ffd9df !important;
+    font-weight: 600;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+  }
+
   .ant-input,
   .ant-picker,
   .ant-select-selector,
   .ant-input-affix-wrapper {
     height: 48px !important;
     border-radius: 12px !important;
-    background: rgba(255, 255, 255, 0.08) !important;
+    background: rgba(255, 255, 255, 0.12) !important;
     border: 1px solid rgba(255, 255, 255, 0.2) !important;
-    color: #fff;
+    color: #fff !important;
   }
 
   .ant-select-arrow,
@@ -110,18 +116,45 @@ const StyledForm = styled(Form)`
   .ant-input-password,
   .ant-input-affix-wrapper {
     background: transparent !important;
-    color: #fff;
-    caret-color: #fff;
+    color: #fff !important;
+    caret-color: #fff !important;
   }
 
   .ant-input-affix-wrapper input {
     border: none !important;
     box-shadow: none !important;
     background: transparent !important;
+    color: #fff !important;
+    caret-color: #fff !important;
+    -webkit-text-fill-color: #fff !important;
+  }
+
+  .ant-input-affix-wrapper-focused,
+  .ant-input:focus,
+  .ant-input-focused,
+  .ant-picker-focused,
+  .ant-select-focused .ant-select-selector {
+    background: rgba(255, 255, 255, 0.18) !important;
+    border-color: #dc143c !important;
+    box-shadow: 0 0 0 3px rgba(220, 20, 60, 0.2) !important;
   }
 
   input::placeholder {
     color: rgba(255, 255, 255, 0.55) !important;
+  }
+
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover,
+  input:-webkit-autofill:focus,
+  input:-webkit-autofill:active,
+  .ant-input-affix-wrapper input:-webkit-autofill,
+  .ant-input-affix-wrapper input:-webkit-autofill:hover,
+  .ant-input-affix-wrapper input:-webkit-autofill:focus,
+  .ant-input-affix-wrapper input:-webkit-autofill:active {
+    -webkit-text-fill-color: #fff !important;
+    box-shadow: 0 0 0 1000px rgba(255, 255, 255, 0.12) inset !important;
+    -webkit-box-shadow: 0 0 0 1000px rgba(255, 255, 255, 0.12) inset !important;
+    transition: background-color 9999s ease-in-out 0s;
   }
 
   .ant-btn-primary {

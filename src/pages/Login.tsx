@@ -62,11 +62,17 @@ const StyledForm = styled(Form)`
     font-weight: 600;
   }
 
+  .ant-form-item-explain-error {
+    color: #ffd9df !important;
+    font-weight: 600;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+  }
+
   .ant-input-affix-wrapper {
     height: 52px;
     border-radius: 8px;
     border: 1px solid rgba(255, 255, 255, 0.3);
-    background: rgba(255, 255, 255, 0.15);
+    background: rgba(255, 255, 255, 0.15) !important;
     transition: all 0.3s;
     padding: 0 16px;
 
@@ -99,17 +105,36 @@ const StyledForm = styled(Form)`
   .ant-input,
   .ant-input-password {
     background: transparent !important;
-    color: white;
-    caret-color: white;
+    color: #fff !important;
+    caret-color: #fff !important;
+  }
+
+  .ant-input-affix-wrapper input,
+  .ant-input {
+    color: #fff !important;
+    caret-color: #fff !important;
+    -webkit-text-fill-color: #fff !important;
+  }
+
+  .ant-input-affix-wrapper-focused,
+  .ant-input:focus,
+  .ant-input-focused {
+    background: rgba(255, 255, 255, 0.2) !important;
+    border-color: #dc143c !important;
   }
 
   input:-webkit-autofill,
-  input:-webkit-autofill:focus {
-    -webkit-text-fill-color: white;
-    transition:
-      background-color 600000s 0s,
-      color 600000s 0s;
-    box-shadow: 0 0 0px 1000px rgba(255, 255, 255, 0.1) inset;
+  input:-webkit-autofill:hover,
+  input:-webkit-autofill:focus,
+  input:-webkit-autofill:active,
+  .ant-input-affix-wrapper input:-webkit-autofill,
+  .ant-input-affix-wrapper input:-webkit-autofill:hover,
+  .ant-input-affix-wrapper input:-webkit-autofill:focus,
+  .ant-input-affix-wrapper input:-webkit-autofill:active {
+    -webkit-text-fill-color: #fff !important;
+    box-shadow: 0 0 0 1000px rgba(255, 255, 255, 0.12) inset !important;
+    -webkit-box-shadow: 0 0 0 1000px rgba(255, 255, 255, 0.12) inset !important;
+    transition: background-color 9999s ease-in-out 0s;
   }
 
   .ant-btn-primary {
