@@ -23,6 +23,7 @@ const Attendance = lazy(() => import("./pages/Attendance"));
 const QRRequests = lazy(() => import("./pages/QRRequests"));
 const Analytics = lazy(() => import("./pages/Analytics"));
 const ManageUsers = lazy(() => import("./pages/Manage User"));
+const MyAttendance = lazy(() => import("./pages/UserAttendance"));
 
 const { Content } = Layout;
 const { Text } = Typography;
@@ -208,6 +209,7 @@ function App() {
       extraRoutes: [
         <Route key="logs" path="/staff/logs" element={<StaffLogs />} />,
         <Route key="attendance" path="/attendance" element={<Attendance />} />,
+        <Route key="my-attendance" path="/staff/attendance" element={<MyAttendance />} />,
       ],
     },
     Security: {
@@ -221,12 +223,18 @@ function App() {
     Visitor: {
       dashboardPath: "/user/dashboard",
       dashboardElement: <Dashboard />,
-      extraRoutes: [<Route key="logs" path="/user/logs" element={<Logs />} />],
+      extraRoutes: [
+        <Route key="logs" path="/user/logs" element={<Logs />} />,
+        <Route key="attendance" path="/user/attendance" element={<MyAttendance />} />,
+      ],
     },
     Student: {
       dashboardPath: "/user/dashboard",
       dashboardElement: <Dashboard />,
-      extraRoutes: [<Route key="logs" path="/user/logs" element={<Logs />} />],
+      extraRoutes: [
+        <Route key="logs" path="/user/logs" element={<Logs />} />,
+        <Route key="attendance" path="/user/attendance" element={<MyAttendance />} />,
+      ],
     },
   };
 

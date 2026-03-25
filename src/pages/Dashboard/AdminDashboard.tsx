@@ -1,6 +1,7 @@
 import {
   Card,
   message,
+  notification,
   Row,
   Col,
   Avatar,
@@ -95,8 +96,43 @@ const AdminDashboard = () => {
     } catch (err: any) {
       const errorMsg = err.response?.data?.message || "Scan failed";
       setResultMessage(null);
-      message.error(errorMsg);
-      processingRef.current = false;
+      
+      // Handle specific status errors with better notifications
+      if (errorMsg.includes("already check in") || errorMsg.includes("already attended")) {
+        const isAlreadyCheckedIn = errorMsg.includes("already check in");
+        notification.warning({
+          message: isAlreadyCheckedIn ? "⏱️ Already Checked In" : "⏱️ Already Attended",
+          description: isAlreadyCheckedIn 
+            ? "User is already checked in. Try checking them out first."
+            : "User has already checked in for attendance today.",
+          duration: 4,
+        });
+        
+        // Auto-refresh after 4 seconds for next scan
+        setTimeout(() => {
+          setScanResult(null);
+          processingRef.current = false;
+          lastScannedRef.current = null;
+        }, 4000);
+      } else if (errorMsg.includes("must check in first")) {
+        notification.warning({
+          message: "❌ Not Checked In Yet",
+          description: "User must check in before they can check out.",
+          duration: 4,
+        });
+        
+        setTimeout(() => {
+          processingRef.current = false;
+          lastScannedRef.current = null;
+        }, 4000);
+      } else {
+        notification.error({
+          message: "❌ Scan Failed",
+          description: errorMsg,
+          duration: 3,
+        });
+        processingRef.current = false;
+      }
     }
   }, []);
 
@@ -134,8 +170,46 @@ const AdminDashboard = () => {
     } catch (err: any) {
       const errorMsg = err.response?.data?.message || "Scan failed";
       setResultMessage(null);
-      message.error(errorMsg);
-      processingRef.current = false;
+      
+      // Handle specific status errors with better notifications
+      if (errorMsg.includes("already check in") || errorMsg.includes("already attended")) {
+        const isAlreadyCheckedIn = errorMsg.includes("already check in");
+        notification.warning({
+          message: isAlreadyCheckedIn ? "⏱️ Already Checked In" : "⏱️ Already Attended",
+          description: isAlreadyCheckedIn 
+            ? "User is already checked in. Try checking them out first."
+            : "User has already checked in for attendance today.",
+          duration: 4,
+        });
+        setManualQR("");
+        
+        // Auto-refresh after 4 seconds for next scan
+        setTimeout(() => {
+          setScanResult(null);
+          processingRef.current = false;
+          lastScannedRef.current = null;
+        }, 4000);
+      } else if (errorMsg.includes("must check in first")) {
+        notification.warning({
+          message: "❌ Not Checked In Yet",
+          description: "User must check in before they can check out.",
+          duration: 4,
+        });
+        setManualQR("");
+        
+        setTimeout(() => {
+          processingRef.current = false;
+          lastScannedRef.current = null;
+        }, 4000);
+      } else {
+        notification.error({
+          message: "❌ Scan Failed",
+          description: errorMsg,
+          duration: 3,
+        });
+        setManualQR("");
+        processingRef.current = false;
+      }
     }
   };
 

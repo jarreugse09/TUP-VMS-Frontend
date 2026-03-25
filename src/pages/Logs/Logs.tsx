@@ -21,7 +21,7 @@ import {
   UserOutlined,
 } from "@ant-design/icons";
 import { useEffect, useState, useMemo, useRef } from "react";
-import { getLogs, getStaffLogs } from "../../services/logService";
+import { getLogs, getStaffLogs, getUserTransactions } from "../../services/logService";
 import { useAuth } from "../../contexts/AuthContext";
 import type { ColumnsType } from "antd/es/table";
 import dayjs from "dayjs";
@@ -62,6 +62,27 @@ interface LogItem {
   activities: Activity[];
 }
 
+interface TransactionLog {
+  _id: string;
+  date: string;
+  timeIn?: string;
+  timeOut?: string;
+  status: string;
+  reason: string;
+  scannedTarget?: {
+    firstName: string;
+    surname: string;
+    role: string;
+  } | null;
+  scannedQRString?: string | null;
+  scannedAt?: string;
+}
+
+const normalizeUserLog = (entry: any): LogItem => ({
+  ...entry,
+  userId: entry.userId || entry.user,
+});
+
 /* ================= HELPERS ================= */
 
 const getTimeIn = (log: LogItem) => {
@@ -100,22 +121,26 @@ const Logs = () => {
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedLog, setSelectedLog] = useState<LogItem | null>(null);
   const [drawerVisible, setDrawerVisible] = useState(false);
+  const [isTransactionView, setIsTransactionView] = useState(false); // Track if showing transactions
 
   const fetchLogs = async () => {
     if (fetchingRef.current) return;
     fetchingRef.current = true;
     setLoading(true);
     try {
-      let data: LogItem[] = [];
+      let data: any[] = [];
       if (user?.role === "TUP") {
         data = await getLogs();
+        setIsTransactionView(false);
       } else if (user?.role === "Staff") {
         data = await getStaffLogs();
+        setIsTransactionView(false);
       } else {
-        // Unauthorized roles: Students/Visitors do not have access
-        data = [];
+        // For Student/Visitor, show transactions only
+        data = await getUserTransactions();
+        setIsTransactionView(true);
       }
-      setLogs(data);
+      setLogs((data || []).map(normalizeUserLog));
     } catch (err) {
       // Swallow errors to avoid unhandled promise rejections
       setLogs([]);
@@ -150,25 +175,41 @@ const Logs = () => {
   /* ================= FILTER ================= */
 
   const filteredData = useMemo(() => {
-    return logs.filter((log) => {
-      const fullName =
-        `${log.userId.firstName} ${log.userId.surname}`.toLowerCase();
+    if (isTransactionView) {
+      // For transactions, apply date range filter only
+      return logs.filter((log: any) => {
+        let matchesDate = true;
+        if (filters.dateRange?.length === 2) {
+          const [start, end] = filters.dateRange;
+          const logDate = dayjs(log.date);
+          matchesDate =
+            logDate.isAfter(start.startOf("day")) &&
+            logDate.isBefore(end.endOf("day"));
+        }
+        return matchesDate;
+      });
+    } else {
+      // For grouped logs, apply all filters
+      return logs.filter((log: any) => {
+        const fullName =
+          `${log.userId.firstName} ${log.userId.surname}`.toLowerCase();
 
-      const matchesName = fullName.includes(filters.name.toLowerCase());
-      const matchesRole = !filters.role || log.userId.role === filters.role;
+        const matchesName = fullName.includes(filters.name.toLowerCase());
+        const matchesRole = !filters.role || log.userId.role === filters.role;
 
-      let matchesDate = true;
-      if (filters.dateRange?.length === 2) {
-        const [start, end] = filters.dateRange;
-        const logDate = dayjs(log.date);
-        matchesDate =
-          logDate.isAfter(start.startOf("day")) &&
-          logDate.isBefore(end.endOf("day"));
-      }
+        let matchesDate = true;
+        if (filters.dateRange?.length === 2) {
+          const [start, end] = filters.dateRange;
+          const logDate = dayjs(log.date);
+          matchesDate =
+            logDate.isAfter(start.startOf("day")) &&
+            logDate.isBefore(end.endOf("day"));
+        }
 
-      return matchesName && matchesRole && matchesDate;
-    });
-  }, [logs, filters]);
+        return matchesName && matchesRole && matchesDate;
+      });
+    }
+  }, [logs, filters, isTransactionView]);
 
   /* ================= TABLE ================= */
 
@@ -256,6 +297,55 @@ const Logs = () => {
     },
   ];
 
+  // Columns for transaction view (Student/Visitor)
+  const transactionColumns: ColumnsType<TransactionLog> = [
+    {
+      title: "Date & Time",
+      render: (_, record) => (
+        <Space direction="vertical" size={0}>
+          <Text strong>{dayjs(record.date).format("MMM DD, YYYY")}</Text>
+          <Text type="secondary" style={{ fontSize: 12 }}>
+            {dayjs(record.scannedAt).format("hh:mm A")}
+          </Text>
+        </Space>
+      ),
+      sorter: (a, b) => dayjs(a.date).unix() - dayjs(b.date).unix(),
+      defaultSortOrder: "descend",
+    },
+    {
+      title: "Scanned Target",
+      render: (_, record) => {
+        if (record.scannedTarget) {
+          return (
+            <Space direction="vertical" size={0}>
+              <Text strong>
+                {record.scannedTarget.firstName} {record.scannedTarget.surname}
+              </Text>
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                {record.scannedTarget.role}
+              </Text>
+            </Space>
+          );
+        }
+        return "-";
+      },
+    },
+    {
+      title: "QR Code",
+      render: (_, record) => (
+        <Text code style={{ fontSize: 11 }}>
+          {record.scannedQRString || "-"}
+        </Text>
+      ),
+    },
+    {
+      title: "Status",
+      render: (_, record) => (
+        <Tag color="blue">{record.status}</Tag>
+      ),
+    },
+  ];
+
   /* ================= RENDER ================= */
 
   return (
@@ -269,7 +359,7 @@ const Logs = () => {
           <Space>
             <FilterOutlined onClick={() => setDrawerVisible(true)} />
             <Title level={4} style={{ margin: 0 }}>
-              Attendance Logs
+              {isTransactionView ? "Transaction Logs" : "Attendance Logs"}
             </Title>
           </Space>
         }
@@ -304,7 +394,7 @@ const Logs = () => {
         </Space>
 
         <Table
-          columns={columns}
+          columns={(isTransactionView ? transactionColumns : columns) as any}
           dataSource={filteredData}
           rowKey="_id"
           loading={loading}
