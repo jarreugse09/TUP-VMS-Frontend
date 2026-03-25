@@ -49,6 +49,7 @@ interface LogItem {
   date: string;
   user: {
     _id: string;
+    qrString?: string;
     firstName: string;
     surname: string;
     role: string;
@@ -227,7 +228,7 @@ const Logs = () => {
             {record.user.firstName} {record.user.surname}
           </Text>
           <Text type="secondary" style={{ fontSize: 12 }}>
-            ID: {record.user._id.slice(-6)}
+            {record.user.qrString || "-"}
           </Text>
         </Space>
       ),

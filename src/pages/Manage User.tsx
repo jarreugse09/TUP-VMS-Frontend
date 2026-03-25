@@ -25,10 +25,11 @@ import { adminRegisterUser, getAllUsers } from "../services/userService";
 const { Option } = Select;
 const { RangePicker } = DatePicker;
 const { Text, Title } = Typography;
-const QR_PATTERN = /^TUP-\d{2}-\d{4}$/;
+const QR_PATTERN = /^(TUPM|TUPS|TUPV)-\d{2}-\d{4}$/;
 
 interface IUser {
   _id: string;
+  qrString?: string;
   firstName: string;
   surname: string;
   birthdate: string;
@@ -98,8 +99,8 @@ const ManageUsers = () => {
       const apiErrors = error?.response?.data?.errors;
       const apiMessage = error?.response?.data?.message;
 
-      if (apiMessage === "Invalid QR format. Use TUP-YY-XXXX.") {
-        message.error("Invalid QR format. Use TUP-YY-XXXX.");
+      if (apiMessage === "Invalid QR format. Use TUPM/TUPS/TUPV-YY-XXXX.") {
+        message.error("Invalid QR format. Use TUPM/TUPS/TUPV-YY-XXXX.");
         return;
       }
 
@@ -136,7 +137,7 @@ const ManageUsers = () => {
             {record.firstName} {record.surname}
           </Text>
           <Text type="secondary" style={{ fontSize: 12 }}>
-            ID: {record._id.slice(-6)}
+            {record.qrString || "-"}
           </Text>
         </Space>
       ),
@@ -290,7 +291,7 @@ const ManageUsers = () => {
                 <Form.Item
                   label="Custom QR String"
                   name="customQR"
-                  extra="Format: TUP-YY-XXXX"
+                  extra="Format: TUPM/TUPS/TUPV-YY-XXXX"
                   rules={[
                     { required: true, message: "Custom QR is required" },
                     {
@@ -299,7 +300,9 @@ const ManageUsers = () => {
                           return Promise.resolve();
                         }
                         return Promise.reject(
-                          new Error("Invalid QR format. Use TUP-YY-XXXX."),
+                          new Error(
+                            "Invalid QR format. Use TUPM/TUPS/TUPV-YY-XXXX.",
+                          ),
                         );
                       },
                     },
@@ -380,7 +383,9 @@ const ManageUsers = () => {
                     <Title level={5} style={{ margin: 0 }}>
                       {selectedUser.firstName} {selectedUser.surname}
                     </Title>
-                    <Text type="secondary">User ID: {selectedUser._id}</Text>
+                    <Text type="secondary">
+                      QR String: {selectedUser.qrString || "-"}
+                    </Text>
                   </div>
                 </Space>
 

@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo } from "react";
 import {
   Table,
   Tag,
@@ -11,17 +11,17 @@ import {
   Input,
   Select,
   Typography,
-} from 'antd';
+} from "antd";
 import {
   ReloadOutlined,
   FilterOutlined,
   SearchOutlined,
-} from '@ant-design/icons';
+} from "@ant-design/icons";
 import {
   getQRRequests,
   approveQRRequest,
   rejectQRRequest,
-} from '../services/userService';
+} from "../services/userService";
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -32,7 +32,7 @@ const QRRequests = () => {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   const [filters, setFilters] = useState({
-    name: '',
+    name: "",
     role: undefined as string | undefined,
     status: undefined as string | undefined,
   });
@@ -43,7 +43,7 @@ const QRRequests = () => {
       const res = await getQRRequests();
       setData(res);
     } catch {
-      message.error('Failed to load QR requests');
+      message.error("Failed to load QR requests");
     } finally {
       setLoading(false);
     }
@@ -57,10 +57,10 @@ const QRRequests = () => {
     try {
       setActionLoading(id);
       await approveQRRequest(id);
-      message.success('Request approved');
+      message.success("Request approved");
       fetch();
     } catch {
-      message.error('Failed to approve');
+      message.error("Failed to approve");
     } finally {
       setActionLoading(null);
     }
@@ -70,10 +70,10 @@ const QRRequests = () => {
     try {
       setActionLoading(id);
       await rejectQRRequest(id);
-      message.success('Request rejected');
+      message.success("Request rejected");
       fetch();
     } catch {
-      message.error('Failed to reject');
+      message.error("Failed to reject");
     } finally {
       setActionLoading(null);
     }
@@ -82,7 +82,7 @@ const QRRequests = () => {
   /* ================= FILTER ================= */
 
   const filteredData = useMemo(() => {
-    return data.filter(r => {
+    return data.filter((r) => {
       const fullName =
         `${r.userId?.firstName} ${r.userId?.surname}`.toLowerCase();
 
@@ -98,78 +98,78 @@ const QRRequests = () => {
 
   const columns: any[] = [
     {
-      title: 'User',
-      key: 'user',
+      title: "User",
+      key: "user",
       render: (_: any, record: any) => (
         <Space direction="vertical" size={0}>
           <Text strong>
             {record.userId?.firstName} {record.userId?.surname}
           </Text>
           <Text type="secondary" style={{ fontSize: 12 }}>
-            ID: {record.userId?._id?.slice(-6)}
+            {record.userId?.qrString || "-"}
           </Text>
         </Space>
       ),
     },
     {
-      title: 'Role',
-      dataIndex: ['userId', 'role'],
+      title: "Role",
+      dataIndex: ["userId", "role"],
       render: (role: string) => {
         const color =
-          role === 'Staff' ? 'blue' : role === 'Student' ? 'cyan' : 'purple';
+          role === "Staff" ? "blue" : role === "Student" ? "cyan" : "purple";
         return <Tag color={color}>{role}</Tag>;
       },
     },
     {
-      title: 'Reason',
-      dataIndex: 'reason',
+      title: "Reason",
+      dataIndex: "reason",
       ellipsis: true,
     },
     {
-      title: 'Old QR',
-      dataIndex: 'oldQR',
+      title: "Old QR",
+      dataIndex: "oldQR",
       render: (t: string) => <Text code>{t}</Text>,
     },
     {
-      title: 'New QR String',
-      dataIndex: 'newQR',
-      render: (t: string) => (t ? <Text code>{t}</Text> : '-'),
+      title: "New QR String",
+      dataIndex: "newQR",
+      render: (t: string) => (t ? <Text code>{t}</Text> : "-"),
     },
     {
-      title: 'New QR Image',
-      dataIndex: 'newQRImage',
+      title: "New QR Image",
+      dataIndex: "newQRImage",
       render: (p: string) =>
         p ? (
           <a href={p} target="_blank" rel="noreferrer">
             <Image src={p} width={80} />
           </a>
         ) : (
-          '-'
+          "-"
         ),
     },
     {
-      title: 'Status',
-      dataIndex: 'status',
+      title: "Status",
+      dataIndex: "status",
       render: (s: string) => {
         const colors: Record<string, string> = {
-          Pending: 'gold',
-          Approved: 'green',
-          Rejected: 'red',
+          Pending: "gold",
+          Approved: "green",
+          Rejected: "red",
         };
         return <Tag color={colors[s]}>{s}</Tag>;
       },
     },
     {
-      title: 'Created',
-      dataIndex: 'createdAt',
+      title: "Created",
+      dataIndex: "createdAt",
       render: (d: string) => new Date(d).toLocaleString(),
     },
     {
-      title: 'Actions',
-      key: 'actions',
+      title: "Actions",
+      key: "actions",
       render: (_: any, record: any) => {
         // ⛔ Hide actions once resolved
-        if (record.status !== 'Pending') {
+        if (record.status !== "Pending") {
           return <Text type="secondary">—</Text>;
         }
 
@@ -183,8 +183,8 @@ const QRRequests = () => {
                 type="primary"
                 loading={actionLoading === record._id}
                 style={{
-                  background: 'linear-gradient(135deg, #52c41a, #73d13d)',
-                  border: 'none',
+                  background: "linear-gradient(135deg, #52c41a, #73d13d)",
+                  border: "none",
                 }}
               >
                 Approve
@@ -195,10 +195,7 @@ const QRRequests = () => {
               title="Reject this request?"
               onConfirm={() => onReject(record._id)}
             >
-              <Button
-                danger
-                loading={actionLoading === record._id}
-              >
+              <Button danger loading={actionLoading === record._id}>
                 Reject
               </Button>
             </Popconfirm>
@@ -213,24 +210,20 @@ const QRRequests = () => {
   return (
     <Card
       style={{
-        height: '100%',
+        height: "100%",
         borderRadius: 12,
-        boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
+        boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
       }}
       title={
         <Space>
-          <FilterOutlined style={{ color: '#1677ff' }} />
+          <FilterOutlined style={{ color: "#1677ff" }} />
           <Title level={4} style={{ margin: 0 }}>
             QR Change Requests
           </Title>
         </Space>
       }
       extra={
-        <Button
-          icon={<ReloadOutlined />}
-          onClick={fetch}
-          loading={loading}
-        >
+        <Button icon={<ReloadOutlined />} onClick={fetch} loading={loading}>
           Refresh
         </Button>
       }
@@ -239,9 +232,9 @@ const QRRequests = () => {
       <div
         style={{
           marginBottom: 20,
-          display: 'flex',
+          display: "flex",
           gap: 12,
-          flexWrap: 'wrap',
+          flexWrap: "wrap",
         }}
       >
         <Input
@@ -249,18 +242,14 @@ const QRRequests = () => {
           prefix={<SearchOutlined />}
           allowClear
           style={{ width: 250 }}
-          onChange={e =>
-            setFilters({ ...filters, name: e.target.value })
-          }
+          onChange={(e) => setFilters({ ...filters, name: e.target.value })}
         />
 
         <Select
           placeholder="Filter by Role"
           allowClear
           style={{ width: 160 }}
-          onChange={value =>
-            setFilters({ ...filters, role: value })
-          }
+          onChange={(value) => setFilters({ ...filters, role: value })}
         >
           <Option value="Staff">Staff</Option>
           <Option value="Student">Student</Option>
@@ -271,9 +260,7 @@ const QRRequests = () => {
           placeholder="Status"
           allowClear
           style={{ width: 160 }}
-          onChange={value =>
-            setFilters({ ...filters, status: value })
-          }
+          onChange={(value) => setFilters({ ...filters, status: value })}
         >
           <Option value="Pending">Pending</Option>
           <Option value="Approved">Approved</Option>
