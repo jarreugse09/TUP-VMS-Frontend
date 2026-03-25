@@ -113,9 +113,7 @@ const Logs = () => {
     setLoading(true);
     try {
       const data = await getLogs();
-
-      // Only staff logs
-      setLogs(data.filter((l: any) => l.user?.role === "Staff"));
+      setLogs(data);
     } finally {
       setLoading(false);
       fetchingRef.current = false;
