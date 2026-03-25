@@ -4,28 +4,41 @@ import {
   Route,
   Navigate,
 } from "react-router-dom";
-import { Layout, Modal, Button, Typography, message } from "antd";
-import { useEffect, useMemo, useRef, useState } from "react";
-import Login from "./pages/Login";
-import Register from "./pages/Register";
-import Profile from "./pages/Profile";
-import Dashboard from "./pages/Dashboard/Dashboard";
-import AdminDashboard from "./pages/Dashboard/AdminDashboard";
-import StaffDashboard from "./pages/Dashboard/StaffDashboard";
-import AdminLogs from "./pages/Logs/AdminLogs";
-import Logs from "./pages/Logs/Logs";
-import QRRequests from "./pages/QRRequests.tsx";
-
-import Attendance from "./pages/Attendance";
+import { Layout, Modal, Button, Typography, message, Spin } from "antd";
+import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
 import Sidebar from "./components/Sidebar";
 import { useAuth } from "./contexts/AuthContext";
 import { submitFirstPhotoCapture } from "./services/userService";
-import StaffLogs from "@/pages/Logs/StaffLogs.tsx";
-import Analytics from "@/pages/Analytics.tsx";
-import ManageUsers from "@/pages/Manage User.tsx";
+
+const Login = lazy(() => import("./pages/Login"));
+const Register = lazy(() => import("./pages/Register"));
+const Profile = lazy(() => import("./pages/Profile"));
+const Dashboard = lazy(() => import("./pages/Dashboard/Dashboard"));
+const AdminDashboard = lazy(() => import("./pages/Dashboard/AdminDashboard"));
+const StaffDashboard = lazy(() => import("./pages/Dashboard/StaffDashboard"));
+const AdminLogs = lazy(() => import("./pages/Logs/AdminLogs"));
+const Logs = lazy(() => import("./pages/Logs/Logs"));
+const StaffLogs = lazy(() => import("./pages/Logs/StaffLogs"));
+const Attendance = lazy(() => import("./pages/Attendance"));
+const QRRequests = lazy(() => import("./pages/QRRequests"));
+const Analytics = lazy(() => import("./pages/Analytics"));
+const ManageUsers = lazy(() => import("./pages/Manage User"));
 
 const { Content } = Layout;
 const { Text } = Typography;
+
+const RouteFallback = () => (
+  <div
+    style={{
+      minHeight: "50vh",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+    }}
+  >
+    <Spin size="large" />
+  </div>
+);
 
 function App() {
   const { token, user, updateUser } = useAuth();
@@ -145,11 +158,13 @@ function App() {
     // Public routes
     return (
       <Router>
-        <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="*" element={<Navigate to="/login" replace />} />
-        </Routes>
+        <Suspense fallback={<RouteFallback />}>
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            <Route path="*" element={<Navigate to="/login" replace />} />
+          </Routes>
+        </Suspense>
       </Router>
     );
   }
@@ -232,27 +247,29 @@ function App() {
               background: "#f0f2f5",
             }}
           >
-            <Routes>
-              {/* Profile always available */}
-              <Route path="/profile" element={<Profile />} />
+            <Suspense fallback={<RouteFallback />}>
+              <Routes>
+                {/* Profile always available */}
+                <Route path="/profile" element={<Profile />} />
 
-              {/* Role-based dashboard and extra routes */}
-              <Route
-                path={roleConfig.dashboardPath}
-                element={roleConfig.dashboardElement}
-              />
-              {roleConfig.extraRoutes?.map((r) => r)}
+                {/* Role-based dashboard and extra routes */}
+                <Route
+                  path={roleConfig.dashboardPath}
+                  element={roleConfig.dashboardElement}
+                />
+                {roleConfig.extraRoutes?.map((r) => r)}
 
-              {/* Redirect root & unknown paths */}
-              <Route
-                path="/"
-                element={<Navigate to={roleConfig.dashboardPath} replace />}
-              />
-              <Route
-                path="*"
-                element={<Navigate to={roleConfig.dashboardPath} replace />}
-              />
-            </Routes>
+                {/* Redirect root & unknown paths */}
+                <Route
+                  path="/"
+                  element={<Navigate to={roleConfig.dashboardPath} replace />}
+                />
+                <Route
+                  path="*"
+                  element={<Navigate to={roleConfig.dashboardPath} replace />}
+                />
+              </Routes>
+            </Suspense>
 
             <Modal
               title="First Sign-In: Capture Your Photo"
