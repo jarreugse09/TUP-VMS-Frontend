@@ -37,6 +37,8 @@ const AdminDashboard = () => {
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const lastScannedRef = useRef<string | null>(null);
   const processingRef = useRef(false);
+  const modeRef = useRef<"checkin" | "checkout">("checkin");
+  const reasonRef = useRef<string>("attendance");
   const [manualQR, setManualQR] = useState("");
 
   const [selectedReason, setSelectedReason] = useState<string>("attendance");
@@ -56,42 +58,47 @@ const AdminDashboard = () => {
     return () => clearTimeout(timer);
   }, [cooldown]);
 
+  useEffect(() => {
+    modeRef.current = mode;
+  }, [mode]);
+
+  useEffect(() => {
+    reasonRef.current = selectedReason;
+  }, [selectedReason]);
+
   // ===== HANDLE SCAN =====
-  const handleScan = useCallback(
-    async (decodedText: string) => {
-      if (processingRef.current) return;
-      if (decodedText === lastScannedRef.current) return;
+  const handleScan = useCallback(async (decodedText: string) => {
+    if (processingRef.current) return;
+    if (decodedText === lastScannedRef.current) return;
 
-      processingRef.current = true;
-      lastScannedRef.current = decodedText;
+    processingRef.current = true;
+    lastScannedRef.current = decodedText;
 
-      try {
-        const payload = {
-          reason: selectedReason,
-        };
-        const result = await scanQR(decodedText, mode, payload);
-        const userName = result?.user
-          ? `${result.user.firstName} ${result.user.surname}`
-          : "Unknown User";
-        setResultMessage(
-          `${userName} – ${selectedReason.toUpperCase()} recorded`,
-        );
-        setScanResult({ ...result, time: new Date() });
-        setCooldown(2);
+    try {
+      const currentMode = modeRef.current;
+      const currentReason = reasonRef.current;
+      const payload = {
+        reason: currentReason,
+      };
+      const result = await scanQR(decodedText, currentMode, payload);
+      const userName = result?.user
+        ? `${result.user.firstName} ${result.user.surname}`
+        : "Unknown User";
+      setResultMessage(`${userName} – ${currentReason.toUpperCase()} recorded`);
+      setScanResult({ ...result, time: new Date() });
+      setCooldown(2);
 
-        setTimeout(() => {
-          setResultMessage(null);
-          processingRef.current = false;
-        }, 1500);
-      } catch (err: any) {
-        const errorMsg = err.response?.data?.message || "Scan failed";
+      setTimeout(() => {
         setResultMessage(null);
-        message.error(errorMsg);
         processingRef.current = false;
-      }
-    },
-    [mode, selectedReason],
-  );
+      }, 1500);
+    } catch (err: any) {
+      const errorMsg = err.response?.data?.message || "Scan failed";
+      setResultMessage(null);
+      message.error(errorMsg);
+      processingRef.current = false;
+    }
+  }, []);
 
   // ===== MANUAL SUBMIT =====
   const handleManualSubmit = async () => {

@@ -11,6 +11,8 @@ import {
   Input,
   Select,
   Typography,
+  Modal,
+  Descriptions,
 } from "antd";
 import {
   ReloadOutlined,
@@ -26,10 +28,43 @@ import {
 const { Title, Text } = Typography;
 const { Option } = Select;
 
+interface QRRequestItem {
+  _id: string;
+  reason?: string;
+  oldQR?: string;
+  newQR?: string;
+  newQRString?: string;
+  newQRImage?: string;
+  status: "Pending" | "Approved" | "Rejected";
+  createdAt: string;
+  userId?: {
+    _id?: string;
+    firstName?: string;
+    surname?: string;
+    role?: string;
+    qrString?: string | null;
+  };
+}
+
+const toAssetUrl = (path?: string) => {
+  if (!path) return "";
+  if (/^https?:\/\//i.test(path)) return path;
+
+  const base = import.meta.env.VITE_API_URL || "";
+  if (!base) return path;
+
+  const normalizedBase = base.replace(/\/$/, "");
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  return `${normalizedBase}${normalizedPath}`;
+};
+
 const QRRequests = () => {
-  const [data, setData] = useState<any[]>([]);
+  const [data, setData] = useState<QRRequestItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [selectedRequest, setSelectedRequest] = useState<QRRequestItem | null>(
+    null,
+  );
 
   const [filters, setFilters] = useState({
     name: "",
@@ -41,7 +76,20 @@ const QRRequests = () => {
     try {
       setLoading(true);
       const res = await getQRRequests();
-      setData(res);
+      const normalized: QRRequestItem[] = Array.isArray(res)
+        ? res.map((item: any) => ({
+            ...item,
+            // Support both backend keys while preserving current API shape.
+            newQR: item?.newQR ?? item?.newQRString ?? "",
+            newQRString: item?.newQRString ?? item?.newQR ?? "",
+            userId: {
+              ...item?.userId,
+              qrString: item?.userId?.qrString ?? null,
+            },
+          }))
+        : [];
+
+      setData(normalized);
     } catch {
       message.error("Failed to load QR requests");
     } finally {
@@ -100,7 +148,7 @@ const QRRequests = () => {
     {
       title: "User",
       key: "user",
-      render: (_: any, record: any) => (
+      render: (_: any, record: QRRequestItem) => (
         <Space direction="vertical" size={0}>
           <Text strong>
             {record.userId?.firstName} {record.userId?.surname}
@@ -121,27 +169,25 @@ const QRRequests = () => {
       },
     },
     {
-      title: "Reason",
-      dataIndex: "reason",
-      ellipsis: true,
-    },
-    {
       title: "Old QR",
       dataIndex: "oldQR",
       render: (t: string) => <Text code>{t}</Text>,
     },
     {
       title: "New QR String",
-      dataIndex: "newQR",
-      render: (t: string) => (t ? <Text code>{t}</Text> : "-"),
+      dataIndex: "newQRString",
+      render: (_: string, record: QRRequestItem) => {
+        const qrValue = record.newQRString || record.newQR;
+        return qrValue ? <Text code>{qrValue}</Text> : "-";
+      },
     },
     {
       title: "New QR Image",
       dataIndex: "newQRImage",
       render: (p: string) =>
         p ? (
-          <a href={p} target="_blank" rel="noreferrer">
-            <Image src={p} width={80} />
+          <a href={toAssetUrl(p)} target="_blank" rel="noreferrer">
+            <Image src={toAssetUrl(p)} width={80} />
           </a>
         ) : (
           "-"
@@ -160,14 +206,9 @@ const QRRequests = () => {
       },
     },
     {
-      title: "Created",
-      dataIndex: "createdAt",
-      render: (d: string) => new Date(d).toLocaleString(),
-    },
-    {
       title: "Actions",
       key: "actions",
-      render: (_: any, record: any) => {
+      render: (_: any, record: QRRequestItem) => {
         // ⛔ Hide actions once resolved
         if (record.status !== "Pending") {
           return <Text type="secondary">—</Text>;
@@ -275,7 +316,64 @@ const QRRequests = () => {
         loading={loading}
         pagination={{ pageSize: 10, showSizeChanger: true }}
         bordered
+        onRow={(record) => ({
+          onClick: (event) => {
+            const target = event.target as HTMLElement;
+            if (target.closest("button") || target.closest("a")) {
+              return;
+            }
+            setSelectedRequest(record);
+          },
+          style: { cursor: "pointer" },
+        })}
       />
+
+      <Modal
+        title="QR Request Details"
+        open={!!selectedRequest}
+        onCancel={() => setSelectedRequest(null)}
+        footer={null}
+      >
+        {selectedRequest && (
+          <Descriptions bordered size="small" column={1}>
+            <Descriptions.Item label="User">
+              {selectedRequest.userId?.firstName}{" "}
+              {selectedRequest.userId?.surname}
+            </Descriptions.Item>
+            <Descriptions.Item label="Role">
+              {selectedRequest.userId?.role || "-"}
+            </Descriptions.Item>
+            <Descriptions.Item label="Current QR String">
+              {selectedRequest.userId?.qrString || "-"}
+            </Descriptions.Item>
+            <Descriptions.Item label="Requested New QR">
+              {selectedRequest.newQRString || selectedRequest.newQR || "-"}
+            </Descriptions.Item>
+            <Descriptions.Item label="Reason">
+              {selectedRequest.reason || "-"}
+            </Descriptions.Item>
+            <Descriptions.Item label="Status">
+              {selectedRequest.status}
+            </Descriptions.Item>
+            <Descriptions.Item label="Created At">
+              {new Date(selectedRequest.createdAt).toLocaleString()}
+            </Descriptions.Item>
+            <Descriptions.Item label="New QR Image">
+              {selectedRequest.newQRImage ? (
+                <a
+                  href={toAssetUrl(selectedRequest.newQRImage)}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  View Uploaded QR Image
+                </a>
+              ) : (
+                "-"
+              )}
+            </Descriptions.Item>
+          </Descriptions>
+        )}
+      </Modal>
     </Card>
   );
 };
