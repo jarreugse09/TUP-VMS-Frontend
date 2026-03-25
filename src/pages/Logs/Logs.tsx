@@ -11,7 +11,7 @@ import {
   Modal,
   Avatar,
   Drawer,
-} from 'antd';
+} from "antd";
 import {
   SearchOutlined,
   ReloadOutlined,
@@ -19,12 +19,12 @@ import {
   ClockCircleOutlined,
   EllipsisOutlined,
   UserOutlined,
-} from '@ant-design/icons';
-import { useEffect, useState, useMemo } from 'react';
-import { getLogs, getStaffLogs } from '../../services/logService';
-import { useAuth } from '../../contexts/AuthContext';
-import type { ColumnsType } from 'antd/es/table';
-import dayjs from 'dayjs';
+} from "@ant-design/icons";
+import { useEffect, useState, useMemo, useRef } from "react";
+import { getLogs, getStaffLogs } from "../../services/logService";
+import { useAuth } from "../../contexts/AuthContext";
+import type { ColumnsType } from "antd/es/table";
+import dayjs from "dayjs";
 
 const { RangePicker } = DatePicker;
 const { Title, Text } = Typography;
@@ -36,13 +36,13 @@ interface Activity {
   reason: string;
   timeIn?: string;
   timeOut?: string;
-  status: 'In TUP' | 'Checked Out';
+  status: "In TUP" | "Checked Out";
 }
 
 interface Attendance {
   timeIn?: string;
   timeOut?: string;
-  status: 'In TUP' | 'Checked Out';
+  status: "In TUP" | "Checked Out";
 }
 
 interface LogItem {
@@ -56,7 +56,7 @@ interface LogItem {
     photoURL?: string;
     birthdate: string;
   };
-  dailyStatus: 'In TUP' | 'Checked Out';
+  dailyStatus: "In TUP" | "Checked Out";
   attendance?: Attendance | null;
   activities: Activity[];
 }
@@ -67,7 +67,7 @@ const getTimeIn = (log: LogItem) => {
   if (log.attendance?.timeIn) return log.attendance.timeIn;
 
   const times = log.activities
-    ?.map(a => a.timeIn)
+    ?.map((a) => a.timeIn)
     .filter(Boolean) as string[];
 
   return times.length ? times.sort()[0] : null;
@@ -77,7 +77,7 @@ const getTimeOut = (log: LogItem) => {
   if (log.attendance?.timeOut) return log.attendance.timeOut;
 
   const times = log.activities
-    ?.map(a => a.timeOut)
+    ?.map((a) => a.timeOut)
     .filter(Boolean) as string[];
 
   return times.length ? times.sort().slice(-1)[0] : null;
@@ -87,10 +87,12 @@ const getTimeOut = (log: LogItem) => {
 
 const Logs = () => {
   const { user } = useAuth();
+  const pollingIntervalMs = 12000;
+  const fetchingRef = useRef(false);
   const [logs, setLogs] = useState<LogItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [filters, setFilters] = useState({
-    name: '',
+    name: "",
     role: undefined as string | undefined,
     dateRange: null as any,
   });
@@ -99,12 +101,14 @@ const Logs = () => {
   const [drawerVisible, setDrawerVisible] = useState(false);
 
   const fetchLogs = async () => {
+    if (fetchingRef.current) return;
+    fetchingRef.current = true;
     setLoading(true);
     try {
       let data: LogItem[] = [];
-      if (user?.role === 'TUP') {
+      if (user?.role === "TUP") {
         data = await getLogs();
-      } else if (user?.role === 'Staff') {
+      } else if (user?.role === "Staff") {
         data = await getStaffLogs();
       } else {
         // Unauthorized roles: Students/Visitors do not have access
@@ -116,17 +120,36 @@ const Logs = () => {
       setLogs([]);
     } finally {
       setLoading(false);
+      fetchingRef.current = false;
     }
   };
 
   useEffect(() => {
     fetchLogs();
+
+    const intervalId = window.setInterval(fetchLogs, pollingIntervalMs);
+
+    const handleFocus = () => fetchLogs();
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        fetchLogs();
+      }
+    };
+
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
   }, []);
 
   /* ================= FILTER ================= */
 
   const filteredData = useMemo(() => {
-    return logs.filter(log => {
+    return logs.filter((log) => {
       const fullName =
         `${log.userId.firstName} ${log.userId.surname}`.toLowerCase();
 
@@ -138,8 +161,8 @@ const Logs = () => {
         const [start, end] = filters.dateRange;
         const logDate = dayjs(log.date);
         matchesDate =
-          logDate.isAfter(start.startOf('day')) &&
-          logDate.isBefore(end.endOf('day'));
+          logDate.isAfter(start.startOf("day")) &&
+          logDate.isBefore(end.endOf("day"));
       }
 
       return matchesName && matchesRole && matchesDate;
@@ -150,7 +173,7 @@ const Logs = () => {
 
   const columns: ColumnsType<LogItem> = [
     {
-      title: 'Name',
+      title: "Name",
       render: (_, record) => (
         <Space direction="vertical" size={0}>
           <Text strong>
@@ -163,66 +186,61 @@ const Logs = () => {
       ),
     },
     {
-      title: 'Role',
+      title: "Role",
       render: (_, record) => {
         const color =
-          record.userId.role === 'Staff'
-            ? 'blue'
-            : record.userId.role === 'Student'
-            ? 'cyan'
-            : 'purple';
+          record.userId.role === "Staff"
+            ? "blue"
+            : record.userId.role === "Student"
+              ? "cyan"
+              : "purple";
 
         return <Tag color={color}>{record.userId.role}</Tag>;
       },
     },
     {
-      title: 'Date',
-      render: (_, record) =>
-        dayjs(record.date).format('MMM DD, YYYY'),
-      defaultSortOrder: 'descend',
+      title: "Date",
+      render: (_, record) => dayjs(record.date).format("MMM DD, YYYY"),
+      defaultSortOrder: "descend",
     },
     {
-      title: 'Time-In',
+      title: "Time-In",
       render: (_, record) => {
         const timeIn = getTimeIn(record);
         return timeIn ? (
           <Space>
-            <ClockCircleOutlined style={{ color: '#52c41a' }} />
-            {dayjs(timeIn).format('hh:mm A')}
+            <ClockCircleOutlined style={{ color: "#52c41a" }} />
+            {dayjs(timeIn).format("hh:mm A")}
           </Space>
         ) : (
-          '-'
+          "-"
         );
       },
     },
     {
-      title: 'Time-Out',
+      title: "Time-Out",
       render: (_, record) => {
         const timeOut = getTimeOut(record);
         return timeOut ? (
           <Space>
-            <ClockCircleOutlined style={{ color: '#f5222d' }} />
-            {dayjs(timeOut).format('hh:mm A')}
+            <ClockCircleOutlined style={{ color: "#f5222d" }} />
+            {dayjs(timeOut).format("hh:mm A")}
           </Space>
         ) : (
-          '-'
+          "-"
         );
       },
     },
     {
-      title: 'Status',
+      title: "Status",
       render: (_, record) => (
-        <Tag
-          color={
-            record.dailyStatus === 'In TUP' ? 'green' : 'volcano'
-          }
-        >
+        <Tag color={record.dailyStatus === "In TUP" ? "green" : "volcano"}>
           {record.dailyStatus}
         </Tag>
       ),
     },
     {
-      title: 'Actions',
+      title: "Actions",
       render: (_, record) => (
         <Button
           type="primary"
@@ -244,7 +262,7 @@ const Logs = () => {
       <Card
         style={{
           borderRadius: 12,
-          boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
+          boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
         }}
         title={
           <Space>
@@ -265,18 +283,14 @@ const Logs = () => {
             placeholder="Search name"
             prefix={<SearchOutlined />}
             allowClear
-            onChange={e =>
-              setFilters({ ...filters, name: e.target.value })
-            }
+            onChange={(e) => setFilters({ ...filters, name: e.target.value })}
           />
 
           <Select
             placeholder="Role"
             allowClear
             style={{ width: 160 }}
-            onChange={value =>
-              setFilters({ ...filters, role: value })
-            }
+            onChange={(value) => setFilters({ ...filters, role: value })}
           >
             <Option value="Staff">Staff</Option>
             <Option value="Student">Student</Option>
@@ -284,9 +298,7 @@ const Logs = () => {
           </Select>
 
           <RangePicker
-            onChange={dates =>
-              setFilters({ ...filters, dateRange: dates })
-            }
+            onChange={(dates) => setFilters({ ...filters, dateRange: dates })}
           />
         </Space>
 
@@ -308,27 +320,21 @@ const Logs = () => {
         <Input
           placeholder="Search name"
           allowClear
-          onChange={e =>
-            setFilters({ ...filters, name: e.target.value })
-          }
+          onChange={(e) => setFilters({ ...filters, name: e.target.value })}
         />
         <Select
           placeholder="Role"
           allowClear
-          style={{ width: '100%', marginTop: 16 }}
-          onChange={value =>
-            setFilters({ ...filters, role: value })
-          }
+          style={{ width: "100%", marginTop: 16 }}
+          onChange={(value) => setFilters({ ...filters, role: value })}
         >
           <Option value="Staff">Staff</Option>
           <Option value="Student">Student</Option>
           <Option value="Visitor">Visitor</Option>
         </Select>
         <RangePicker
-          style={{ width: '100%', marginTop: 16 }}
-          onChange={dates =>
-            setFilters({ ...filters, dateRange: dates })
-          }
+          style={{ width: "100%", marginTop: 16 }}
+          onChange={(dates) => setFilters({ ...filters, dateRange: dates })}
         />
       </Drawer>
 
@@ -342,7 +348,7 @@ const Logs = () => {
         closeIcon={
           <span
             style={{
-              color: '#fff',
+              color: "#fff",
               fontSize: 18,
               fontWeight: 600,
             }}
@@ -352,18 +358,18 @@ const Logs = () => {
         }
       >
         {selectedLog && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
             {/* HEADER / HERO */}
             <div
               style={{
-                display: 'flex',
-                alignItems: 'center',
+                display: "flex",
+                alignItems: "center",
                 gap: 16,
                 padding: 16,
                 borderRadius: 16,
-                background: 'linear-gradient(135deg, #ff4d4f, #ff7875)',
-                color: '#fff',
-                position: 'relative',
+                background: "linear-gradient(135deg, #ff4d4f, #ff7875)",
+                color: "#fff",
+                position: "relative",
               }}
             >
               <Avatar
@@ -371,87 +377,85 @@ const Logs = () => {
                 src={selectedLog.userId.photoURL}
                 icon={<UserOutlined />}
                 style={{
-                  border: '3px solid #fff',
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
+                  border: "3px solid #fff",
+                  boxShadow: "0 4px 12px rgba(0,0,0,0.25)",
                 }}
               />
-      
+
               <div style={{ flex: 1 }}>
-                <Title level={4} style={{ margin: 0, color: '#fff' }}>
+                <Title level={4} style={{ margin: 0, color: "#fff" }}>
                   {selectedLog.userId.firstName} {selectedLog.userId.surname}
                 </Title>
-      
+
                 <Space size="small">
-                  <Tag color="white" style={{ color: '#ff4d4f' }}>
+                  <Tag color="white" style={{ color: "#ff4d4f" }}>
                     {selectedLog.userId.role}
                   </Tag>
-                  <Text style={{ color: 'rgba(255,255,255,0.85)' }}>
-                    Date Entered:{' '}
-                    {dayjs(selectedLog.date).format('MMM DD, YYYY')}
+                  <Text style={{ color: "rgba(255,255,255,0.85)" }}>
+                    Date Entered:{" "}
+                    {dayjs(selectedLog.date).format("MMM DD, YYYY")}
                   </Text>
                 </Space>
               </div>
             </div>
-      
+
             {/* COMBINED SUMMARY BOX */}
             <Card
               size="small"
               variant="borderless"
               style={{
                 borderRadius: 16,
-                background: '#fff',
-                boxShadow: '0 6px 16px rgba(0,0,0,0.08)',
+                background: "#fff",
+                boxShadow: "0 6px 16px rgba(0,0,0,0.08)",
               }}
             >
               <Space
                 style={{
-                  width: '100%',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
+                  width: "100%",
+                  justifyContent: "space-between",
+                  alignItems: "center",
                 }}
               >
                 <div>
                   <Text type="secondary">First Time In</Text>
                   <Title level={5} style={{ margin: 0 }}>
                     {getTimeIn(selectedLog)
-                      ? dayjs(getTimeIn(selectedLog)!).format('hh:mm A')
-                      : '-'}
+                      ? dayjs(getTimeIn(selectedLog)!).format("hh:mm A")
+                      : "-"}
                   </Title>
                 </div>
-      
+
                 <div>
                   <Text type="secondary">Last Time Out</Text>
                   <Title level={5} style={{ margin: 0 }}>
                     {getTimeOut(selectedLog)
-                      ? dayjs(getTimeOut(selectedLog)!).format('hh:mm A')
-                      : '-'}
+                      ? dayjs(getTimeOut(selectedLog)!).format("hh:mm A")
+                      : "-"}
                   </Title>
                 </div>
-      
+
                 <div>
                   <Text type="secondary">Status</Text>
                   <Tag
                     color={
-                      selectedLog.dailyStatus === 'In TUP'
-                        ? 'green'
-                        : 'volcano'
+                      selectedLog.dailyStatus === "In TUP" ? "green" : "volcano"
                     }
-                    style={{ fontSize: 14, padding: '4px 12px' }}
+                    style={{ fontSize: 14, padding: "4px 12px" }}
                   >
                     {selectedLog.dailyStatus}
                   </Tag>
                 </div>
               </Space>
             </Card>
-      
+
             {/* ACTIVITIES */}
             <div>
               <Title level={5} style={{ marginBottom: 8 }}>
                 Activity Details
               </Title>
-      
+
               {selectedLog.activities.length ? (
-                <Space direction="vertical" style={{ width: '100%' }}>
+                <Space direction="vertical" style={{ width: "100%" }}>
                   {selectedLog.activities.map((act, i) => (
                     <Card
                       key={i}
@@ -460,50 +464,44 @@ const Logs = () => {
                       style={{
                         borderRadius: 14,
                         borderLeft: `5px solid ${
-                          act.status === 'In TUP'
-                            ? '#52c41a'
-                            : '#f5222d'
+                          act.status === "In TUP" ? "#52c41a" : "#f5222d"
                         }`,
-                        background: '#fafafa',
+                        background: "#fafafa",
                       }}
                     >
                       <Space
                         direction="vertical"
                         size={4}
-                        style={{ width: '100%' }}
+                        style={{ width: "100%" }}
                       >
                         <Space
                           style={{
-                            justifyContent: 'space-between',
-                            width: '100%',
+                            justifyContent: "space-between",
+                            width: "100%",
                           }}
                         >
-                          <Text strong>
-                            {act.reason.toUpperCase()}
-                          </Text>
+                          <Text strong>{act.reason.toUpperCase()}</Text>
                           <Tag
                             color={
-                              act.status === 'In TUP'
-                                ? 'green'
-                                : 'volcano'
+                              act.status === "In TUP" ? "green" : "volcano"
                             }
                           >
                             {act.status}
                           </Tag>
                         </Space>
-      
+
                         <Space size="large">
                           <Text type="secondary">
-                            In:{' '}
+                            In:{" "}
                             {act.timeIn
-                              ? dayjs(act.timeIn).format('hh:mm A')
-                              : '-'}
+                              ? dayjs(act.timeIn).format("hh:mm A")
+                              : "-"}
                           </Text>
                           <Text type="secondary">
-                            Out:{' '}
+                            Out:{" "}
                             {act.timeOut
-                              ? dayjs(act.timeOut).format('hh:mm A')
-                              : '-'}
+                              ? dayjs(act.timeOut).format("hh:mm A")
+                              : "-"}
                           </Text>
                         </Space>
                       </Space>
@@ -514,20 +512,20 @@ const Logs = () => {
                 <Text type="secondary">No activities recorded</Text>
               )}
             </div>
-      
+
             {/* ACTION */}
-            <div style={{ textAlign: 'center', marginTop: 8 }}>
+            <div style={{ textAlign: "center", marginTop: 8 }}>
               <Button
                 type="primary"
                 onClick={() => setModalVisible(false)}
                 style={{
-                  background: 'linear-gradient(135deg, #ff4d4f, #ff7875)',
-                  border: 'none',
+                  background: "linear-gradient(135deg, #ff4d4f, #ff7875)",
+                  border: "none",
                   borderRadius: 14,
                   height: 46,
                   width: 160,
                   fontWeight: 600,
-                  boxShadow: '0 8px 16px rgba(255,77,79,0.45)',
+                  boxShadow: "0 8px 16px rgba(255,77,79,0.45)",
                 }}
               >
                 Close
@@ -536,7 +534,6 @@ const Logs = () => {
           </div>
         )}
       </Modal>
-
     </>
   );
 };
