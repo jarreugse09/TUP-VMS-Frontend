@@ -75,3 +75,10 @@ export const adminRegisterUser = async (payload: {
   const { data } = await api.post("/users/admin/register", payload);
   return data;
 };
+
+export const submitFirstPhotoCapture = async (photoDataUrl: string) => {
+  const { data } = await api.post("/users/profile/first-photo", {
+    photoDataUrl,
+  });
+  return data;
+};
