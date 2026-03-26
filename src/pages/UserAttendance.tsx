@@ -20,12 +20,11 @@ import {
 } from "@ant-design/icons";
 import { useEffect, useState, useRef } from "react";
 import { useAuth } from "../contexts/AuthContext";
-import axios from "axios";
+import { getMyAttendance as fetchMyAttendance } from "../services/logService";
 import dayjs from "dayjs";
 
 const { Title, Text } = Typography;
 
-const API_BASE = "/api"; // adjust to match your base URL
 
 /* ================= TYPES (matching getMyLogs controller shape) ================= */
 
@@ -124,11 +123,8 @@ const UserAttendance = () => {
     fetchingRef.current = true;
     setLoading(true);
     try {
-      const res  = await axios.get(`${API_BASE}/logs/me`);
-      const data: LogItem[] = Array.isArray(res.data)
-        ? res.data
-        : (res.data.data ?? []);
-      setLogs(data);
+      const data = await fetchMyAttendance();
+      setLogs(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error("Failed to fetch attendance logs", err);
     } finally {

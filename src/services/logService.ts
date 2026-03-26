@@ -31,18 +31,14 @@ export const scanQR = async (
     approvedBy: data.approvedBy,
     plateNumber: data.plateNumber,
   });
-
   return response.data;
 };
 
-export const userScanQR = async (
-  qrString: string
-) => {
+export const userScanQR = async (qrString: string) => {
   const response = await api.post('/logs/user/scan', {
     qrString,
-    type: 'Transaction', // User scans are always transactions
+    type: 'Transaction',
   });
-
   return response.data;
 };
 
@@ -53,9 +49,8 @@ export const staffScanQR = async (
   const response = await api.post('/logs/staff/scan', {
     qrString,
     mode,
-    type: 'Transaction', // REQUIRED by backend
+    type: 'Transaction',
   });
-
   return response.data;
 };
 
@@ -69,7 +64,6 @@ export const getUserLogs = async () => {
     const response = await api.get('/logs/logs/staff/');
     return response.data || [];
   } catch (error) {
-    // Handle 403 or other auth errors
     console.warn('Could not fetch user logs:', error);
     return [];
   }
@@ -110,17 +104,35 @@ export const getCurrentStatus = async () => {
       latestLog,
     };
   } catch (error) {
-    // If auth error or other issues, return default status
     console.warn('Could not fetch current status:', error);
-    return {
-      status: 'Outside TUP',
-      lastAction: null,
-      lastTime: null,
-    };
+    return { status: 'Outside TUP', lastAction: null, lastTime: null };
   }
 };
 
-export const exportLogs = async (payload: { startDate?: string; endDate?: string; month?: string; format: 'csv' | 'xlsx'; password: string }) => {
+export const exportLogs = async (payload: {
+  startDate?: string;
+  endDate?: string;
+  month?: string;
+  format: 'csv' | 'xlsx';
+  password: string;
+}) => {
   const response = await api.post('/logs/export', payload, { responseType: 'blob' });
   return response;
+};
+
+export const getMyLogs = async () => {
+  const response = await api.get("/logs/me");
+  return response.data;
+};
+
+// ── Normal user attendance (check-in / check-out only, no transactions) ───────
+export const getMyAttendance = async () => {
+  const response = await api.get("/logs/me/attendance");
+  return response.data;
+};
+
+// ── Normal user transactions — both directions (I scanned + scanned me) ───────
+export const getMyTransactions = async () => {
+  const response = await api.get("/logs/me/transactions");
+  return response.data;
 };
