@@ -4,19 +4,19 @@ import {
   Space,
   Typography,
   Avatar,
-  Timeline,
   Spin,
   Empty,
-  Badge,
   Divider,
+  Modal,
+  Badge,
 } from "antd";
 import {
   UserOutlined,
   ClockCircleOutlined,
+  LogoutOutlined,
   EnvironmentOutlined,
   CheckCircleOutlined,
-  LogoutOutlined,
-  SwapOutlined,
+  CloseCircleOutlined,
 } from "@ant-design/icons";
 import { useEffect, useState, useRef } from "react";
 import { useAuth } from "../contexts/AuthContext";
@@ -25,23 +25,15 @@ import dayjs from "dayjs";
 
 const { Title, Text } = Typography;
 
-
-/* ================= TYPES (matching getMyLogs controller shape) ================= */
-
-interface WentTo {
-  firstName: string;
-  surname:   string;
-  role:      string;
-}
+/* ================= TYPES ================= */
 
 interface Activity {
-  reason:           string;
-  wentTo?:          WentTo | null;
-  scannedQrString?: string | null;
-  timeIn?:          string | null;
-  timeOut?:         string | null;
-  status:           string;
-  scannedAt?:       string;
+  reason:     string;
+  wentTo?:    { firstName: string; surname: string; role: string } | null;
+  timeIn?:    string | null;
+  timeOut?:   string | null;
+  status:     string;
+  scannedAt?: string;
 }
 
 interface Attendance {
@@ -61,7 +53,7 @@ interface LogItem {
     role:      string;
     photoURL?: string;
   };
-  dailyStatus: string; // "In TUP" | "Checked Out" | "Transaction"
+  dailyStatus: string;
   attendance?: Attendance | null;
   activities:  Activity[];
 }
@@ -83,30 +75,12 @@ const getTimeOut = (log: LogItem): string | null => {
 const isToday = (dateStr: string) =>
   dayjs(dateStr).format("YYYY-MM-DD") === dayjs().format("YYYY-MM-DD");
 
-const getActivityLabel = (act: Activity): string => {
-  if (act.wentTo) {
-    return `${act.wentTo.firstName} ${act.wentTo.surname} (${act.wentTo.role})`;
-  }
-  const labelMap: Record<string, string> = {
-    attendance:  "Attendance Check-in",
-    break:       "Break",
-    "go out":    "Went Out",
-    transaction: "Transaction",
-  };
-  return labelMap[act.reason] ?? act.reason;
-};
-
-const getActivityIcon = (act: Activity) => {
-  if (act.reason === "transaction")
-    return <SwapOutlined style={{ color: "#1677ff", fontSize: 13 }} />;
-  if (act.status === "In TUP")
-    return <CheckCircleOutlined style={{ color: "#52c41a", fontSize: 13 }} />;
-  return <LogoutOutlined style={{ color: "#b1122b", fontSize: 13 }} />;
-};
-
-const getActivityColor = (act: Activity): string => {
-  if (act.reason === "transaction") return "#1677ff";
-  return act.status === "In TUP" ? "#52c41a" : "#b1122b";
+const reasonLabel: Record<string, string> = {
+  attendance: "Attendance",
+  checkin:    "Check In",
+  checkout:   "Check Out",
+  break:      "Break",
+  "go out":   "Went Out",
 };
 
 /* ================= COMPONENT ================= */
@@ -115,8 +89,10 @@ const UserAttendance = () => {
   const { user } = useAuth();
   const pollingIntervalMs = 12000;
   const fetchingRef = useRef(false);
-  const [logs,    setLogs]    = useState<LogItem[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [logs,         setLogs]         = useState<LogItem[]>([]);
+  const [loading,      setLoading]      = useState(false);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [selectedLog,  setSelectedLog]  = useState<LogItem | null>(null);
 
   const fetchLogs = async () => {
     if (fetchingRef.current) return;
@@ -135,11 +111,9 @@ const UserAttendance = () => {
 
   useEffect(() => {
     fetchLogs();
-    const intervalId     = window.setInterval(fetchLogs, pollingIntervalMs);
-    const handleFocus    = () => fetchLogs();
-    const handleVisible  = () => {
-      if (document.visibilityState === "visible") fetchLogs();
-    };
+    const intervalId    = window.setInterval(fetchLogs, pollingIntervalMs);
+    const handleFocus   = () => fetchLogs();
+    const handleVisible = () => { if (document.visibilityState === "visible") fetchLogs(); };
     window.addEventListener("focus", handleFocus);
     document.addEventListener("visibilitychange", handleVisible);
     return () => {
@@ -158,258 +132,319 @@ const UserAttendance = () => {
   /* ================= RENDER ================= */
 
   return (
-    <div style={{ maxWidth: 720, margin: "0 auto", padding: "24px 16px" }}>
+    <>
+      <Card
+        style={{ borderRadius: 12, boxShadow: "0 4px 12px rgba(0,0,0,0.05)" }}
+        title={<Title level={4} style={{ margin: 0 }}>My Attendance</Title>}
+      >
 
-      {/* ── PROFILE HERO ── */}
-      <div style={{
-        background: "linear-gradient(135deg, #b1122b 0%, #8c0d22 100%)",
-        borderRadius: 20, padding: "28px 24px", marginBottom: 24,
-        display: "flex", alignItems: "center", gap: 20,
-        boxShadow: "0 8px 32px rgba(140,13,34,0.35)",
-        position: "relative", overflow: "hidden",
-      }}>
-        <div style={{ position:"absolute", right:-40, top:-40, width:180, height:180,
-          borderRadius:"50%", background:"rgba(255,255,255,0.06)", pointerEvents:"none" }} />
-        <div style={{ position:"absolute", right:40, bottom:-60, width:140, height:140,
-          borderRadius:"50%", background:"rgba(255,255,255,0.04)", pointerEvents:"none" }} />
+        {/* ── PROFILE HERO — same gradient as Logs.tsx modal hero ── */}
+        <div style={{
+          display: "flex", alignItems: "center", gap: 16, padding: 20,
+          borderRadius: 16, marginBottom: 24, position: "relative", overflow: "hidden",
+          background: "linear-gradient(135deg, #ff4d4f, #ff7875)", color: "#fff",
+        }}>
+          <div style={{ position:"absolute", right:-40, top:-40, width:160, height:160,
+            borderRadius:"50%", background:"rgba(255,255,255,0.08)", pointerEvents:"none" }} />
+          <div style={{ position:"absolute", right:60, bottom:-50, width:120, height:120,
+            borderRadius:"50%", background:"rgba(255,255,255,0.05)", pointerEvents:"none" }} />
 
-        <Avatar size={72} src={user?.photoURL} icon={<UserOutlined />}
-          style={{ border:"3px solid rgba(255,255,255,0.6)",
-            boxShadow:"0 4px 16px rgba(0,0,0,0.3)", flexShrink:0 }} />
+          <Avatar size={72} src={user?.photoURL} icon={<UserOutlined />}
+            style={{ border:"3px solid #fff", boxShadow:"0 4px 12px rgba(0,0,0,0.25)", flexShrink:0 }} />
 
-        <div style={{ flex:1, zIndex:1 }}>
-          <Title level={4} style={{ margin:0, color:"#fff" }}>
-            {user?.firstName} {user?.surname}
-          </Title>
-          <Space size={8} style={{ marginTop:4 }}>
-            <Tag style={{ background:"rgba(255,255,255,0.2)", border:"none",
-              color:"#fff", fontWeight:600 }}>
-              {user?.role}
-            </Tag>
-            {todayLog?.user?.qrString && (
-              <Text style={{ color:"rgba(255,255,255,0.75)", fontSize:12 }}>
-                {todayLog.user.qrString}
-              </Text>
-            )}
-          </Space>
-        </div>
-
-        <div style={{ textAlign:"center", zIndex:1, background:"rgba(255,255,255,0.12)",
-          borderRadius:14, padding:"10px 16px", minWidth:110 }}>
-          <Badge
-            status={isInTUP ? "success" : "default"}
-            text={
-              <Text style={{ color:"#fff", fontWeight:700, fontSize:13 }}>
-                {todayLog ? (isInTUP ? "In TUP" : "Checked Out") : "Not yet in"}
-              </Text>
-            }
-          />
-          <div style={{ color:"rgba(255,255,255,0.6)", fontSize:11, marginTop:2 }}>
-            Today's Status
-          </div>
-        </div>
-      </div>
-
-      {/* ── TODAY SUMMARY ── */}
-      {todayLog && (
-        <Card style={{ borderRadius:16, marginBottom:24,
-          boxShadow:"0 4px 16px rgba(0,0,0,0.07)", border:"1px solid #f0f0f0" }}
-          bodyStyle={{ padding:"16px 20px" }}>
-
-          <Text style={{ fontSize:11, fontWeight:700, textTransform:"uppercase",
-            letterSpacing:1, color:"#b1122b" }}>
-            Today — {dayjs(todayLog.date).format("MMMM DD, YYYY")}
-          </Text>
-
-          <div style={{ display:"flex", gap:32, marginTop:12, flexWrap:"wrap" }}>
-            <div>
-              <Text type="secondary" style={{ fontSize:12 }}>
-                <ClockCircleOutlined style={{ marginRight:4 }} /> First Time In
-              </Text>
-              <Title level={5} style={{ margin:0, color:"#262626" }}>
-                {getTimeIn(todayLog) ? dayjs(getTimeIn(todayLog)!).format("hh:mm A") : "—"}
-              </Title>
-            </div>
-            <div>
-              <Text type="secondary" style={{ fontSize:12 }}>
-                <LogoutOutlined style={{ marginRight:4 }} /> Last Time Out
-              </Text>
-              <Title level={5} style={{ margin:0, color:"#262626" }}>
-                {getTimeOut(todayLog) ? dayjs(getTimeOut(todayLog)!).format("hh:mm A") : "—"}
-              </Title>
-            </div>
-            <div>
-              <Text type="secondary" style={{ fontSize:12 }}>
-                <EnvironmentOutlined style={{ marginRight:4 }} /> Places Visited
-              </Text>
-              <Title level={5} style={{ margin:0, color:"#262626" }}>
-                {todayLog.activities.filter((a) => a.reason === "transaction").length}
-              </Title>
-            </div>
+          <div style={{ flex:1, zIndex:1 }}>
+            <Title level={4} style={{ margin:0, color:"#fff" }}>
+              {user?.firstName} {user?.surname}
+            </Title>
+            <Space size={8} style={{ marginTop:4 }}>
+              <Tag color="white" style={{ color:"#ff4d4f", fontWeight:600 }}>
+                {user?.role}
+              </Tag>
+              {todayLog?.user?.qrString && (
+                <Text style={{ color:"rgba(255,255,255,0.85)", fontSize:12 }}>
+                  {todayLog.user.qrString}
+                </Text>
+              )}
+            </Space>
           </div>
 
-          {/* Today's visit trail */}
-          {todayLog.activities.length > 0 && (
-            <>
-              <Divider style={{ margin:"16px 0 12px" }} />
-              <Text style={{ fontSize:11, fontWeight:700, textTransform:"uppercase",
-                letterSpacing:1, color:"#8c8c8c", display:"block", marginBottom:12 }}>
-                Today's Trail
-              </Text>
-              <Timeline
-                items={todayLog.activities.map((act, i) => ({
-                  key:   i,
-                  color: getActivityColor(act),
-                  dot:   getActivityIcon(act),
-                  children: (
-                    <div>
-                      <Space style={{ justifyContent:"space-between", width:"100%" }} wrap>
-                        <Text strong style={{ fontSize:13 }}>
-                          {act.reason === "transaction"
-                            ? `Went to: ${getActivityLabel(act)}`
-                            : getActivityLabel(act)}
+          <div style={{ zIndex:1, background:"rgba(255,255,255,0.18)", borderRadius:12,
+            padding:"10px 18px", textAlign:"center", minWidth:120 }}>
+            <Badge
+              status={isInTUP ? "success" : "default"}
+              text={
+                <Text style={{ color:"#fff", fontWeight:700, fontSize:13 }}>
+                  {todayLog ? (isInTUP ? "In TUP" : "Checked Out") : "Not yet in"}
+                </Text>
+              }
+            />
+            <div style={{ color:"rgba(255,255,255,0.75)", fontSize:11, marginTop:2 }}>
+              Today's Status
+            </div>
+          </div>
+        </div>
+
+        {/* ── TODAY SUMMARY — same card style as Logs.tsx modal summary ── */}
+        {todayLog && (
+          <Card
+            size="small"
+            variant="borderless"
+            style={{ borderRadius:16, background:"#fff",
+              boxShadow:"0 6px 16px rgba(0,0,0,0.08)", marginBottom:24 }}
+          >
+            <Space style={{ width:"100%", justifyContent:"space-between",
+              alignItems:"center", flexWrap:"wrap" as any }}>
+              <div>
+                <Text type="secondary">First Time In</Text>
+                <Title level={5} style={{ margin:0 }}>
+                  {getTimeIn(todayLog) ? dayjs(getTimeIn(todayLog)!).format("hh:mm A") : "—"}
+                </Title>
+              </div>
+              <div>
+                <Text type="secondary">Last Time Out</Text>
+                <Title level={5} style={{ margin:0 }}>
+                  {getTimeOut(todayLog) ? dayjs(getTimeOut(todayLog)!).format("hh:mm A") : "—"}
+                </Title>
+              </div>
+              <div>
+                <Text type="secondary">Status</Text>
+                <Tag
+                  color={todayLog.dailyStatus === "In TUP" ? "green" : "volcano"}
+                  style={{ fontSize:14, padding:"4px 12px", display:"block", marginTop:4 }}
+                >
+                  {todayLog.dailyStatus}
+                </Tag>
+              </div>
+            </Space>
+          </Card>
+        )}
+
+        {/* ── HISTORY LIST ── */}
+        <Title level={5} style={{ marginBottom:12, color:"#595959" }}>
+          Attendance History
+        </Title>
+
+        {loading && logs.length === 0 ? (
+          <div style={{ textAlign:"center", padding:48 }}><Spin size="large" /></div>
+        ) : logs.length === 0 ? (
+          <Empty description="No attendance records yet" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+        ) : (
+          <Space direction="vertical" style={{ width:"100%" }} size={8}>
+            {[...(todayLog ? [todayLog] : []), ...historyLogs].map((log) => {
+              const timeIn  = getTimeIn(log);
+              const timeOut = getTimeOut(log);
+              const today   = isToday(log.date);
+
+              return (
+                <div
+                  key={log._id}
+                  onClick={() => { setSelectedLog(log); setModalVisible(true); }}
+                  style={{
+                    display: "flex", alignItems: "center",
+                    justifyContent: "space-between", flexWrap: "wrap" as any,
+                    gap: 12, padding: "12px 16px", borderRadius: 12, cursor: "pointer",
+                    background: today ? "#fff5f5" : "#fafafa",
+                    border: `1px solid ${today ? "#ffccc7" : "#f0f0f0"}`,
+                    transition: "box-shadow 0.2s",
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.boxShadow = "0 4px 12px rgba(0,0,0,0.08)")}
+                  onMouseLeave={(e) => (e.currentTarget.style.boxShadow = "none")}
+                >
+                  {/* Date */}
+                  <div style={{ minWidth:120 }}>
+                    <Text strong style={{ fontSize:13 }}>
+                      {today ? "Today" : dayjs(log.date).format("MMM DD, YYYY")}
+                    </Text>
+                    {today && (
+                      <div>
+                        <Text type="secondary" style={{ fontSize:11 }}>
+                          {dayjs(log.date).format("MMM DD, YYYY")}
                         </Text>
-                        <Tag color={
-                          act.reason === "transaction" ? "blue"
-                            : act.status === "In TUP"  ? "green" : "volcano"}
-                          style={{ fontSize:11 }}>
-                          {act.reason === "transaction" ? "Transaction" : act.status}
-                        </Tag>
-                      </Space>
-                      <Text type="secondary" style={{ fontSize:12 }}>
-                        {act.timeIn
-                          ? dayjs(act.timeIn).format("hh:mm A")
-                          : act.scannedAt
-                          ? dayjs(act.scannedAt).format("hh:mm A")
-                          : ""}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Time in / out */}
+                  <Space size={20}>
+                    <Space size={4}>
+                      <ClockCircleOutlined style={{ color:"#52c41a", fontSize:12 }} />
+                      <Text style={{ fontSize:12 }}>
+                        {timeIn ? dayjs(timeIn).format("hh:mm A") : "—"}
                       </Text>
-                    </div>
-                  ),
-                }))}
-              />
-            </>
-          )}
+                    </Space>
+                    <Space size={4}>
+                      <LogoutOutlined style={{ color:"#f5222d", fontSize:12 }} />
+                      <Text style={{ fontSize:12 }}>
+                        {timeOut ? dayjs(timeOut).format("hh:mm A") : "—"}
+                      </Text>
+                    </Space>
+                  </Space>
 
-          {/* Staff attendance block */}
-          {todayLog.attendance && (
-            <>
-              <Divider style={{ margin:"10px 0 10px" }} />
-              <Text style={{ fontSize:11, fontWeight:700, textTransform:"uppercase",
-                letterSpacing:1, color:"#8c8c8c", display:"block", marginBottom:8 }}>
-                Attendance
-              </Text>
-              <Space size={24}>
-                <Text type="secondary" style={{ fontSize:12 }}>
-                  <ClockCircleOutlined style={{ marginRight:4 }} />
-                  In:{" "}
-                  <Text style={{ fontSize:12, color:"#262626" }}>
-                    {todayLog.attendance.timeIn
-                      ? dayjs(todayLog.attendance.timeIn).format("hh:mm A") : "—"}
-                  </Text>
-                </Text>
-                <Text type="secondary" style={{ fontSize:12 }}>
-                  <LogoutOutlined style={{ marginRight:4 }} />
-                  Out:{" "}
-                  <Text style={{ fontSize:12, color:"#262626" }}>
-                    {todayLog.attendance.timeOut
-                      ? dayjs(todayLog.attendance.timeOut).format("hh:mm A") : "—"}
-                  </Text>
-                </Text>
-              </Space>
-            </>
-          )}
-        </Card>
-      )}
-
-      {/* ── HISTORY ── */}
-      <Text style={{ fontSize:11, fontWeight:700, textTransform:"uppercase",
-        letterSpacing:1, color:"#8c8c8c", display:"block", marginBottom:12 }}>
-        Attendance History
-      </Text>
-
-      {loading && logs.length === 0 ? (
-        <div style={{ textAlign:"center", padding:48 }}>
-          <Spin size="large" />
-        </div>
-      ) : historyLogs.length === 0 ? (
-        <Empty description="No attendance history yet"
-          image={Empty.PRESENTED_IMAGE_SIMPLE} />
-      ) : (
-        <Space direction="vertical" style={{ width:"100%" }} size={12}>
-          {historyLogs.map((log) => {
-            const timeIn  = getTimeIn(log);
-            const timeOut = getTimeOut(log);
-            const visits  = log.activities.filter((a) => a.reason === "transaction");
-
-            return (
-              <Card key={log._id}
-                style={{ borderRadius:14, border:"1px solid #f0f0f0",
-                  boxShadow:"0 2px 8px rgba(0,0,0,0.05)" }}
-                bodyStyle={{ padding:"14px 18px" }}>
-
-                <div style={{ display:"flex", justifyContent:"space-between",
-                  alignItems:"center", marginBottom:8 }}>
-                  <Text strong style={{ fontSize:14 }}>
-                    {dayjs(log.date).format("MMM DD, YYYY")}
-                  </Text>
-                  <Tag color={log.dailyStatus === "In TUP" ? "green" : "volcano"}>
+                  {/* Status */}
+                  <Tag color={log.dailyStatus === "In TUP" ? "green" : "volcano"}
+                    style={{ marginRight:0 }}>
                     {log.dailyStatus}
                   </Tag>
                 </div>
+              );
+            })}
+          </Space>
+        )}
+      </Card>
 
-                <Space size={24} style={{ marginBottom: visits.length ? 10 : 0 }}>
-                  <Text type="secondary" style={{ fontSize:12 }}>
-                    <ClockCircleOutlined style={{ marginRight:4 }} />
-                    In:{" "}
-                    <Text style={{ fontSize:12, color:"#262626" }}>
-                      {timeIn ? dayjs(timeIn).format("hh:mm A") : "—"}
-                    </Text>
-                  </Text>
-                  <Text type="secondary" style={{ fontSize:12 }}>
-                    <LogoutOutlined style={{ marginRight:4 }} />
-                    Out:{" "}
-                    <Text style={{ fontSize:12, color:"#262626" }}>
-                      {timeOut ? dayjs(timeOut).format("hh:mm A") : "—"}
-                    </Text>
+      {/* ── DETAILS MODAL — mirrors Logs.tsx modal exactly ── */}
+      <Modal
+        open={modalVisible}
+        onCancel={() => setModalVisible(false)}
+        footer={null}
+        centered
+        width={580}
+        closeIcon={<span style={{ color:"#fff", fontSize:18, fontWeight:600 }}>✕</span>}
+      >
+        {selectedLog && (
+          <div style={{ display:"flex", flexDirection:"column", gap:20 }}>
+ 
+            {/* HERO */}
+            <div style={{
+              display:"flex", alignItems:"center", gap:16, padding:16, borderRadius:16,
+              background:"linear-gradient(135deg, #ff4d4f, #ff7875)", color:"#fff",
+              position:"relative", overflow:"hidden",
+            }}>
+              <Avatar size={72} src={selectedLog.user.photoURL} icon={<UserOutlined />}
+                style={{ border:"3px solid #fff", boxShadow:"0 4px 12px rgba(0,0,0,0.25)" }} />
+              <div style={{ flex:1 }}>
+                <Title level={4} style={{ margin:0, color:"#fff" }}>
+                  {selectedLog.user.firstName} {selectedLog.user.surname}
+                </Title>
+                <Space size="small">
+                  <Tag color="white" style={{ color:"#ff4d4f" }}>
+                    {selectedLog.user.role}
+                  </Tag>
+                  <Text style={{ color:"rgba(255,255,255,0.85)" }}>
+                    Date Entered: {dayjs(selectedLog.date).format("MMM DD, YYYY")}
                   </Text>
                 </Space>
-
-                {visits.length > 0 && (
-                  <>
-                    <Divider style={{ margin:"10px 0 8px" }} />
-                    <Space direction="vertical" size={4} style={{ width:"100%" }}>
-                      {visits.map((act, i) => (
-                        <div key={i} style={{
-                          display:"flex", justifyContent:"space-between",
-                          alignItems:"center", padding:"4px 10px",
-                          borderRadius:8, background:"#f0f5ff",
-                          borderLeft:"3px solid #1677ff",
-                        }}>
-                          <Text style={{ fontSize:12 }}>
-                            <EnvironmentOutlined style={{ marginRight:5, color:"#1677ff" }} />
-                            Went to:{" "}
-                            <Text strong style={{ fontSize:12 }}>
-                              {getActivityLabel(act)}
+              </div>
+            </div>
+ 
+            {/* SUMMARY BOX */}
+            <Card size="small" variant="borderless"
+              style={{ borderRadius:16, background:"#fff", boxShadow:"0 6px 16px rgba(0,0,0,0.08)" }}>
+              <Space style={{ width:"100%", justifyContent:"space-between", alignItems:"center" }}>
+                <div>
+                  <Text type="secondary">First Time In</Text>
+                  <Title level={5} style={{ margin:0 }}>
+                    {getTimeIn(selectedLog) ? dayjs(getTimeIn(selectedLog)!).format("hh:mm A") : "—"}
+                  </Title>
+                </div>
+                <div>
+                  <Text type="secondary">Last Time Out</Text>
+                  <Title level={5} style={{ margin:0 }}>
+                    {getTimeOut(selectedLog) ? dayjs(getTimeOut(selectedLog)!).format("hh:mm A") : "—"}
+                  </Title>
+                </div>
+                <div>
+                  <Text type="secondary">Status</Text>
+                  <Tag
+                    color={selectedLog.dailyStatus === "In TUP" ? "green" : "volcano"}
+                    style={{ fontSize:14, padding:"4px 12px", display:"block", marginTop:4 }}
+                  >
+                    {selectedLog.dailyStatus}
+                  </Tag>
+                </div>
+              </Space>
+            </Card>
+ 
+            {/* ACTIVITY DETAILS */}
+            <div>
+              <Title level={5} style={{ marginBottom:8 }}>Activity Details</Title>
+              {selectedLog.activities.length ? (
+                <Space direction="vertical" style={{ width:"100%" }}>
+                  {selectedLog.activities.map((act, i) => (
+                    <Card key={i} size="small" variant="borderless"
+                      style={{ borderRadius:14, background:"#fafafa",
+                        borderLeft:`5px solid ${act.status === "In TUP" ? "#52c41a" : "#f5222d"}` }}>
+                      <Space direction="vertical" size={4} style={{ width:"100%" }}>
+                        <Space style={{ justifyContent:"space-between", width:"100%" }}>
+                          <Space size={6}>
+                            {act.status === "In TUP"
+                              ? <CheckCircleOutlined style={{ color:"#52c41a" }} />
+                              : <CloseCircleOutlined style={{ color:"#f5222d" }} />}
+                            <Text strong>
+                              {reasonLabel[act.reason] ?? act.reason.toUpperCase()}
                             </Text>
+                          </Space>
+                          <Tag color={act.status === "In TUP" ? "green" : "volcano"}>
+                            {act.status}
+                          </Tag>
+                        </Space>
+                        <Space size="large">
+                          <Text type="secondary">
+                            In: {act.timeIn ? dayjs(act.timeIn).format("hh:mm A") : "—"}
                           </Text>
-                          <Text type="secondary" style={{ fontSize:11 }}>
-                            {act.timeIn
-                              ? dayjs(act.timeIn).format("hh:mm A")
-                              : act.scannedAt
-                              ? dayjs(act.scannedAt).format("hh:mm A")
-                              : "—"}
+                          <Text type="secondary">
+                            Out: {act.timeOut ? dayjs(act.timeOut).format("hh:mm A") : "—"}
                           </Text>
-                        </div>
-                      ))}
+                        </Space>
+                      </Space>
+                    </Card>
+                  ))}
+                </Space>
+              ) : (
+                <Text type="secondary">No activity details recorded</Text>
+              )}
+            </div>
+ 
+            {/* Staff Attendance block */}
+            {selectedLog.attendance && (
+              <>
+                <Divider style={{ margin:"0 0 4px" }} />
+                <div>
+                  <Title level={5} style={{ marginBottom:8 }}>
+                    <EnvironmentOutlined style={{ marginRight:6, color:"#ff4d4f" }} />
+                    Attendance Record
+                  </Title>
+                  <Card size="small" variant="borderless"
+                    style={{ borderRadius:14, background:"#fafafa", borderLeft:"5px solid #ff4d4f" }}>
+                    <Space size="large">
+                      <Text type="secondary">
+                        In:{" "}
+                        <Text strong>
+                          {selectedLog.attendance.timeIn
+                            ? dayjs(selectedLog.attendance.timeIn).format("hh:mm A") : "—"}
+                        </Text>
+                      </Text>
+                      <Text type="secondary">
+                        Out:{" "}
+                        <Text strong>
+                          {selectedLog.attendance.timeOut
+                            ? dayjs(selectedLog.attendance.timeOut).format("hh:mm A") : "—"}
+                        </Text>
+                      </Text>
                     </Space>
-                  </>
-                )}
-              </Card>
-            );
-          })}
-        </Space>
-      )}
-    </div>
+                  </Card>
+                </div>
+              </>
+            )}
+ 
+            {/* CLOSE */}
+            <div style={{ textAlign:"center", marginTop:4 }}>
+              <button
+                onClick={() => setModalVisible(false)}
+                style={{
+                  background: "linear-gradient(135deg, #ff4d4f, #ff7875)",
+                  border: "none", borderRadius: 14, height: 46, width: 160,
+                  fontWeight: 600, fontSize: 14, color: "#fff", cursor: "pointer",
+                  boxShadow: "0 8px 16px rgba(255,77,79,0.45)",
+                }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
+    </>
   );
 };
 

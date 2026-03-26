@@ -429,7 +429,7 @@ const Logs = () => {
                 </Space>
               </div>
             </div>
-
+ 
             <Card size="small" variant="borderless"
               style={{ borderRadius: 16, boxShadow: "0 6px 16px rgba(0,0,0,0.08)" }}>
               <Space style={{ width: "100%", justifyContent: "space-between" }}>
@@ -454,7 +454,7 @@ const Logs = () => {
                 </div>
               </Space>
             </Card>
-
+ 
             <div>
               <Title level={5} style={{ marginBottom: 8 }}>Activity Details</Title>
               {selectedLog.activities.length ? (
@@ -484,7 +484,7 @@ const Logs = () => {
                 <Text type="secondary">No activities recorded</Text>
               )}
             </div>
-
+ 
             <div style={{ textAlign: "center", marginTop: 8 }}>
               <Button type="primary" onClick={() => setModalVisible(false)}
                 style={{ background: "linear-gradient(135deg, #ff4d4f, #ff7875)",
