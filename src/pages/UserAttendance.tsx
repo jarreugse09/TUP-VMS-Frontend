@@ -6,7 +6,6 @@ import {
   Avatar,
   Spin,
   Empty,
-  Divider,
   Modal,
   Badge,
 } from "antd";
@@ -14,9 +13,6 @@ import {
   UserOutlined,
   ClockCircleOutlined,
   LogoutOutlined,
-  EnvironmentOutlined,
-  CheckCircleOutlined,
-  CloseCircleOutlined,
 } from "@ant-design/icons";
 import { useEffect, useState, useRef } from "react";
 import { useAuth } from "../contexts/AuthContext";

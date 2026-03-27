@@ -12,17 +12,14 @@ import {
   Avatar,
   Drawer,
   message,
-  Empty,
 } from "antd";
 import {
   SearchOutlined,
   ReloadOutlined,
   FilterOutlined,
-  EllipsisOutlined,
   UserOutlined,
   InfoCircleOutlined,
   LockOutlined,
-  CalendarOutlined,
   ClockCircleOutlined,
 } from "@ant-design/icons";
 import { useEffect, useState, useMemo, useRef } from "react";
@@ -65,16 +62,6 @@ interface LogItem {
   attendance?: Attendance | null;
   activities: Activity[];
 }
-
-
-// Reason label mapping for activities
-const REASON_LABEL: Record<string, string> = {
-  attendance: "Attendance",
-  checkin:    "Check In",
-  checkout:   "Check Out",
-  break:      "Break",
-  "go out":   "Went Out",
-};
 
 /* ================= HELPERS ================= */
 
