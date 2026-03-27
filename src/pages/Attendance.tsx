@@ -295,20 +295,7 @@ const Logs = () => {
         );
       },
     },
-    {
-      title: "Actions",
-      render: (_, record) => (
-        <Button
-          type="primary"
-          shape="circle"
-          icon={<EllipsisOutlined />}
-          onClick={() => {
-            setSelectedLog(record);
-            setModalVisible(true);
-          }}
-        />
-      ),
-    },
+    
   ];
 
   /* ================= RENDER ================= */
@@ -356,11 +343,26 @@ const Logs = () => {
         </Space>
 
         <Table
-          columns={columns}
-          dataSource={filteredData}
-          rowKey="_id"
-          loading={loading}
-        />
+  columns={columns}
+  dataSource={filteredData}
+  rowKey="_id"
+  loading={loading}
+  pagination={{ pageSize: 10, showSizeChanger: true }}
+  onRow={(record) => ({
+    onClick: (event) => {
+      const target = event.target as HTMLElement;
+
+      // prevent triggering when clicking buttons, links, etc.
+      if (target.closest("button") || target.closest("a")) {
+        return;
+      }
+
+      setSelectedLog(record);
+      setModalVisible(true);
+    },
+    style: { cursor: "pointer" },
+  })}
+/>
       </Card>
 
       {/* EXPORT MODAL */}

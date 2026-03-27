@@ -17,7 +17,6 @@ import {
   ReloadOutlined,
   FilterOutlined,
   ClockCircleOutlined,
-  EllipsisOutlined,
   UserOutlined,
   ArrowRightOutlined,
   ArrowLeftOutlined,
@@ -238,13 +237,6 @@ const Logs = () => {
         <Tag color={record.dailyStatus === "In TUP" ? "green" : "volcano"}>{record.dailyStatus}</Tag>
       ),
     },
-    {
-      title: "Actions",
-      render: (_, record) => (
-        <Button type="primary" shape="circle" icon={<EllipsisOutlined />}
-          onClick={() => { setSelectedLog(record); setModalVisible(true); }} />
-      ),
-    },
   ];
 
   // Normal user bidirectional transaction columns
@@ -367,17 +359,74 @@ const Logs = () => {
             columns={transactionColumns}
             dataSource={filteredTransactions}
             rowKey="_id"
-            loading={loading}
-            pagination={{ pageSize: 10, showSizeChanger: true }}
-          />
+  loading={loading}
+  pagination={{ pageSize: 10, showSizeChanger: true }}
+  onRow={(record) => ({
+    onClick: (event) => {
+      const target = event.target as HTMLElement;
+
+      // prevent triggering when clicking buttons, links, etc.
+      if (target.closest("button") || target.closest("a")) {
+        return;
+      }
+
+      // Convert TransactionLog to LogItem shape for modal
+      setSelectedLog({
+        _id: record._id,
+        date: record.date,
+        userId: {
+          _id: '',
+          qrString: record.scannedQrString || '',
+          firstName: record.otherParty?.firstName || '',
+          surname: record.otherParty?.surname || '',
+          role: record.otherParty?.role || '',
+          photoURL: record.otherParty?.photoURL || '',
+          birthdate: '',
+        },
+        dailyStatus: record.status,
+        attendance: {
+          timeIn: record.timeIn || undefined,
+          timeOut: record.timeOut || undefined,
+          status: record.status as any,
+        },
+        activities: [
+          {
+            reason: record.reason,
+            timeIn: record.timeIn || undefined,
+            timeOut: record.timeOut || undefined,
+            status: record.status,
+            wentTo: record.direction === "outgoing" && record.otherParty ? record.otherParty : undefined,
+            scannedTarget: record.direction === "incoming" && record.otherParty ? record.otherParty : undefined,
+          },
+        ],
+      });
+      setModalVisible(true);
+    },
+    style: { cursor: "pointer" },
+  })}
+/>
         ) : (
           <Table<LogItem>
             columns={groupedColumns}
             dataSource={filteredGroupedLogs}
             rowKey="_id"
-            loading={loading}
-            pagination={{ pageSize: 10, showSizeChanger: true }}
-          />
+  loading={loading}
+  pagination={{ pageSize: 10, showSizeChanger: true }}
+  onRow={(record) => ({
+    onClick: (event) => {
+      const target = event.target as HTMLElement;
+
+      // prevent triggering when clicking buttons, links, etc.
+      if (target.closest("button") || target.closest("a")) {
+        return;
+      }
+
+      setSelectedLog(record);
+      setModalVisible(true);
+    },
+    style: { cursor: "pointer" },
+  })}
+/>
         )}
       </Card>
 
