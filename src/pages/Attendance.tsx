@@ -111,19 +111,25 @@ const Logs = () => {
   const [exporting, setExporting] = useState(false);
   const [exportRole, setExportRole] = useState<string | undefined>(undefined);
 
-  const fetchLogs = async () => {
-    if (fetchingRef.current) return;
-    fetchingRef.current = true;
-    setLoading(true);
-    try {
-      const data = await getLogs();
-      setLogs(data);
-    } finally {
-      setLoading(false);
-      fetchingRef.current = false;
-    }
-  };
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
 
+const fetchLogs = async (isSilent = false) => {
+  if (fetchingRef.current) return;
+  fetchingRef.current = true;
+
+  if (!isSilent) setLoading(true);
+
+  try {
+    const data = await getLogs();
+    setLogs(data);
+  } catch (error) {
+    console.error(error);
+  } finally {
+    if (!isSilent) setLoading(false); // ✅ prevents flicker
+    setIsInitialLoad(false);
+    fetchingRef.current = false;
+  }
+};
   const handleExport = async () => {
     if (!exportPassword) {
       message.error("Please enter your password to confirm");
@@ -182,26 +188,32 @@ const Logs = () => {
   };
 
   useEffect(() => {
-    fetchLogs();
+  // initial load (with spinner)
+  fetchLogs(false);
 
-    const intervalId = window.setInterval(fetchLogs, pollingIntervalMs);
+  // silent background refresh
+  const intervalId = window.setInterval(
+    () => fetchLogs(true),
+    pollingIntervalMs
+  );
 
-    const handleFocus = () => fetchLogs();
-    const handleVisibility = () => {
-      if (document.visibilityState === "visible") {
-        fetchLogs();
-      }
-    };
+  const handleFocus = () => fetchLogs(true);
 
-    window.addEventListener("focus", handleFocus);
-    document.addEventListener("visibilitychange", handleVisibility);
+  const handleVisibility = () => {
+    if (document.visibilityState === "visible") {
+      fetchLogs(true);
+    }
+  };
 
-    return () => {
-      window.clearInterval(intervalId);
-      window.removeEventListener("focus", handleFocus);
-      document.removeEventListener("visibilitychange", handleVisibility);
-    };
-  }, []);
+  window.addEventListener("focus", handleFocus);
+  document.addEventListener("visibilitychange", handleVisibility);
+
+  return () => {
+    window.clearInterval(intervalId);
+    window.removeEventListener("focus", handleFocus);
+    document.removeEventListener("visibilitychange", handleVisibility);
+  };
+}, []);
 
   /* ================= FILTER ================= */
 
@@ -228,7 +240,7 @@ const Logs = () => {
 
   /* ================= TABLE ================= */
 
-  const columns: ColumnsType<LogItem> = [
+const columns = useMemo<ColumnsType<LogItem>>(() => [
     {
       title: "Name",
       render: (_, record) => (
@@ -283,7 +295,7 @@ const Logs = () => {
       },
     },
     
-  ];
+  ], []);
 
   /* ================= RENDER ================= */
 
@@ -300,7 +312,7 @@ const Logs = () => {
         }
         extra={
           <Space>
-            <Button icon={<ReloadOutlined />} onClick={fetchLogs}>
+            <Button icon={<ReloadOutlined />} onClick={() => fetchLogs(false)}>
               Refresh
             </Button>
             <Button onClick={() => setExportModalOpen(true)}>Download</Button>
@@ -333,7 +345,7 @@ const Logs = () => {
   columns={columns}
   dataSource={filteredData}
   rowKey="_id"
-  loading={loading}
+  loading={loading && isInitialLoad}
   pagination={{ pageSize: 10, showSizeChanger: true }}
   onRow={(record) => ({
     onClick: (event) => {
