@@ -12,6 +12,7 @@ import {
   Avatar,
   Drawer,
   message,
+  Empty,
 } from "antd";
 import {
   SearchOutlined,
@@ -19,6 +20,13 @@ import {
   FilterOutlined,
   EllipsisOutlined,
   UserOutlined,
+  InfoCircleOutlined,
+  LockOutlined,
+  CalendarOutlined,
+  LoginOutlined,
+  LogoutOutlined,
+  HistoryOutlined,
+  ClockCircleOutlined,
 } from "@ant-design/icons";
 import { useEffect, useState, useMemo, useRef } from "react";
 import { getLogs } from "./../services/logService";
@@ -350,309 +358,390 @@ const Logs = () => {
 
       {/* EXPORT MODAL */}
       <Modal
-        title="Export Attendance"
-        open={exportModalOpen}
-        onCancel={() => {
-          setExportModalOpen(false);
-          setExportPassword("");
-          setExportRole(undefined);
-        }}
-        onOk={handleExport}
-        okText="Export"
-        confirmLoading={exporting}
-      >
-        <p>
-          Export attendance data for a specific month or date range. For
-          security, you must confirm your account password before the download
-          will start.
-        </p>
+  title={<span style={{ fontWeight: 700, fontSize: 18 }}>Export Attendance</span>}
+  open={exportModalOpen}
+  onCancel={() => {
+    setExportModalOpen(false);
+    setExportPassword("");
+    setExportRole(undefined);
+  }}
+  onOk={handleExport}
+  okText="Export"
+  confirmLoading={exporting}
+  centered
+  okButtonProps={{
+    style: {
+      background: "linear-gradient(135deg, #ff4d4f, #ff7875)",
+      border: "none",
+      borderRadius: 8,
+      height: 38,
+      padding: "0 24px",
+      fontWeight: 600,
+      boxShadow: "0 4px 10px rgba(255,77,79,0.3)",
+    },
+  }}
+  cancelButtonProps={{ style: { borderRadius: 8, height: 38 } }}
+>
+  <div style={{ padding: "8px 0" }}>
+    <div style={{ 
+      background: "#fff7e6", 
+      padding: "12px 16px", 
+      borderRadius: 12, 
+      border: "1px solid #ffd591",
+      marginBottom: 20 
+    }}>
+      <Text style={{ color: "#874d00", fontSize: 13 }}>
+        <InfoCircleOutlined style={{ marginRight: 8 }} />
+        For security, please confirm your password to download attendance data.
+      </Text>
+    </div>
 
-        <Space style={{ marginBottom: 12 }}>
+    <Space direction="vertical" size={16} style={{ width: "100%" }}>
+      {/* Date Selection Row */}
+      <div style={{ display: "flex", gap: 12 }}>
+        <Select
+          value={exportMode}
+          onChange={(v) => setExportMode(v as any)}
+          style={{ width: 140 }}
+          size="large"
+        >
+          <Option value="month">By Month</Option>
+          <Option value="range">Date Range</Option>
+        </Select>
+
+        {exportMode === "month" ? (
+          <DatePicker picker="month" size="large" style={{ flex: 1 }} onChange={(d) => setExportMonth(d)} />
+        ) : (
+          <RangePicker size="large" style={{ flex: 1 }} onChange={(d) => setExportRange(d)} />
+        )}
+      </div>
+
+      {/* Role & Format Grid */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        <div>
+          <Text type="secondary" style={{ fontSize: 12, marginBottom: 4, display: "block" }}>Role Filter</Text>
           <Select
-            value={exportMode}
-            onChange={(v) => setExportMode(v as any)}
-            style={{ width: 160 }}
+            placeholder="All Roles"
+            allowClear
+            size="large"
+            value={exportRole}
+            onChange={(value) => setExportRole(value)}
+            style={{ width: "100%" }}
           >
-            <Option value="month">Month</Option>
-            <Option value="range">Date Range</Option>
+            <Option value="Staff">Staff</Option>
+            <Option value="Student">Student</Option>
+            <Option value="Visitor">Visitor</Option>
           </Select>
+        </div>
+        <div>
+          <Text type="secondary" style={{ fontSize: 12, marginBottom: 4, display: "block" }}>File Format</Text>
+          <Select
+            value={exportFormat}
+            size="large"
+            onChange={(v) => setExportFormat(v as any)}
+            style={{ width: "100%" }}
+          >
+            <Option value="csv">CSV</Option>
+            <Option value="xlsx">Excel (.xlsx)</Option>
+          </Select>
+        </div>
+      </div>
 
-          {exportMode === "month" ? (
-            <DatePicker picker="month" onChange={(d) => setExportMonth(d)} />
-          ) : (
-            <RangePicker onChange={(d) => setExportRange(d)} />
-          )}
-        </Space>
-
-        <Space direction="vertical" style={{ width: "100%" }}>
-          <div>
-            <Text
-              type="secondary"
-              style={{ display: "block", marginBottom: 8 }}
-            >
-              Role Filter (Optional)
-            </Text>
-            <Select
-              placeholder="All Roles"
-              allowClear
-              value={exportRole}
-              onChange={(value) => setExportRole(value)}
-              style={{ width: "100%" }}
-            >
-              <Option value="Staff">Staff</Option>
-              <Option value="Student">Student</Option>
-              <Option value="Visitor">Visitor</Option>
-            </Select>
-          </div>
-
-          <div>
-            <Text
-              type="secondary"
-              style={{ display: "block", marginBottom: 8 }}
-            >
-              Format
-            </Text>
-            <Select
-              value={exportFormat}
-              onChange={(v) => setExportFormat(v as any)}
-              style={{ width: "100%" }}
-            >
-              <Option value="csv">CSV</Option>
-              <Option value="xlsx">Excel (.xlsx)</Option>
-            </Select>
-          </div>
-
-          <Input.Password
-            placeholder="Confirm your password"
-            value={exportPassword}
-            onChange={(e) => setExportPassword(e.target.value)}
-          />
-        </Space>
-      </Modal>
+      {/* Password Field */}
+      <div style={{ marginTop: 8 }}>
+        <Text type="secondary" style={{ fontSize: 12, marginBottom: 4, display: "block" }}>Confirm Identity</Text>
+        <Input.Password
+          prefix={<LockOutlined style={{ color: "#bfbfbf" }} />}
+          placeholder="Enter your account password"
+          size="large"
+          value={exportPassword}
+          onChange={(e) => setExportPassword(e.target.value)}
+          style={{ borderRadius: 8 }}
+        />
+      </div>
+    </Space>
+  </div>
+</Modal>
 
       {/* FILTER DRAWER */}
       <Drawer
-        title="Filters"
-        open={drawerVisible}
-        onClose={() => setDrawerVisible(false)}
+  title={<Text strong style={{ fontSize: 18 }}>Filters</Text>}
+  open={drawerVisible}
+  onClose={() => setDrawerVisible(false)}
+  width={340}
+  extra={
+    <Button type="link" onClick={() => setFilters({ name: "", role: undefined, dateRange: null })}>
+      Reset
+    </Button>
+  }
+>
+  <Space direction="vertical" size={20} style={{ width: "100%" }}>
+    <section>
+      <Text type="secondary" style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", marginBottom: 8, display: "block" }}>
+        Search Identification
+      </Text>
+      <Input
+        prefix={<SearchOutlined style={{ color: "#bfbfbf" }} />}
+        placeholder="Search by name..."
+        size="large"
+        allowClear
+        style={{ borderRadius: 8 }}
+        onChange={(e) => setFilters({ ...filters, name: e.target.value })}
+      />
+    </section>
+
+    <section>
+      <Text type="secondary" style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", marginBottom: 8, display: "block" }}>
+        Classification
+      </Text>
+      <Select
+        placeholder="Select Role"
+        allowClear
+        size="large"
+        style={{ width: "100%" }}
+        onChange={(value) => setFilters({ ...filters, role: value })}
       >
-        <Input
-          placeholder="Search name"
-          allowClear
-          onChange={(e) => setFilters({ ...filters, name: e.target.value })}
-        />
-        <Select
-          placeholder="Role"
-          allowClear
-          style={{ width: "100%", marginTop: 16 }}
-          onChange={(value) => setFilters({ ...filters, role: value })}
-        >
-          <Option value="Staff">Staff</Option>
-          <Option value="Student">Student</Option>
-          <Option value="Visitor">Visitor</Option>
-        </Select>
-        <RangePicker
-          style={{ width: "100%", marginTop: 16 }}
-          onChange={(dates) => setFilters({ ...filters, dateRange: dates })}
-        />
-      </Drawer>
+        <Option value="Staff">Staff Members</Option>
+        <Option value="Student">Student Body</Option>
+        <Option value="Visitor">Campus Visitors</Option>
+      </Select>
+    </section>
+
+    <section>
+      <Text type="secondary" style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", marginBottom: 8, display: "block" }}>
+        Activity Period
+      </Text>
+      <RangePicker
+        size="large"
+        style={{ width: "100%" }}
+        onChange={(dates) => setFilters({ ...filters, dateRange: dates })}
+      />
+    </section>
+  </Space>
+
+  {/* Footer Action for Mobile/Small screens */}
+  <div style={{ position: "absolute", bottom: 0, left: 0, width: "100%", padding: "16px 24px", borderTop: "1px solid #f0f0f0", background: "#fff" }}>
+    <Button 
+      type="primary" 
+      block 
+      size="large" 
+      onClick={() => setDrawerVisible(false)}
+      style={{ background: "#141414", borderRadius: 8, height: 45 }}
+    >
+      Apply Filters
+    </Button>
+  </div>
+</Drawer>
 
       {/* DETAILS MODAL */}
-      <Modal
-        open={modalVisible}
-        onCancel={() => setModalVisible(false)}
-        footer={null}
-        centered
-        width={620}
-        closeIcon={
-          <span
-            style={{
-              color: "#fff",
-              fontSize: 18,
-              fontWeight: 600,
-            }}
-          >
-            ✕
-          </span>
-        }
-      >
-        {selectedLog && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-            {/* HEADER / HERO */}
-            <div
+ <Modal
+  open={modalVisible}
+  onCancel={() => setModalVisible(false)}
+  footer={null}
+  centered
+  width={580}
+  styles={{
+    content: { padding: 0, overflow: "hidden", borderRadius: 16 },
+    mask: { backdropFilter: "blur(2px)" },
+  }}
+  closeIcon={
+    <span style={{
+      display: "inline-flex", alignItems: "center", justifyContent: "center",
+      width: 28, height: 28, borderRadius: "50%",
+      background: "rgba(0,0,0,0.06)", color: "#595959",
+      fontSize: 13, fontWeight: 500, lineHeight: 1,
+    }}>✕</span>
+  }
+>
+  {selectedLog && (() => {
+    const timeIn = getTimeIn(selectedLog);
+    const timeOut = getTimeOut(selectedLog);
+    const isIn = selectedLog.dailyStatus === "In TUP";
+
+    const ROLE_PILL: Record<string, { bg: string; color: string; border: string }> = {
+      Staff:    { bg: "#EFF6FF", color: "#1D4ED8", border: "#BFDBFE" },
+      Student:  { bg: "#F0FDF4", color: "#166534", border: "#BBF7D0" },
+      Visitor:  { bg: "#FAF5FF", color: "#6B21A8", border: "#E9D5FF" },
+      TUP:      { bg: "#FFF7ED", color: "#9A3412", border: "#FED7AA" },
+      Security: { bg: "#F0F9FF", color: "#075985", border: "#BAE6FD" },
+    };
+    const pill = ROLE_PILL[selectedLog.user.role] ?? { bg: "#F5F5F5", color: "#404040", border: "#E5E5E5" };
+
+    return (
+      <div style={{ display: "flex", flexDirection: "column" }}>
+        
+        {/* ── HEADER / HERO SECTION ── */}
+        <div style={{
+          padding: "24px 24px 20px",
+          display: "flex",
+          alignItems: "center",
+          gap: 20,
+          borderBottom: "1px solid #f0f0f0",
+        }}>
+          <div style={{ position: "relative", flexShrink: 0 }}>
+            <Avatar
+              size={72}
+              src={selectedLog.user.photoURL}
+              icon={<UserOutlined />}
               style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 16,
-                padding: 16,
-                borderRadius: 16,
-                background: "linear-gradient(135deg, #ff4d4f, #ff7875)",
-                color: "#fff",
-                position: "relative",
+                background: "#f0f0f0",
+                border: "2px solid #fff",
+                outline: "1.5px solid #e8e8e8",
+                boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
               }}
-            >
-              <Avatar
-                size={72}
-                src={selectedLog.user.photoURL}
-                icon={<UserOutlined />}
-                style={{
-                  border: "3px solid #fff",
-                  boxShadow: "0 4px 12px rgba(0,0,0,0.25)",
-                }}
-              />
+            />
+            <span style={{
+              position: "absolute", bottom: 2, right: 2,
+              width: 14, height: 14, borderRadius: "50%",
+              background: isIn ? "#22c55e" : "#d1d5db",
+              border: "2px solid #fff",
+            }} />
+          </div>
 
-              <div style={{ flex: 1 }}>
-                <Title level={4} style={{ margin: 0, color: "#fff" }}>
-                  {selectedLog.user.firstName} {selectedLog.user.surname}
-                </Title>
-
-                <Space size="small">
-                  <Tag color="white" style={{ color: "#ff4d4f" }}>
-                    {selectedLog.user.role}
-                  </Tag>
-                  <Text style={{ color: "rgba(255,255,255,0.85)" }}>
-                    Date Entered:{" "}
-                    {dayjs(selectedLog.date).format("MMM DD, YYYY")}
-                  </Text>
-                </Space>
-              </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 4 }}>
+              <Text strong style={{ fontSize: 18, color: "#141414", lineHeight: 1.2, letterSpacing: "-0.2px" }}>
+                {selectedLog.user.firstName} {selectedLog.user.surname}
+              </Text>
+              <span style={{
+                fontSize: 11, fontWeight: 600, padding: "1px 8px",
+                borderRadius: 20, letterSpacing: "0.2px", textTransform: "uppercase",
+                background: pill.bg, color: pill.color, border: `1px solid ${pill.border}`,
+              }}>
+                {selectedLog.user.role}
+              </span>
             </div>
+            <Text type="secondary" style={{ fontSize: 13, display: "flex", alignItems: "center", gap: 5 }}>
+              <CalendarOutlined style={{ fontSize: 12 }} />
+              {dayjs(selectedLog.date).format("dddd, MMMM D, YYYY")}
+            </Text>
+          </div>
+        </div>
 
-            {/* COMBINED SUMMARY BOX */}
-            <Card
-              size="small"
-              variant="borderless"
-              style={{
-                borderRadius: 16,
-                background: "#fff",
-                boxShadow: "0 6px 16px rgba(0,0,0,0.08)",
-              }}
-            >
-              <Space
-                style={{
-                  width: "100%",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                }}
-              >
-                <div>
-                  <Text type="secondary">First Time In</Text>
-                  <Title level={5} style={{ margin: 0 }}>
-                    {getTimeIn(selectedLog)
-                      ? dayjs(getTimeIn(selectedLog)!).format("hh:mm A")
-                      : "-"}
-                  </Title>
+        <div style={{ padding: "24px", background: "#fcfcfc" }}>
+          
+          {/* ── SUMMARY STATS ── */}
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(3, 1fr)",
+            gap: 12,
+            marginBottom: 24,
+          }}>
+            {[
+              { label: "Time in", value: timeIn, dot: "#22c55e" },
+              { label: "Time out", value: timeOut, dot: "#f97316" },
+              { label: "Daily Status", value: selectedLog.dailyStatus, isStatus: true }
+            ].map((item, idx) => (
+              <div key={idx} style={{
+                background: "#fff", padding: "14px", borderRadius: 12,
+                border: "1px solid #f0f0f0",
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 6 }}>
+                  {!item.isStatus && <span style={{ width: 6, height: 6, borderRadius: "50%", background: item.dot }} />}
+                  <Text type="secondary" style={{ fontSize: 10, letterSpacing: "0.4px", textTransform: "uppercase" }}>
+                    {item.label}
+                  </Text>
                 </div>
+                {item.isStatus ? (
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <span style={{ 
+                      width: 7, height: 7, borderRadius: "50%", 
+                      background: isIn ? "#16a34a" : "#9ca3af" 
+                    }} />
+                    <Text strong style={{ fontSize: 14, color: isIn ? "#15803d" : "#6b7280" }}>
+                      {item.value}
+                    </Text>
+                  </div>
+                ) : (
+                  <div style={{ display: "flex", alignItems: "baseline", gap: 3 }}>
+                    <Text style={{ 
+                      fontSize: 18, fontWeight: 600, color: item.value ? "#141414" : "#d1d5db",
+                      fontVariantNumeric: "tabular-nums", letterSpacing: "-0.5px"
+                    }}>
+                      {item.value ? dayjs(item.value).format("h:mm") : "—"}
+                    </Text>
+                    {item.value && <Text type="secondary" style={{ fontSize: 11 }}>{dayjs(item.value).format("A")}</Text>}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
 
-                <div>
-                  <Text type="secondary">Last Time Out</Text>
-                  <Title level={5} style={{ margin: 0 }}>
-                    {getTimeOut(selectedLog)
-                      ? dayjs(getTimeOut(selectedLog)!).format("hh:mm A")
-                      : "-"}
-                  </Title>
-                </div>
+          {/* ── ACTIVITY LOG ── */}
+          <div style={{ marginBottom: 16 }}>
+            <Text type="secondary" style={{
+              fontSize: 11, letterSpacing: "0.5px", textTransform: "uppercase",
+              display: "block", marginBottom: 12,
+            }}>
+              Activity Details · {selectedLog.activities.length} logs
+            </Text>
 
-                <div>
-                  <Text type="secondary">Status</Text>
-                  <Tag
-                    color={
-                      selectedLog.dailyStatus === "In TUP" ? "green" : "volcano"
-                    }
-                    style={{ fontSize: 14, padding: "4px 12px" }}
-                  >
-                    {selectedLog.dailyStatus}
-                  </Tag>
-                </div>
-              </Space>
-            </Card>
-
-            {/* ACTIVITIES */}
-            <div>
-              <Title level={5} style={{ marginBottom: 8 }}>
-                Activity Details
-              </Title>
-
+            <div style={{ 
+              maxHeight: "280px", overflowY: "auto", 
+              display: "flex", flexDirection: "column", gap: 8 
+            }}>
               {selectedLog.activities.length ? (
-                <Space direction="vertical" style={{ width: "100%" }}>
-                  {selectedLog.activities.map((act, i) => (
-                    <Card
-                      key={i}
-                      size="small"
-                      variant="borderless"
-                      style={{
-                        borderRadius: 14,
-                        borderLeft: `5px solid ${
-                          act.status === "In TUP" ? "#52c41a" : "#f5222d"
-                        }`,
-                        background: "#fafafa",
-                      }}
-                    >
-                      <Space
-                        direction="vertical"
-                        size={4}
-                        style={{ width: "100%" }}
-                      >
-                        <Space
-                          style={{
-                            justifyContent: "space-between",
-                            width: "100%",
-                          }}
-                        >
-                          <Text strong>{act.reason.toUpperCase()}</Text>
-                          <Tag
-                            color={
-                              act.status === "In TUP" ? "green" : "volcano"
-                            }
-                          >
-                            {act.status}
-                          </Tag>
-                        </Space>
-
-                        <Space size="large">
-                          <Text type="secondary">
-                            In:{" "}
-                            {act.timeIn
-                              ? dayjs(act.timeIn).format("hh:mm A")
-                              : "-"}
-                          </Text>
-                          <Text type="secondary">
-                            Out:{" "}
-                            {act.timeOut
-                              ? dayjs(act.timeOut).format("hh:mm A")
-                              : "-"}
-                          </Text>
-                        </Space>
-                      </Space>
-                    </Card>
-                  ))}
-                </Space>
+                selectedLog.activities.map((act, i) => {
+                  const actIsIn = act.status === "In TUP";
+                  const accentClr = actIsIn ? "#16a34a" : "#dc2626";
+                  
+                  return (
+                    <div key={i} style={{
+                      background: "#fff", borderRadius: 10, padding: "12px 14px",
+                      border: "1px solid #f0f0f0",
+                      borderLeft: `3px solid ${accentClr}`,
+                      display: "flex", justifyContent: "space-between", alignItems: "center"
+                    }}>
+                      <div>
+                        <Text strong style={{ fontSize: 13, display: "block", color: "#141414" }}>
+                          {act.reason.charAt(0).toUpperCase() + act.reason.slice(1)}
+                        </Text>
+                        <Text type="secondary" style={{ fontSize: 11, fontVariantNumeric: "tabular-nums" }}>
+                          {act.timeIn ? dayjs(act.timeIn).format("h:mm A") : "—"} 
+                          <span style={{ margin: "0 4px" }}>→</span>
+                          {act.timeOut ? dayjs(act.timeOut).format("h:mm A") : "Ongoing"}
+                        </Text>
+                      </div>
+                      <span style={{
+                        fontSize: 10, fontWeight: 600, padding: "2px 8px",
+                        borderRadius: 20, background: actIsIn ? "#f0fdf4" : "#fff7f7", 
+                        color: accentClr, border: `1px solid ${actIsIn ? "#bbf7d0" : "#fecaca"}`,
+                      }}>
+                        {act.status}
+                      </span>
+                    </div>
+                  );
+                })
               ) : (
-                <Text type="secondary">No activities recorded</Text>
+                <div style={{
+                  textAlign: "center", padding: "32px 0",
+                  border: "1px dashed #e5e5e5", borderRadius: 12, background: "#fff"
+                }}>
+                  <Text type="secondary" style={{ fontSize: 13 }}>No activities recorded</Text>
+                </div>
               )}
             </div>
-
-            {/* ACTION */}
-            <div style={{ textAlign: "center", marginTop: 8 }}>
-              <Button
-                type="primary"
-                onClick={() => setModalVisible(false)}
-                style={{
-                  background: "linear-gradient(135deg, #ff4d4f, #ff7875)",
-                  border: "none",
-                  borderRadius: 14,
-                  height: 46,
-                  width: 160,
-                  fontWeight: 600,
-                  boxShadow: "0 8px 16px rgba(255,77,79,0.45)",
-                }}
-              >
-                Close
-              </Button>
-            </div>
           </div>
-        )}
-      </Modal>
+
+          {/* ── FOOTER ── */}
+          <div style={{ textAlign: "center", marginTop: 24 }}>
+            <Button
+              onClick={() => setModalVisible(false)}
+              style={{
+                background: "#141414", color: "#fff",
+                border: "none", borderRadius: 8, height: 40, width: "100%",
+                fontWeight: 500, fontSize: 14,
+                boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+              }}
+            >
+              Done
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  })()}
+</Modal>
     </>
   );
 };
