@@ -442,7 +442,7 @@ const Logs = () => {
         closeIcon={
           <span style={{
             display: "inline-flex", alignItems: "center", justifyContent: "center",
-            width: 28, height: 28, borderRadius: "50%",
+            width: 28, height: 28, borderRadius: "50%",   
             background: "rgba(0,0,0,0.06)", color: "#595959",
             fontSize: 13, fontWeight: 500, lineHeight: 1,
           }}>✕</span>

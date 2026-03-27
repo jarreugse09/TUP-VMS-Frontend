@@ -23,9 +23,6 @@ import {
   InfoCircleOutlined,
   LockOutlined,
   CalendarOutlined,
-  LoginOutlined,
-  LogoutOutlined,
-  HistoryOutlined,
   ClockCircleOutlined,
 } from "@ant-design/icons";
 import { useEffect, useState, useMemo, useRef } from "react";
@@ -68,6 +65,16 @@ interface LogItem {
   attendance?: Attendance | null;
   activities: Activity[];
 }
+
+
+// Reason label mapping for activities
+const REASON_LABEL: Record<string, string> = {
+  attendance: "Attendance",
+  checkin:    "Check In",
+  checkout:   "Check Out",
+  break:      "Break",
+  "go out":   "Went Out",
+};
 
 /* ================= HELPERS ================= */
 
@@ -535,213 +542,270 @@ const Logs = () => {
 
       {/* DETAILS MODAL */}
  <Modal
-  open={modalVisible}
-  onCancel={() => setModalVisible(false)}
-  footer={null}
-  centered
-  width={580}
-  styles={{
-    content: { padding: 0, overflow: "hidden", borderRadius: 16 },
-    mask: { backdropFilter: "blur(2px)" },
-  }}
-  closeIcon={
-    <span style={{
-      display: "inline-flex", alignItems: "center", justifyContent: "center",
-      width: 28, height: 28, borderRadius: "50%",
-      background: "rgba(0,0,0,0.06)", color: "#595959",
-      fontSize: 13, fontWeight: 500, lineHeight: 1,
-    }}>✕</span>
-  }
->
-  {selectedLog && (() => {
-    const timeIn = getTimeIn(selectedLog);
-    const timeOut = getTimeOut(selectedLog);
-    const isIn = selectedLog.dailyStatus === "In TUP";
-
-    const ROLE_PILL: Record<string, { bg: string; color: string; border: string }> = {
-      Staff:    { bg: "#EFF6FF", color: "#1D4ED8", border: "#BFDBFE" },
-      Student:  { bg: "#F0FDF4", color: "#166534", border: "#BBF7D0" },
-      Visitor:  { bg: "#FAF5FF", color: "#6B21A8", border: "#E9D5FF" },
-      TUP:      { bg: "#FFF7ED", color: "#9A3412", border: "#FED7AA" },
-      Security: { bg: "#F0F9FF", color: "#075985", border: "#BAE6FD" },
-    };
-    const pill = ROLE_PILL[selectedLog.user.role] ?? { bg: "#F5F5F5", color: "#404040", border: "#E5E5E5" };
-
-    return (
-      <div style={{ display: "flex", flexDirection: "column" }}>
-        
-        {/* ── HEADER / HERO SECTION ── */}
-        <div style={{
-          padding: "24px 24px 20px",
-          display: "flex",
-          alignItems: "center",
-          gap: 20,
-          borderBottom: "1px solid #f0f0f0",
-        }}>
-          <div style={{ position: "relative", flexShrink: 0 }}>
-            <Avatar
-              size={72}
-              src={selectedLog.user.photoURL}
-              icon={<UserOutlined />}
-              style={{
-                background: "#f0f0f0",
-                border: "2px solid #fff",
-                outline: "1.5px solid #e8e8e8",
-                boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
-              }}
-            />
-            <span style={{
-              position: "absolute", bottom: 2, right: 2,
-              width: 14, height: 14, borderRadius: "50%",
-              background: isIn ? "#22c55e" : "#d1d5db",
-              border: "2px solid #fff",
-            }} />
-          </div>
-
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 4 }}>
-              <Text strong style={{ fontSize: 18, color: "#141414", lineHeight: 1.2, letterSpacing: "-0.2px" }}>
-                {selectedLog.user.firstName} {selectedLog.user.surname}
-              </Text>
-              <span style={{
-                fontSize: 11, fontWeight: 600, padding: "1px 8px",
-                borderRadius: 20, letterSpacing: "0.2px", textTransform: "uppercase",
-                background: pill.bg, color: pill.color, border: `1px solid ${pill.border}`,
-              }}>
-                {selectedLog.user.role}
-              </span>
-            </div>
-            <Text type="secondary" style={{ fontSize: 13, display: "flex", alignItems: "center", gap: 5 }}>
-              <CalendarOutlined style={{ fontSize: 12 }} />
-              {dayjs(selectedLog.date).format("dddd, MMMM D, YYYY")}
-            </Text>
-          </div>
-        </div>
-
-        <div style={{ padding: "24px", background: "#fcfcfc" }}>
-          
-          {/* ── SUMMARY STATS ── */}
-          <div style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(3, 1fr)",
-            gap: 12,
-            marginBottom: 24,
-          }}>
-            {[
-              { label: "Time in", value: timeIn, dot: "#22c55e" },
-              { label: "Time out", value: timeOut, dot: "#f97316" },
-              { label: "Daily Status", value: selectedLog.dailyStatus, isStatus: true }
-            ].map((item, idx) => (
-              <div key={idx} style={{
-                background: "#fff", padding: "14px", borderRadius: 12,
-                border: "1px solid #f0f0f0",
-              }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 6 }}>
-                  {!item.isStatus && <span style={{ width: 6, height: 6, borderRadius: "50%", background: item.dot }} />}
-                  <Text type="secondary" style={{ fontSize: 10, letterSpacing: "0.4px", textTransform: "uppercase" }}>
-                    {item.label}
-                  </Text>
-                </div>
-                {item.isStatus ? (
-                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    <span style={{ 
-                      width: 7, height: 7, borderRadius: "50%", 
-                      background: isIn ? "#16a34a" : "#9ca3af" 
-                    }} />
-                    <Text strong style={{ fontSize: 14, color: isIn ? "#15803d" : "#6b7280" }}>
-                      {item.value}
-                    </Text>
-                  </div>
-                ) : (
-                  <div style={{ display: "flex", alignItems: "baseline", gap: 3 }}>
-                    <Text style={{ 
-                      fontSize: 18, fontWeight: 600, color: item.value ? "#141414" : "#d1d5db",
-                      fontVariantNumeric: "tabular-nums", letterSpacing: "-0.5px"
-                    }}>
-                      {item.value ? dayjs(item.value).format("h:mm") : "—"}
-                    </Text>
-                    {item.value && <Text type="secondary" style={{ fontSize: 11 }}>{dayjs(item.value).format("A")}</Text>}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-
-          {/* ── ACTIVITY LOG ── */}
-          <div style={{ marginBottom: 16 }}>
-            <Text type="secondary" style={{
-              fontSize: 11, letterSpacing: "0.5px", textTransform: "uppercase",
-              display: "block", marginBottom: 12,
-            }}>
-              Activity Details · {selectedLog.activities.length} logs
-            </Text>
-
-            <div style={{ 
-              maxHeight: "280px", overflowY: "auto", 
-              display: "flex", flexDirection: "column", gap: 8 
-            }}>
-              {selectedLog.activities.length ? (
-                selectedLog.activities.map((act, i) => {
-                  const actIsIn = act.status === "In TUP";
-                  const accentClr = actIsIn ? "#16a34a" : "#dc2626";
-                  
-                  return (
-                    <div key={i} style={{
-                      background: "#fff", borderRadius: 10, padding: "12px 14px",
-                      border: "1px solid #f0f0f0",
-                      borderLeft: `3px solid ${accentClr}`,
-                      display: "flex", justifyContent: "space-between", alignItems: "center"
-                    }}>
-                      <div>
-                        <Text strong style={{ fontSize: 13, display: "block", color: "#141414" }}>
-                          {act.reason.charAt(0).toUpperCase() + act.reason.slice(1)}
-                        </Text>
-                        <Text type="secondary" style={{ fontSize: 11, fontVariantNumeric: "tabular-nums" }}>
-                          {act.timeIn ? dayjs(act.timeIn).format("h:mm A") : "—"} 
-                          <span style={{ margin: "0 4px" }}>→</span>
-                          {act.timeOut ? dayjs(act.timeOut).format("h:mm A") : "Ongoing"}
-                        </Text>
-                      </div>
-                      <span style={{
-                        fontSize: 10, fontWeight: 600, padding: "2px 8px",
-                        borderRadius: 20, background: actIsIn ? "#f0fdf4" : "#fff7f7", 
-                        color: accentClr, border: `1px solid ${actIsIn ? "#bbf7d0" : "#fecaca"}`,
-                      }}>
-                        {act.status}
-                      </span>
-                    </div>
-                  );
-                })
-              ) : (
-                <div style={{
-                  textAlign: "center", padding: "32px 0",
-                  border: "1px dashed #e5e5e5", borderRadius: 12, background: "#fff"
-                }}>
-                  <Text type="secondary" style={{ fontSize: 13 }}>No activities recorded</Text>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* ── FOOTER ── */}
-          <div style={{ textAlign: "center", marginTop: 24 }}>
-            <Button
-              onClick={() => setModalVisible(false)}
-              style={{
-                background: "#141414", color: "#fff",
-                border: "none", borderRadius: 8, height: 40, width: "100%",
-                fontWeight: 500, fontSize: 14,
-                boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-              }}
-            >
-              Done
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
-  })()}
-</Modal>
+         open={modalVisible}
+         onCancel={() => setModalVisible(false)}
+         footer={null}
+         centered
+         width={580}
+         styles={{
+           content: { padding: 0, overflow: "hidden", borderRadius: 16 },
+           mask: { backdropFilter: "blur(2px)" },
+         }}
+         closeIcon={
+           <span style={{
+             display: "inline-flex", alignItems: "center", justifyContent: "center",
+             width: 28, height: 28, borderRadius: "50%",   
+             background: "rgba(0,0,0,0.06)", color: "#595959",
+             fontSize: 13, fontWeight: 500, lineHeight: 1,
+           }}>✕</span>
+         }
+       >
+         {selectedLog && (() => {
+           const timeIn  = getTimeIn(selectedLog);
+           const timeOut = getTimeOut(selectedLog);
+           const isIn    = selectedLog.dailyStatus === "In TUP";
+ 
+           const ROLE_PILL: Record<string, { bg: string; color: string; border: string }> = {
+             Staff:    { bg: "#EFF6FF", color: "#1D4ED8", border: "#BFDBFE" },
+             Student:  { bg: "#F0FDF4", color: "#166534", border: "#BBF7D0" },
+             Visitor:  { bg: "#FAF5FF", color: "#6B21A8", border: "#E9D5FF" },
+             TUP:      { bg: "#FFF7ED", color: "#9A3412", border: "#FED7AA" },
+             Security: { bg: "#F0F9FF", color: "#075985", border: "#BAE6FD" },
+           };
+           const pill = ROLE_PILL[selectedLog.user.role] ?? { bg: "#F5F5F5", color: "#404040", border: "#E5E5E5" };
+ 
+           const REASON_LABEL: Record<string, string> = {
+             attendance:  "Attendance",
+             checkin:     "Check in",
+             checkout:    "Check out",
+             break:       "Break",
+             "go out":    "Went out",
+             transaction: "Transaction",
+             Transaction: "Transaction",
+           };
+ 
+           return (
+             <div>
+               {/* ── HEADER ── */}
+               <div style={{
+                 display: "flex", alignItems: "center", gap: 16,
+                 padding: "24px 24px 20px",
+                 borderBottom: "1px solid #f0f0f0",
+               }}>
+                 <div style={{ position: "relative", flexShrink: 0 }}>
+                   <Avatar
+                     size={52}
+                     src={selectedLog.user.photoURL}
+                     icon={<UserOutlined />}
+                     style={{
+                       background: "#f0f0f0",
+                       border: "2px solid #fff",
+                       outline: "1.5px solid #e8e8e8",
+                     }}
+                   />
+                   <span style={{
+                     position: "absolute", bottom: 1, right: 1,
+                     width: 11, height: 11, borderRadius: "50%",
+                     background: isIn ? "#22c55e" : "#d1d5db",
+                     border: "2px solid #fff",
+                   }} />
+                 </div>
+ 
+                 <div style={{ flex: 1, minWidth: 0 }}>
+                   <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 4 }}>
+                     <Text strong style={{ fontSize: 15, color: "#141414", lineHeight: 1.3 }}>
+                       {selectedLog.user.firstName} {selectedLog.user.surname}
+                     </Text>
+                     <span style={{
+                       fontSize: 11, fontWeight: 500, padding: "1px 7px",
+                       borderRadius: 20, letterSpacing: "0.2px",
+                       background: pill.bg, color: pill.color,
+                       border: `1px solid ${pill.border}`,
+                     }}>
+                       {selectedLog.user.role}
+                     </span>
+                   </div>
+                   <Text type="secondary" style={{ fontSize: 12 }}>
+                     {dayjs(selectedLog.date).format("dddd, MMMM D, YYYY")}
+                   </Text>
+                 </div>
+ 
+                 <div style={{
+                   display: "flex", alignItems: "center", gap: 6,
+                   padding: "5px 11px", borderRadius: 20, flexShrink: 0,
+                   background: isIn ? "#f0fdf4" : "#fafafa",
+                   border: `1px solid ${isIn ? "#bbf7d0" : "#e5e5e5"}`,
+                 }}>
+                   <span style={{
+                     width: 7, height: 7, borderRadius: "50%", flexShrink: 0,
+                     background: isIn ? "#16a34a" : "#9ca3af",
+                   }} />
+                   <Text style={{
+                     fontSize: 12, fontWeight: 500,
+                     color: isIn ? "#15803d" : "#6b7280",
+                   }}>
+                     {selectedLog.dailyStatus}
+                   </Text>
+                 </div>
+               </div>
+ 
+               {/* ── TIME ROW ── */}
+               <div style={{
+                 display: "grid", gridTemplateColumns: "1fr 1fr",
+                 background: "#fafafa",
+                 borderBottom: "1px solid #f0f0f0",
+               }}>
+                 {[
+                   { label: "Time in",  value: timeIn,  dot: "#22c55e" },
+                   { label: "Time out", value: timeOut, dot: "#f97316", divided: true },
+                 ].map(({ label, value, dot, divided }) => (
+                   <div key={label} style={{
+                     padding: "16px 20px",
+                     borderLeft: divided ? "1px solid #f0f0f0" : undefined,
+                   }}>
+                     <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 5 }}>
+                       <span style={{ width: 6, height: 6, borderRadius: "50%", background: dot }} />
+                       <Text type="secondary" style={{ fontSize: 11, letterSpacing: "0.4px", textTransform: "uppercase" as any }}>
+                         {label}
+                       </Text>
+                     </div>
+                     <div style={{ display: "flex", alignItems: "baseline", gap: 3 }}>
+                       <Text style={{
+                         fontSize: 22, fontWeight: 600,
+                         color: value ? "#141414" : "#d1d5db",
+                         fontVariantNumeric: "tabular-nums",
+                         letterSpacing: "-0.5px",
+                       }}>
+                         {value ? dayjs(value).format("h:mm") : "—"}
+                       </Text>
+                       {value && (
+                         <Text type="secondary" style={{ fontSize: 12 }}>
+                           {dayjs(value).format("A")}
+                         </Text>
+                       )}
+                     </div>
+                   </div>
+                 ))}
+               </div>
+ 
+               {/* ── ACTIVITIES ── */}
+               <div style={{ padding: "20px 24px" }}>
+                 {selectedLog.activities.length > 0 ? (
+                   <>
+                     <Text type="secondary" style={{
+                       fontSize: 11, letterSpacing: "0.5px",
+                       textTransform: "uppercase" as any,
+                       display: "block", marginBottom: 12,
+                     }}>
+                       Activity log · {selectedLog.activities.length}{" "}
+                       {selectedLog.activities.length === 1 ? "entry" : "entries"}
+                     </Text>
+ 
+                     <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                       {selectedLog.activities.map((act, i) => {
+                         const actIsIn   = act.status === "In TUP";
+                         const accentClr = actIsIn ? "#16a34a" : "#dc2626";
+                         const bgClr     = actIsIn ? "#f0fdf4" : "#fff7f7";
+                         const bdClr     = actIsIn ? "#bbf7d0" : "#fecaca";
+ 
+                         const targetPerson = (act as any).wentTo || (act as any).scannedTarget;
+                         const displayLabel = targetPerson
+                           ? `Went to ${targetPerson.firstName} ${targetPerson.surname}`
+                           : (REASON_LABEL[act.reason] ?? act.reason);
+ 
+                         const subLabel = targetPerson
+                           ? targetPerson.role
+                           : (act.timeIn || act.timeOut)
+                           ? `${act.timeIn ? dayjs(act.timeIn).format("h:mm A") : "—"}  →  ${act.timeOut ? dayjs(act.timeOut).format("h:mm A") : "ongoing"}`
+                           : null;
+ 
+                         const total     = selectedLog.activities.length;
+                         const isFirst   = i === 0;
+                         const isLast    = i === total - 1;
+                         const radius    = isFirst && isLast ? "8px"
+                           : isFirst ? "8px 8px 0 0"
+                           : isLast  ? "0 0 8px 8px"
+                           : "0";
+ 
+                         return (
+                           <div key={i} style={{
+                             display: "flex", alignItems: "center", gap: 12,
+                             padding: "11px 14px",
+                             background: "#fff",
+                             border: "1px solid #f0f0f0",
+                             borderLeft: `3px solid ${accentClr}`,
+                             borderRadius: radius,
+                             borderTop: i > 0 ? "none" : undefined,
+                           }}>
+                             <div style={{
+                               width: 30, height: 30, borderRadius: "50%", flexShrink: 0,
+                               background: bgClr, border: `1px solid ${bdClr}`,
+                               display: "flex", alignItems: "center", justifyContent: "center",
+                             }}>
+                               <ClockCircleOutlined style={{ fontSize: 13, color: accentClr }} />
+                             </div>
+ 
+                             <div style={{ flex: 1, minWidth: 0 }}>
+                               <Text strong style={{
+                                 fontSize: 13, display: "block", color: "#141414",
+                                 overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                               }}>
+                                 {displayLabel}
+                               </Text>
+                               {subLabel && (
+                                 <Text type="secondary" style={{ fontSize: 11 }}>
+                                   {subLabel}
+                                 </Text>
+                               )}
+                             </div>
+ 
+                             <span style={{
+                               fontSize: 11, fontWeight: 500, padding: "2px 9px",
+                               borderRadius: 20, flexShrink: 0,
+                               background: bgClr, color: accentClr, border: `1px solid ${bdClr}`,
+                             }}>
+                               {act.status}
+                             </span>
+                           </div>
+                         );
+                       })}
+                     </div>
+                   </>
+                 ) : (
+                   <div style={{
+                     textAlign: "center", padding: "24px 0",
+                     border: "1px dashed #e5e5e5", borderRadius: 8,
+                   }}>
+                     <Text type="secondary" style={{ fontSize: 13 }}>
+                       No activities recorded
+                     </Text>
+                   </div>
+                 )}
+               </div>
+ 
+               {/* ── FOOTER ── */}
+               <div style={{
+                 display: "flex", justifyContent: "flex-end",
+                 padding: "14px 24px",
+                 borderTop: "1px solid #f0f0f0",
+                 background: "#fafafa",
+               }}>
+                 <Button
+                   onClick={() => setModalVisible(false)}
+                   style={{
+                     background: "linear-gradient(135deg, #ff4d4f, #ff7875)",
+                     border: "none", borderRadius: 8, height: 36,
+                     padding: "0 22px", fontWeight: 500, fontSize: 13,
+                     color: "#fff", boxShadow: "0 2px 6px rgba(255,77,79,0.3)",
+                   }}
+                 >
+                   Close
+                 </Button>
+               </div>
+             </div>
+           );
+         })()}
+       </Modal>
     </>
   );
 };
