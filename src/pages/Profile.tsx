@@ -99,7 +99,10 @@ const Profile = () => {
     }
 
     try {
-      const canvas = await html2canvas(qrContainer, { scale: 2, useCORS: true });
+      const canvas = await html2canvas(qrContainer, {
+        scale: 2,
+        useCORS: true,
+      });
       const image = canvas.toDataURL("image/png");
 
       const link = document.createElement("a");
@@ -159,109 +162,107 @@ const Profile = () => {
     );
   }
 
-const renderQRCard = () => (
-  <Card
-    variant="borderless"
-    style={{
-      borderRadius: 20,
-      boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
-      width: "100%",
-      display: "flex",
-      flexDirection: "column",
-      textAlign: "center",
-    }}
-    title={
-      <Space>
-        <QrcodeOutlined style={{ color: "#DC143C" }} />
-        <Text strong>Access Control</Text>
-      </Space>
-    }
-  >
-    {profile.qrCode ? (
-      <div
-        style={{
-          flex: 1,
-          display: "flex",
-          flexDirection: "column",
-          justifyContent: "center",
-          alignItems: "center",
-          padding: "20px 0",
-        }}
-      >
-        {/* QR CONTAINER */}
+  const renderQRCard = () => (
+    <Card
+      variant="borderless"
+      style={{
+        borderRadius: 20,
+        boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
+        width: "100%",
+        display: "flex",
+        flexDirection: "column",
+        textAlign: "center",
+      }}
+      title={
+        <Space>
+          <QrcodeOutlined style={{ color: "#DC143C" }} />
+          <Text strong>Access Control</Text>
+        </Space>
+      }
+    >
+      {profile.qrCode ? (
         <div
-          id="qr-download-container"
           style={{
-            padding: 20,
-            background: "#fff",
-            borderRadius: 16,
-            boxShadow: "0 4px 20px rgba(0,0,0,0.08)",
-            marginBottom: 20,
-            textAlign: "center",
+            flex: 1,
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "center",
+            alignItems: "center",
+            padding: "20px 0",
           }}
         >
-
-          {/* CENTERED QR */}
+          {/* QR CONTAINER */}
           <div
+            id="qr-download-container"
             style={{
-              display: "flex",
-              justifyContent: "center",
-              alignItems: "center",
+              padding: 20,
+              background: "#fff",
+              borderRadius: 16,
+              boxShadow: "0 4px 20px rgba(0,0,0,0.08)",
+              marginBottom: 20,
+              textAlign: "center",
             }}
           >
-            <QRCode
-              value={profile.qrCode.qrString}
-              size={280}
-              color="#000000ff"
-            />
+            {/* CENTERED QR */}
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "center",
+                alignItems: "center",
+              }}
+            >
+              <QRCode
+                value={profile.qrCode.qrString}
+                size={280}
+                color="#000000ff"
+              />
+            </div>
           </div>
+
+          {/* ACTIONS */}
+          <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+            <div>
+              <Text type="secondary" style={{ display: "block" }}>
+                Code
+              </Text>
+              <Text code style={{ fontSize: 16 }}>
+                {profile.qrCode.qrString}
+              </Text>
+            </div>
+
+            <Divider style={{ margin: "12px 0" }} />
+
+            <Button
+              type="primary"
+              size="large"
+              icon={<ReloadOutlined />}
+              loading={requesting}
+              onClick={handleRequestQRChange}
+              style={{
+                backgroundColor: "#DC143C",
+                borderColor: "#DC143C",
+                borderRadius: 8,
+                height: 50,
+                padding: "0 32px",
+              }}
+            >
+              Request New QR Code
+            </Button>
+
+            <Button
+              size="large"
+              onClick={handleDownloadQR}
+              style={{ borderRadius: 8, height: 50, padding: "0 32px" }}
+            >
+              Download QR Code
+            </Button>
+          </Space>
         </div>
-
-        {/* ACTIONS */}
-        <Space direction="vertical" size="middle" style={{ width: "100%" }}>
-          <div>
-            <Text type="secondary" style={{ display: "block" }}>
-              Code
-            </Text>
-            <Text code style={{ fontSize: 16 }}>
-              {profile.qrCode.qrString}
-            </Text>
-          </div>
-
-          <Divider style={{ margin: "12px 0" }} />
-
-          <Button
-            type="primary"
-            size="large"
-            icon={<ReloadOutlined />}
-            loading={requesting}
-            onClick={handleRequestQRChange}
-            style={{
-              backgroundColor: "#DC143C",
-              borderColor: "#DC143C",
-              borderRadius: 8,
-              height: 50,
-              padding: "0 32px",
-            }}
-          >
-            Request New QR Code
-          </Button>
-
-          <Button
-            size="large"
-            onClick={handleDownloadQR}
-            style={{ borderRadius: 8, height: 50, padding: "0 32px" }}
-          >
-            Download QR Code
-          </Button>
-        </Space>
-      </div>
-    ) : (
-      <Text type="secondary">No QR Code assigned.</Text>
-    )}
-  </Card>
-);
-
+      ) : (
+        <Text type="secondary">No QR Code assigned.</Text>
+      )}
+    </Card>
+  );
 
   return (
     <div style={{ maxWidth: 1200, margin: "0 auto", padding: 12 }}>
@@ -306,9 +307,7 @@ const renderQRCard = () => (
                 {profile.user.firstName} {profile.user.surname}
               </Title>
 
-              <Tag color="#DC143C">
-                {profile.user.role.toUpperCase()}
-              </Tag>
+              <Tag color="#DC143C">{profile.user.role.toUpperCase()}</Tag>
             </div>
 
             <Divider dashed />
@@ -324,9 +323,7 @@ const renderQRCard = () => (
 
               <Descriptions.Item label="Account Status">
                 <Tag
-                  color={
-                    profile.user.status === "Active" ? "green" : "gold"
-                  }
+                  color={profile.user.status === "Active" ? "green" : "gold"}
                 >
                   {profile.user.status}
                 </Tag>
@@ -339,7 +336,9 @@ const renderQRCard = () => (
           </Card>
         </Col>
 
-        <Col xs={0} md={12}>{renderQRCard()}</Col>
+        <Col xs={0} md={12}>
+          {renderQRCard()}
+        </Col>
       </Row>
 
       <Drawer
@@ -360,11 +359,7 @@ const renderQRCard = () => (
         confirmLoading={requesting}
       >
         <Form form={form} layout="vertical">
-          <Form.Item
-            name="reason"
-            label="Reason"
-            rules={[{ required: true }]}
-          >
+          <Form.Item name="reason" label="Reason" rules={[{ required: true }]}>
             <Input.TextArea rows={3} />
           </Form.Item>
 

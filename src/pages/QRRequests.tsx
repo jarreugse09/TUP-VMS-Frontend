@@ -189,7 +189,11 @@ const QRRequests = () => {
       title: "Old QR",
       dataIndex: "oldQR",
       render: (_: string, record: QRRequestItem) =>
-        record.requestType === "PROFILE_PHOTO" ? "-" : <Text code>{record.oldQR || "-"}</Text>,
+        record.requestType === "PROFILE_PHOTO" ? (
+          "-"
+        ) : (
+          <Text code>{record.oldQR || "-"}</Text>
+        ),
     },
     {
       title: "New QR String",
@@ -204,9 +208,10 @@ const QRRequests = () => {
       title: "Uploaded Image",
       dataIndex: "newQRImage",
       render: (_: string, record: QRRequestItem) => {
-        const imagePath = record.requestType === "PROFILE_PHOTO"
-          ? record.newPhotoImage
-          : record.newQRImage;
+        const imagePath =
+          record.requestType === "PROFILE_PHOTO"
+            ? record.newPhotoImage
+            : record.newQRImage;
 
         return imagePath ? (
           <a href={toAssetUrl(imagePath)} target="_blank" rel="noreferrer">
@@ -406,9 +411,11 @@ const QRRequests = () => {
               )}
             </Descriptions.Item>
             <Descriptions.Item label="Requested Image">
-              {(selectedRequest.requestType === "PROFILE_PHOTO"
-                ? selectedRequest.newPhotoImage
-                : selectedRequest.newQRImage) ? (
+              {(
+                selectedRequest.requestType === "PROFILE_PHOTO"
+                  ? selectedRequest.newPhotoImage
+                  : selectedRequest.newQRImage
+              ) ? (
                 <a
                   href={toAssetUrl(
                     selectedRequest.requestType === "PROFILE_PHOTO"
