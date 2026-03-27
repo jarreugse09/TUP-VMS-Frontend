@@ -24,6 +24,8 @@ import {
   UserOutlined,
   QrcodeOutlined,
   IdcardOutlined,
+  DownloadOutlined,
+  EditOutlined,
 } from "@ant-design/icons";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -35,6 +37,10 @@ import html2canvas from "html2canvas";
 
 const { Title, Text } = Typography;
 
+const MAROON       = "#DC143C";
+const MAROON_LIGHT = "#fff5f5";
+const MAROON_MID   = "#ffd6d6";
+
 const Profile = () => {
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -44,9 +50,7 @@ const Profile = () => {
   const [showPhotoRequestModal, setShowPhotoRequestModal] = useState(false);
   const [uploadingFile, setUploadingFile] = useState<File | null>(null);
   const [photoRequestFile, setPhotoRequestFile] = useState<File | null>(null);
-  const [photoInputMode, setPhotoInputMode] = useState<"upload" | "camera">(
-    "upload",
-  );
+  const [photoInputMode, setPhotoInputMode] = useState<"upload" | "camera">("upload");
   const [capturedPhoto, setCapturedPhoto] = useState<string | null>(null);
   const [photoRequesting, setPhotoRequesting] = useState(false);
   const photoVideoRef = useRef<HTMLVideoElement | null>(null);
@@ -78,23 +82,14 @@ const Profile = () => {
   }, []);
 
   useEffect(() => {
-    if (
-      !showPhotoRequestModal ||
-      photoInputMode !== "camera" ||
-      capturedPhoto
-    ) {
+    if (!showPhotoRequestModal || photoInputMode !== "camera" || capturedPhoto) {
       stopPhotoCamera();
       return;
     }
-
     const startCamera = async () => {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            facingMode: "user",
-            width: { ideal: 640 },
-            height: { ideal: 480 },
-          },
+          video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } },
           audio: false,
         });
         photoStreamRef.current = stream;
@@ -107,39 +102,25 @@ const Profile = () => {
         setPhotoInputMode("upload");
       }
     };
-
     startCamera();
-
-    return () => {
-      stopPhotoCamera();
-    };
+    return () => { stopPhotoCamera(); };
   }, [showPhotoRequestModal, photoInputMode, capturedPhoto]);
 
   const handleCapturePhoto = () => {
     if (!photoVideoRef.current) return;
-
     const canvas = document.createElement("canvas");
-    canvas.width = photoVideoRef.current.videoWidth || 640;
+    canvas.width  = photoVideoRef.current.videoWidth  || 640;
     canvas.height = photoVideoRef.current.videoHeight || 480;
-
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
-
     ctx.drawImage(photoVideoRef.current, 0, 0, canvas.width, canvas.height);
     const photoDataUrl = canvas.toDataURL("image/jpeg", 0.85);
     setCapturedPhoto(photoDataUrl);
-
-    canvas.toBlob(
-      (blob) => {
-        if (!blob) return;
-        const file = new File([blob], `profile-photo-${Date.now()}.jpg`, {
-          type: "image/jpeg",
-        });
-        setPhotoRequestFile(file);
-      },
-      "image/jpeg",
-      0.85,
-    );
+    canvas.toBlob((blob) => {
+      if (!blob) return;
+      const file = new File([blob], `profile-photo-${Date.now()}.jpg`, { type: "image/jpeg" });
+      setPhotoRequestFile(file);
+    }, "image/jpeg", 0.85);
   };
 
   const handleRetakePhoto = () => {
@@ -147,29 +128,23 @@ const Profile = () => {
     setPhotoRequestFile(null);
   };
 
-  const handleRequestQRChange = () => {
-    setShowRequestModal(true);
-  };
+  const handleRequestQRChange = () => { setShowRequestModal(true); };
 
   const handleSubmitRequest = async () => {
     try {
       const values = await form.validateFields();
       setRequesting(true);
-
       await requestQRChange({
         reason: values.reason,
         newQRString: values.newQRString || undefined,
         newQRImage: uploadingFile || null,
       });
-
       message.success("QR change request submitted");
       setShowRequestModal(false);
       form.resetFields();
       setUploadingFile(null);
     } catch (error: any) {
-      if (!error?.errorFields) {
-        message.error("Failed to request QR change");
-      }
+      if (!error?.errorFields) message.error("Failed to request QR change");
     } finally {
       setRequesting(false);
     }
@@ -177,20 +152,14 @@ const Profile = () => {
 
   const handleDownloadQR = async () => {
     const qrContainer = document.getElementById("qr-download-container");
-    if (!qrContainer) {
-      message.error("Failed to find QR code container");
-      return;
-    }
-
+    if (!qrContainer) { message.error("Failed to find QR code container"); return; }
     try {
       const canvas = await html2canvas(qrContainer, { scale: 2, useCORS: true });
-      const image = canvas.toDataURL("image/png");
-
-      const link = document.createElement("a");
-      link.href = image;
+      const image  = canvas.toDataURL("image/png");
+      const link   = document.createElement("a");
+      link.href     = image;
       link.download = `${profile.user.firstName}_${profile.user.surname}_QR.png`;
       link.click();
-
       message.success("QR Code downloaded successfully!");
     } catch {
       message.error("Failed to download QR code");
@@ -200,25 +169,15 @@ const Profile = () => {
   const handleSubmitPhotoRequest = async () => {
     try {
       const values = await photoForm.validateFields();
-      if (!photoRequestFile) {
-        message.error("Please upload your new profile photo");
-        return;
-      }
-
+      if (!photoRequestFile) { message.error("Please upload your new profile photo"); return; }
       setPhotoRequesting(true);
-      await requestProfilePhotoChange({
-        reason: values.reason,
-        newPhotoImage: photoRequestFile,
-      });
-
+      await requestProfilePhotoChange({ reason: values.reason, newPhotoImage: photoRequestFile });
       message.success("Profile photo update request submitted for approval");
       setShowPhotoRequestModal(false);
       photoForm.resetFields();
       setPhotoRequestFile(null);
     } catch (error: any) {
-      if (!error?.errorFields) {
-        message.error("Failed to submit profile photo request");
-      }
+      if (!error?.errorFields) message.error("Failed to submit profile photo request");
     } finally {
       setPhotoRequesting(false);
     }
@@ -229,12 +188,12 @@ const Profile = () => {
       <div style={{ padding: 24 }}>
         <Row gutter={24}>
           <Col span={12}>
-            <Card variant="borderless" style={{ borderRadius: 20 }}>
+            <Card variant="borderless" style={{ borderRadius: 16, border: "1px solid #f0f0f0" }}>
               <Skeleton active avatar paragraph={{ rows: 4 }} />
             </Card>
           </Col>
           <Col span={12}>
-            <Card variant="borderless" style={{ borderRadius: 20 }}>
+            <Card variant="borderless" style={{ borderRadius: 16, border: "1px solid #f0f0f0" }}>
               <Skeleton active paragraph={{ rows: 6 }} />
             </Card>
           </Col>
@@ -243,189 +202,239 @@ const Profile = () => {
     );
   }
 
-const renderQRCard = () => (
-  <Card
-    variant="borderless"
-    style={{
-      borderRadius: 20,
-      boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
-      width: "100%",
-      display: "flex",
-      flexDirection: "column",
-      textAlign: "center",
-    }}
-    title={
-      <Space>
-        <QrcodeOutlined style={{ color: "#DC143C" }} />
-        <Text strong>Access Control</Text>
-      </Space>
-    }
-  >
-    {profile.qrCode ? (
-      <div
-        style={{
-          flex: 1,
-          display: "flex",
-          flexDirection: "column",
-          justifyContent: "center",
-          alignItems: "center",
-          padding: "20px 0",
-        }}
-      >
-        {/* QR CONTAINER */}
-        <div
-          id="qr-download-container"
-          style={{
-            padding: 20,
-            background: "#fff",
-            borderRadius: 16,
-            boxShadow: "0 4px 20px rgba(0,0,0,0.08)",
-            marginBottom: 20,
-            textAlign: "center",
-          }}
-        >
+  /* ─── QR CARD ───────────────────────────────────────────────────────────── */
+  const renderQRCard = () => (
+    <Card
+      variant="borderless"
+      style={{
+        borderRadius: 16,
+        border: "1px solid #f0f0f0",
+        width: "100%",
+        height: "100%",
+      }}
+      title={
+        <Space>
+          <QrcodeOutlined style={{ color: MAROON, fontSize: 15 }} />
+          <Text strong style={{ fontSize: 14 }}>Access Control</Text>
+        </Space>
+      }
+    >
+      {profile.qrCode ? (
+        <div style={{
+          display: "flex", flexDirection: "column",
+          alignItems: "center", gap: 24, padding: "8px 0",
+        }}>
 
-          {/* CENTERED QR */}
+          {/* QR wrapper */}
           <div
+            id="qr-download-container"
             style={{
-              display: "flex",
-              justifyContent: "center",
-              alignItems: "center",
+              padding: 24,
+              background: "#fff",
+              borderRadius: 12,
+              border: "1px solid #f0f0f0",
+              display: "inline-block",
             }}
           >
-            <QRCode
-              value={profile.qrCode.qrString}
-              size={280}
-              color="#000000ff"
-            />
+            <QRCode value={profile.qrCode.qrString} size={220} color="#141414" />
           </div>
-        </div>
 
-        {/* ACTIONS */}
-        <Space direction="vertical" size="middle" style={{ width: "100%" }}>
-          <div>
-            <Text type="secondary" style={{ display: "block" }}>
-              Code
+          {/* QR string */}
+          <div style={{
+            width: "100%",
+            padding: "10px 14px",
+            background: MAROON_LIGHT,
+            borderRadius: 8,
+            border: `1px solid ${MAROON_MID}`,
+            textAlign: "center",
+          }}>
+            <Text type="secondary" style={{ fontSize: 11, display: "block", marginBottom: 2, letterSpacing: "0.4px", textTransform: "uppercase" }}>
+              QR String
             </Text>
-            <Text code style={{ fontSize: 16 }}>
+            <Text strong style={{ fontSize: 13, color: MAROON, fontFamily: "monospace" }}>
               {profile.qrCode.qrString}
             </Text>
           </div>
 
-          <Divider style={{ margin: "12px 0" }} />
+          <Divider style={{ margin: "0" }} />
 
-          <Button
-            type="primary"
-            size="large"
-            icon={<ReloadOutlined />}
-            loading={requesting}
-            onClick={handleRequestQRChange}
-            style={{
-              backgroundColor: "#DC143C",
-              borderColor: "#DC143C",
-              borderRadius: 8,
-              height: 50,
-              padding: "0 32px",
-            }}
-          >
-            Request New QR Code
-          </Button>
+          {/* Actions */}
+          <Space direction="vertical" size={10} style={{ width: "100%" }}>
+            <Button
+              block
+              size="large"
+              icon={<ReloadOutlined />}
+              loading={requesting}
+              onClick={handleRequestQRChange}
+              style={{
+                borderRadius: 8, height: 44,
+                borderColor: MAROON, color: MAROON,
+                fontWeight: 500,
+              }}
+            >
+              Request New QR Code
+            </Button>
+            <Button
+              block
+              size="large"
+              icon={<DownloadOutlined />}
+              onClick={handleDownloadQR}
+              style={{ borderRadius: 8, height: 44, fontWeight: 500 }}
+            >
+              Download QR Code
+            </Button>
+          </Space>
+        </div>
+      ) : (
+        <div style={{ textAlign: "center", padding: "40px 0" }}>
+          <QrcodeOutlined style={{ fontSize: 40, color: "#d9d9d9", marginBottom: 12 }} />
+          <Text type="secondary" style={{ display: "block" }}>No QR Code assigned.</Text>
+        </div>
+      )}
+    </Card>
+  );
 
-          <Button
-            size="large"
-            onClick={handleDownloadQR}
-            style={{ borderRadius: 8, height: 50, padding: "0 32px" }}
-          >
-            Download QR Code
-          </Button>
-        </Space>
-      </div>
-    ) : (
-      <Text type="secondary">No QR Code assigned.</Text>
-    )}
-  </Card>
-);
-
-
+  /* ─── MAIN RENDER ───────────────────────────────────────────────────────── */
   return (
-    <div style={{ maxWidth: 1200, margin: "0 auto", padding: 12 }}>
-      <Row gutter={24}>
+    <div style={{ maxWidth: 1100, margin: "0 auto", padding: 16 }}>
+      <Row gutter={24} align="stretch">
+
+        {/* ── LEFT: Identification ── */}
         <Col xs={24} md={12}>
           <Card
             variant="borderless"
             style={{
-              borderRadius: 20,
-              boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
+              borderRadius: 16,
+              border: "1px solid #f0f0f0",
+              height: "100%",
             }}
             title={
               <Space>
-                <IdcardOutlined style={{ color: "#DC143C" }} />
-                <Text strong>Identification</Text>
+                <IdcardOutlined style={{ color: MAROON, fontSize: 15 }} />
+                <Text strong style={{ fontSize: 14 }}>Identification</Text>
               </Space>
             }
             extra={
               <Button
                 type="text"
-                icon={<ReloadOutlined />}
+                size="small"
+                icon={<ReloadOutlined style={{ fontSize: 13 }} />}
                 onClick={fetchProfile}
-                style={{ color: "#DC143C" }}
+                style={{ color: "#8c8c8c" }}
               />
             }
           >
-            <div style={{ textAlign: "center", paddingBottom: 24 }}>
-              <Avatar
-                size={140}
-                src={profile.user.photoURL}
-                icon={<UserOutlined />}
-                style={{ marginBottom: 16 }}
-              />
-
-              <div style={{ marginBottom: 12 }}>
-                <Button onClick={() => setShowPhotoRequestModal(true)}>
-                  Request Profile Photo Update
-                </Button>
+            {/* Avatar section */}
+            <div style={{ textAlign: "center", padding: "16px 0 24px" }}>
+              <div style={{ position: "relative", display: "inline-block", marginBottom: 16 }}>
+                <Avatar
+                  size={110}
+                  src={profile.user.photoURL}
+                  icon={<UserOutlined />}
+                  style={{
+                    border: `3px solid ${MAROON_MID}`,
+                    outline: `3px solid ${MAROON_LIGHT}`,
+                  }}
+                />
+                {/* Edit overlay button */}
+                <button
+                  onClick={() => setShowPhotoRequestModal(true)}
+                  style={{
+                    position: "absolute", bottom: 4, right: 4,
+                    width: 28, height: 28, borderRadius: "50%",
+                    background: MAROON, border: "2px solid #fff",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    cursor: "pointer", padding: 0,
+                  }}
+                >
+                  <EditOutlined style={{ fontSize: 12, color: "#fff" }} />
+                </button>
               </div>
 
-              <Title level={2}>
+              <Title level={4} style={{ margin: "0 0 6px", color: "#141414" }}>
                 {profile.user.firstName} {profile.user.surname}
               </Title>
 
-              <Tag color="#DC143C">
+              <Tag
+                style={{
+                  background: MAROON_LIGHT,
+                  border: `1px solid ${MAROON_MID}`,
+                  color: MAROON,
+                  fontWeight: 600,
+                  fontSize: 11,
+                  letterSpacing: "0.5px",
+                  borderRadius: 20,
+                  padding: "1px 10px",
+                }}
+              >
                 {profile.user.role.toUpperCase()}
               </Tag>
             </div>
 
-            <Divider dashed />
+            <Divider style={{ margin: "0 0 20px" }} />
 
+            {/* Info rows */}
             <Descriptions
               column={1}
-              size="middle"
-              styles={{ label: { color: "#8c8c8c" } }}
+              size="small"
+              styles={{
+                label: {
+                  color: "#8c8c8c",
+                  fontSize: 12,
+                  fontWeight: 500,
+                  width: 120,
+                },
+              }}
             >
               <Descriptions.Item label="Full Name">
-                {profile.user.firstName} {profile.user.surname}
+                <Text style={{ fontSize: 13 }}>
+                  {profile.user.firstName} {profile.user.surname}
+                </Text>
               </Descriptions.Item>
 
               <Descriptions.Item label="Account Status">
                 <Tag
-                  color={
-                    profile.user.status === "Active" ? "green" : "gold"
-                  }
+                  color={profile.user.status === "Active" ? "green" : "gold"}
+                  style={{ borderRadius: 20, fontSize: 11 }}
                 >
                   {profile.user.status}
                 </Tag>
               </Descriptions.Item>
 
               <Descriptions.Item label="Birthdate">
-                {new Date(profile.user.birthdate).toLocaleDateString()}
+                <Text style={{ fontSize: 13 }}>
+                  {new Date(profile.user.birthdate).toLocaleDateString("en-US", {
+                    year: "numeric", month: "long", day: "numeric",
+                  })}
+                </Text>
               </Descriptions.Item>
             </Descriptions>
+
+            {/* Subtle bottom action */}
+            <div style={{ marginTop: 20 }}>
+              <Button
+                block
+                size="middle"
+                icon={<EditOutlined />}
+                onClick={() => setShowPhotoRequestModal(true)}
+                style={{
+                  borderRadius: 8, borderColor: "#e8e8e8",
+                  color: "#595959", fontWeight: 500, fontSize: 13,
+                }}
+              >
+                Request Profile Photo Update
+              </Button>
+            </div>
           </Card>
         </Col>
 
-        <Col xs={0} md={12}>{renderQRCard()}</Col>
+        {/* ── RIGHT: QR Card (desktop) ── */}
+        <Col xs={0} md={12}>
+          {renderQRCard()}
+        </Col>
       </Row>
 
+      {/* ── QR Drawer (mobile) ── */}
       <Drawer
         title="Access Control"
         placement="right"
@@ -436,42 +445,55 @@ const renderQRCard = () => (
         {renderQRCard()}
       </Drawer>
 
+      {/* ── REQUEST QR CHANGE MODAL ── */}
       <Modal
-        title="Request QR Change"
+        title={
+          <Space>
+            <QrcodeOutlined style={{ color: MAROON }} />
+            <span>Request QR Change</span>
+          </Space>
+        }
         open={showRequestModal}
         onCancel={() => setShowRequestModal(false)}
         onOk={handleSubmitRequest}
+        okText="Submit Request"
+        okButtonProps={{
+          style: { background: MAROON, borderColor: MAROON, borderRadius: 6 },
+        }}
+        cancelButtonProps={{ style: { borderRadius: 6 } }}
         confirmLoading={requesting}
+        styles={{ header: { borderBottom: "1px solid #f0f0f0", paddingBottom: 12 } }}
       >
-        <Form form={form} layout="vertical">
-          <Form.Item
-            name="reason"
-            label="Reason"
-            rules={[{ required: true }]}
-          >
-            <Input.TextArea rows={3} />
+        <Form form={form} layout="vertical" style={{ marginTop: 16 }}>
+          <Form.Item name="reason" label="Reason for request" rules={[{ required: true }]}>
+            <Input.TextArea
+              rows={3}
+              placeholder="Briefly describe why you need a new QR code..."
+              style={{ borderRadius: 8 }}
+            />
           </Form.Item>
-
           <Form.Item name="newQRString" label="New QR String (optional)">
-            <Input />
+            <Input placeholder="Leave blank to auto-generate" style={{ borderRadius: 8 }} />
           </Form.Item>
-
           <Form.Item label="Upload QR Image (optional)">
             <Upload
-              beforeUpload={(file) => {
-                setUploadingFile(file);
-                return false;
-              }}
+              beforeUpload={(file) => { setUploadingFile(file); return false; }}
               maxCount={1}
             >
-              <Button>Click to Upload</Button>
+              <Button style={{ borderRadius: 8 }}>Click to Upload</Button>
             </Upload>
           </Form.Item>
         </Form>
       </Modal>
 
+      {/* ── REQUEST PROFILE PHOTO MODAL ── */}
       <Modal
-        title="Request Profile Photo Change"
+        title={
+          <Space>
+            <UserOutlined style={{ color: MAROON }} />
+            <span>Request Profile Photo Change</span>
+          </Space>
+        }
         open={showPhotoRequestModal}
         onCancel={() => {
           stopPhotoCamera();
@@ -482,18 +504,28 @@ const renderQRCard = () => (
           setPhotoInputMode("upload");
         }}
         onOk={handleSubmitPhotoRequest}
+        okText="Submit Request"
+        okButtonProps={{
+          style: { background: MAROON, borderColor: MAROON, borderRadius: 6 },
+        }}
+        cancelButtonProps={{ style: { borderRadius: 6 } }}
         confirmLoading={photoRequesting}
+        styles={{ header: { borderBottom: "1px solid #f0f0f0", paddingBottom: 12 } }}
       >
-        <Form form={photoForm} layout="vertical">
+        <Form form={photoForm} layout="vertical" style={{ marginTop: 16 }}>
           <Form.Item
             name="reason"
-            label="Reason"
+            label="Reason for request"
             rules={[{ required: true, message: "Reason is required" }]}
           >
-            <Input.TextArea rows={3} />
+            <Input.TextArea
+              rows={3}
+              placeholder="Briefly describe why you need to update your photo..."
+              style={{ borderRadius: 8 }}
+            />
           </Form.Item>
 
-          <Form.Item label="Photo Source" required>
+          <Form.Item label="Photo source" required>
             <Radio.Group
               value={photoInputMode}
               onChange={(e) => {
@@ -502,50 +534,49 @@ const renderQRCard = () => (
                 setPhotoRequestFile(null);
                 setCapturedPhoto(null);
               }}
+              style={{ display: "flex", gap: 8 }}
             >
-              <Radio.Button value="upload">Upload</Radio.Button>
-              <Radio.Button value="camera">Take Photo</Radio.Button>
+              <Radio.Button value="upload" style={{ borderRadius: "6px 0 0 6px", fontWeight: 500 }}>
+                Upload
+              </Radio.Button>
+              <Radio.Button value="camera" style={{ borderRadius: "0 6px 6px 0", fontWeight: 500 }}>
+                Take Photo
+              </Radio.Button>
             </Radio.Group>
           </Form.Item>
 
           {photoInputMode === "upload" ? (
             <Form.Item
-              label="Upload New Profile Photo"
+              label="Upload new profile photo"
               required
               tooltip="This request requires admin approval before your profile photo is updated."
             >
               <Upload
-                beforeUpload={(file) => {
-                  setPhotoRequestFile(file);
-                  return false;
-                }}
+                beforeUpload={(file) => { setPhotoRequestFile(file); return false; }}
                 accept="image/*"
                 maxCount={1}
-                onRemove={() => {
-                  setPhotoRequestFile(null);
-                }}
+                onRemove={() => setPhotoRequestFile(null)}
               >
-                <Button>Choose Photo</Button>
+                <Button style={{ borderRadius: 8 }}>Choose Photo</Button>
               </Upload>
             </Form.Item>
           ) : (
             <Form.Item
-              label="Take New Profile Photo"
+              label="Take new profile photo"
               required
               tooltip="This request requires admin approval before your profile photo is updated."
             >
-              <div
-                style={{
-                  width: "100%",
-                  background: "#111",
-                  borderRadius: 12,
-                  overflow: "hidden",
-                  minHeight: 240,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
+              <div style={{
+                width: "100%",
+                background: "#141414",
+                borderRadius: 10,
+                overflow: "hidden",
+                minHeight: 240,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                border: "1px solid #2a2a2a",
+              }}>
                 {capturedPhoto ? (
                   <img
                     src={capturedPhoto}
@@ -563,18 +594,17 @@ const renderQRCard = () => (
                 )}
               </div>
 
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "flex-end",
-                  gap: 8,
-                  marginTop: 12,
-                }}
-              >
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 10 }}>
                 {capturedPhoto ? (
-                  <Button onClick={handleRetakePhoto}>Retake</Button>
+                  <Button onClick={handleRetakePhoto} style={{ borderRadius: 8 }}>
+                    Retake
+                  </Button>
                 ) : (
-                  <Button type="primary" onClick={handleCapturePhoto}>
+                  <Button
+                    type="primary"
+                    onClick={handleCapturePhoto}
+                    style={{ background: MAROON, borderColor: MAROON, borderRadius: 8 }}
+                  >
                     Capture
                   </Button>
                 )}
