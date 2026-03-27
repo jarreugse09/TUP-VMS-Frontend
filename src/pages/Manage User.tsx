@@ -13,12 +13,17 @@ import {
   Col,
   Divider,
   message,
-  Drawer,
-  Descriptions,
+  Modal,
   Avatar,
 } from "antd";
-// import { useState, useEffect, useMemo } from 'react';
 import { useState, useEffect } from "react";
+import {
+  UserOutlined,
+  MailOutlined,
+  CalendarOutlined,
+  IdcardOutlined,
+  InfoCircleOutlined,
+} from "@ant-design/icons";
 import dayjs from "dayjs";
 import { adminRegisterUser, getAllUsers } from "../services/userService";
 
@@ -365,55 +370,130 @@ const ManageUsers = () => {
             })}
           />
 
-          <Drawer
-            title="User Details"
+          <Modal
             open={!!selectedUser}
-            width={520}
-            onClose={() => setSelectedUser(null)}
+            onCancel={() => setSelectedUser(null)}
+            footer={null}
+            centered
+            width={540}
+            styles={{
+              content: { padding: 0, overflow: "hidden", borderRadius: 16 },
+              mask: { backdropFilter: "blur(2px)" },
+            }}
+            closeIcon={
+                <span style={{
+                  display: "inline-flex", alignItems: "center", justifyContent: "center",
+                  width: 28, height: 28, borderRadius: "50%",
+                  background: "rgba(0,0,0,0.06)", color: "#595959",
+                  fontSize: 13, fontWeight: 500,
+                }}>✕</span>
+              }
           >
             {selectedUser && (
-              <Space direction="vertical" size={16} style={{ width: "100%" }}>
-                <Space align="center">
-                  <Avatar
-                    src={selectedUser.photoURL}
-                    size={64}
-                    alt={`${selectedUser.firstName} ${selectedUser.surname}`}
-                  />
-                  <div>
-                    <Title level={5} style={{ margin: 0 }}>
-                      {selectedUser.firstName} {selectedUser.surname}
-                    </Title>
-                    <Text type="secondary">
-                      QR String: {selectedUser.qrString || "-"}
+              <div style={{ display: "flex", flexDirection: "column" }}>
+                {/* HEADER SECTION */}
+                <div style={{
+                  padding: "24px 24px 20px",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 20,
+                  borderBottom: "1px solid #f0f0f0",
+                }}>
+                  <div style={{ position: "relative" }}>
+                    <Avatar
+                      size={80}
+                      src={selectedUser.photoURL}
+                      icon={<UserOutlined />}
+                      style={{
+                        background: "#f5f5f5",
+                        border: "2px solid #fff",
+                        outline: "1.5px solid #e8e8e8",
+                        boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
+                      }}
+                    />
+                    <span style={{
+                      position: "absolute", bottom: 4, right: 4,
+                      width: 14, height: 14, borderRadius: "50%",
+                      background: selectedUser.status === "In TUP" ? "#22c55e" : "#d1d5db",
+                      border: "2px solid #fff",
+                    }} />
+                  </div>
+
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                      <Text strong style={{ fontSize: 20, color: "#141414", letterSpacing: "-0.3px" }}>
+                        {selectedUser.firstName} {selectedUser.surname}
+                      </Text>
+                      <span style={{
+                        fontSize: 10, fontWeight: 700, padding: "1px 8px", borderRadius: 20,
+                        background: "#e6f7ff", color: "#1890ff", border: "1px solid #91d5ff",
+                        textTransform: "uppercase"
+                      }}>
+                        {selectedUser.role}
+                      </span>
+                    </div>
+                    <Text type="secondary" style={{ fontSize: 13 }}>
+                      ID: <Text strong style={{ color: "#595959" }}>{selectedUser.qrString || "No QR Assigned"}</Text>
                     </Text>
                   </div>
-                </Space>
+                </div>
 
-                <Descriptions bordered size="small" column={1}>
-                  <Descriptions.Item label="Email Address">
-                    {selectedUser.email}
-                  </Descriptions.Item>
-                  <Descriptions.Item label="Role">
-                    {selectedUser.role}
-                  </Descriptions.Item>
-                  <Descriptions.Item label="Staff Type">
-                    {selectedUser.staffType || "N/A"}
-                  </Descriptions.Item>
-                  <Descriptions.Item label="Status">
-                    {selectedUser.status}
-                  </Descriptions.Item>
-                  <Descriptions.Item label="Birthdate">
-                    {dayjs(selectedUser.birthdate).format("MMMM DD, YYYY")}
-                  </Descriptions.Item>
-                  <Descriptions.Item label="Date Joined">
-                    {dayjs(selectedUser.createdAt).format(
-                      "MMMM DD, YYYY hh:mm A",
-                    )}
-                  </Descriptions.Item>
-                </Descriptions>
-              </Space>
+                {/* DETAILS GRID */}
+                <div style={{ padding: "24px", background: "#fcfcfc" }}>
+                  <div style={{ 
+                    display: "grid", 
+                    gridTemplateColumns: "1fr 1fr", 
+                    gap: "16px",
+                    marginBottom: "24px" 
+                  }}>
+                    {[
+                      { icon: <MailOutlined />, label: "Email Address", value: selectedUser.email },
+                      { icon: <CalendarOutlined />, label: "Birthdate", value: dayjs(selectedUser.birthdate).format("MMMM DD, YYYY") },
+                      { icon: <IdcardOutlined />, label: "Staff Type", value: selectedUser.staffType || "N/A" },
+                      { icon: <InfoCircleOutlined />, label: "Account Status", value: selectedUser.status },
+                    ].map((item, i) => (
+                      <div key={i} style={{
+                        background: "#fff", padding: "12px 16px", borderRadius: 12,
+                        border: "1px solid #f0f0f0",
+                      }}>
+                        <Space size={6} style={{ marginBottom: 4 }}>
+                          <span style={{ color: "#8c8c8c", fontSize: 12 }}>{item.icon}</span>
+                          <Text type="secondary" style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.2px" }}>
+                            {item.label}
+                          </Text>
+                        </Space>
+                        <Text strong style={{ display: "block", fontSize: 13, color: "#262626" }}>
+                          {item.value}
+                        </Text>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div style={{
+                    background: "#f0f2f5", padding: "12px 16px", borderRadius: 12,
+                    display: "flex", justifyContent: "space-between", alignItems: "center"
+                  }}>
+                    <Text type="secondary" style={{ fontSize: 12 }}>Member Since</Text>
+                    <Text strong style={{ fontSize: 12 }}>
+                      {dayjs(selectedUser.createdAt).format("MMM DD, YYYY")}
+                    </Text>
+                  </div>
+
+                  <Button
+                    type="primary"
+                    block
+                    onClick={() => setSelectedUser(null)}
+                    style={{
+                      marginTop: 24, height: 40, borderRadius: 8,
+                      background: "#141414", border: "none", fontWeight: 600
+                    }}
+                  >
+                    Close Profile
+                  </Button>
+                </div>
+              </div>
             )}
-          </Drawer>
+          </Modal>
         </Card>
       )}
     </Space>

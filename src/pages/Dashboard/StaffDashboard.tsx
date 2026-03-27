@@ -1,6 +1,7 @@
 import {
   Card,
   message,
+  notification,
   Row,
   Col,
   Avatar,
@@ -81,9 +82,42 @@ const StaffDashboard = () => {
       );
 
       setCooldown(3);
-    } catch {
-      message.error("Invalid QR Code or scan failed");
-      setCooldown(2);
+    } catch (err: any) {
+      const errorMsg = err?.response?.data?.message || "Invalid QR Code or scan failed";
+      
+      // Handle specific status errors with better notifications
+      if (errorMsg.includes("already check in")) {
+        notification.warning({
+          message: "⏱️ Already Checked In",
+          description: "You're already checked in. Try checking out first.",
+          duration: 4,
+        });
+        
+        // Auto-refresh after 4 seconds for next scan
+        setTimeout(() => {
+          setScanResult(null);
+          processingRef.current = false;
+          lastScannedRef.current = null;
+        }, 4000);
+      } else if (errorMsg.includes("must check in first")) {
+        notification.warning({
+          message: "❌ Not Checked In Yet",
+          description: "You must check in before you can check out.",
+          duration: 4,
+        });
+        
+        setTimeout(() => {
+          processingRef.current = false;
+          lastScannedRef.current = null;
+        }, 4000);
+      } else {
+        notification.error({
+          message: "❌ Scan Failed",
+          description: errorMsg,
+          duration: 3,
+        });
+        setCooldown(2);
+      }
     }
   };
 

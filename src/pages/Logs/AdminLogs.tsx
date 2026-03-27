@@ -17,18 +17,19 @@ import {
   SearchOutlined,
   ReloadOutlined,
   FilterOutlined,
-  EllipsisOutlined,
   UserOutlined,
+  ClockCircleOutlined,
 } from "@ant-design/icons";
 import { useEffect, useState, useMemo, useRef } from "react";
 import { getLogs, exportLogs } from "../../services/logService";
 import type { ColumnsType } from "antd/es/table";
 import dayjs from "dayjs";
 
+const isEqual = (a: any, b: any) =>
+  JSON.stringify(a) === JSON.stringify(b);
 const { RangePicker } = DatePicker;
 const { Title, Text } = Typography;
 const { Option } = Select;
-
 /* ================= TYPES ================= */
 
 interface Activity {
@@ -89,7 +90,8 @@ const Logs = () => {
   const pollingIntervalMs = 12000;
   const fetchingRef = useRef(false);
   const [logs, setLogs] = useState<LogItem[]>([]);
-  const [loading, setLoading] = useState(false);
+const [loading, setLoading] = useState(false);
+const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [filters, setFilters] = useState({
     name: "",
     role: undefined as string | undefined,
@@ -108,18 +110,24 @@ const Logs = () => {
   const [exportPassword, setExportPassword] = useState("");
   const [exporting, setExporting] = useState(false);
 
-  const fetchLogs = async () => {
-    if (fetchingRef.current) return;
-    fetchingRef.current = true;
-    setLoading(true);
-    try {
-      const data = await getLogs();
-      setLogs(data);
-    } finally {
-      setLoading(false);
-      fetchingRef.current = false;
-    }
-  };
+const fetchLogs = async (isSilent = false) => {
+  if (fetchingRef.current) return;
+  fetchingRef.current = true;
+
+  if (!isSilent) setLoading(true);
+
+  try {const data = await getLogs();
+
+    setLogs((prev) => {
+      if (isEqual(prev, data)) return prev; // ✅ no re-render
+      return data;
+    });
+  } finally {
+    if (!isSilent) setLoading(false); // ✅ prevents flicker
+    setIsInitialLoad(false);
+    fetchingRef.current = false;
+  }
+};
 
   const handleExport = async () => {
     if (!exportPassword) {
@@ -173,26 +181,32 @@ const Logs = () => {
   };
 
   useEffect(() => {
-    fetchLogs();
+  // Initial load (WITH spinner)
+  fetchLogs(false);
 
-    const intervalId = window.setInterval(fetchLogs, pollingIntervalMs);
+  // Background refresh (NO spinner)
+  const intervalId = window.setInterval(
+    () => fetchLogs(true),
+    pollingIntervalMs
+  );
 
-    const handleFocus = () => fetchLogs();
-    const handleVisibility = () => {
-      if (document.visibilityState === "visible") {
-        fetchLogs();
-      }
-    };
+  const handleFocus = () => fetchLogs(true);
 
-    window.addEventListener("focus", handleFocus);
-    document.addEventListener("visibilitychange", handleVisibility);
+  const handleVisibility = () => {
+    if (document.visibilityState === "visible") {
+      fetchLogs(true);
+    }
+  };
 
-    return () => {
-      window.clearInterval(intervalId);
-      window.removeEventListener("focus", handleFocus);
-      document.removeEventListener("visibilitychange", handleVisibility);
-    };
-  }, []);
+  window.addEventListener("focus", handleFocus);
+  document.addEventListener("visibilitychange", handleVisibility);
+
+  return () => {
+    window.clearInterval(intervalId);
+    window.removeEventListener("focus", handleFocus);
+    document.removeEventListener("visibilitychange", handleVisibility);
+  };
+}, []);
 
   /* ================= FILTER ================= */
 
@@ -219,7 +233,7 @@ const Logs = () => {
 
   /* ================= TABLE ================= */
 
-  const columns: ColumnsType<LogItem> = [
+const columns = useMemo<ColumnsType<LogItem>>(() => [
     {
       title: "Name",
       render: (_, record) => (
@@ -276,21 +290,7 @@ const Logs = () => {
         </Tag>
       ),
     },
-    {
-      title: "Actions",
-      render: (_, record) => (
-        <Button
-          type="primary"
-          shape="circle"
-          icon={<EllipsisOutlined />}
-          onClick={() => {
-            setSelectedLog(record);
-            setModalVisible(true);
-          }}
-        />
-      ),
-    },
-  ];
+  ],[]);
 
   /* ================= RENDER ================= */
 
@@ -311,7 +311,7 @@ const Logs = () => {
         }
         extra={
           <Space>
-            <Button icon={<ReloadOutlined />} onClick={fetchLogs}>
+            <Button icon={<ReloadOutlined />} onClick={() => fetchLogs(false)}>
               Refresh
             </Button>
             <Button onClick={() => setExportModalOpen(true)}>Download</Button>
@@ -343,12 +343,26 @@ const Logs = () => {
         </Space>
 
         <Table
-          columns={columns}
-          dataSource={filteredData}
-          rowKey="_id"
-          loading={loading}
-          pagination={{ pageSize: 10, showSizeChanger: true }}
-        />
+  columns={columns}
+  dataSource={filteredData}
+  rowKey="_id"
+  loading={loading && isInitialLoad} // ✅ only first load shows spinner
+  pagination={{ pageSize: 10, showSizeChanger: true }}
+  onRow={(record) => ({
+    onClick: (event) => {
+      const target = event.target as HTMLElement;
+
+      // prevent triggering when clicking buttons, links, etc.
+      if (target.closest("button") || target.closest("a")) {
+        return;
+      }
+
+      setSelectedLog(record);
+      setModalVisible(true);
+    },
+    style: { cursor: "pointer" },
+  })}
+/>
       </Card>
 
       {/* FILTER DRAWER */}
@@ -433,195 +447,265 @@ const Logs = () => {
         onCancel={() => setModalVisible(false)}
         footer={null}
         centered
-        width={620}
+        width={580}
+        styles={{
+          content: { padding: 0, overflow: "hidden", borderRadius: 16 },
+          mask: { backdropFilter: "blur(2px)" },
+        }}
         closeIcon={
-          <span
-            style={{
-              color: "#fff",
-              fontSize: 18,
-              fontWeight: 600,
-            }}
-          >
-            ✕
-          </span>
+          <span style={{
+            display: "inline-flex", alignItems: "center", justifyContent: "center",
+            width: 28, height: 28, borderRadius: "50%",   
+            background: "rgba(0,0,0,0.06)", color: "#595959",
+            fontSize: 13, fontWeight: 500, lineHeight: 1,
+          }}>✕</span>
         }
       >
-        {selectedLog && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-            {/* HEADER / HERO */}
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 16,
-                padding: 16,
-                borderRadius: 16,
-                background: "linear-gradient(135deg, #ff4d4f, #ff7875)",
-                color: "#fff",
-                position: "relative",
-              }}
-            >
-              <Avatar
-                size={72}
-                src={selectedLog.user.photoURL}
-                icon={<UserOutlined />}
-                style={{
-                  border: "3px solid #fff",
-                  boxShadow: "0 4px 12px rgba(0,0,0,0.25)",
-                }}
-              />
+        {selectedLog && (() => {
+          const timeIn  = getTimeIn(selectedLog);
+          const timeOut = getTimeOut(selectedLog);
+          const isIn    = selectedLog.dailyStatus === "In TUP";
 
-              <div style={{ flex: 1 }}>
-                <Title level={4} style={{ margin: 0, color: "#fff" }}>
-                  {selectedLog.user.firstName} {selectedLog.user.surname}
-                </Title>
+          const ROLE_PILL: Record<string, { bg: string; color: string; border: string }> = {
+            Staff:    { bg: "#EFF6FF", color: "#1D4ED8", border: "#BFDBFE" },
+            Student:  { bg: "#F0FDF4", color: "#166534", border: "#BBF7D0" },
+            Visitor:  { bg: "#FAF5FF", color: "#6B21A8", border: "#E9D5FF" },
+            TUP:      { bg: "#FFF7ED", color: "#9A3412", border: "#FED7AA" },
+            Security: { bg: "#F0F9FF", color: "#075985", border: "#BAE6FD" },
+          };
+          const pill = ROLE_PILL[selectedLog.user.role] ?? { bg: "#F5F5F5", color: "#404040", border: "#E5E5E5" };
 
-                <Space size="small">
-                  <Tag color="white" style={{ color: "#ff4d4f" }}>
-                    {selectedLog.user.role}
-                  </Tag>
-                  <Text style={{ color: "rgba(255,255,255,0.85)" }}>
-                    Date Entered:{" "}
-                    {dayjs(selectedLog.date).format("MMM DD, YYYY")}
+          const REASON_LABEL: Record<string, string> = {
+            attendance:  "Attendance",
+            checkin:     "Check in",
+            checkout:    "Check out",
+            break:       "Break",
+            "go out":    "Went out",
+            transaction: "Transaction",
+            Transaction: "Transaction",
+          };
+
+          return (
+            <div>
+              {/* ── HEADER ── */}
+              <div style={{
+                display: "flex", alignItems: "center", gap: 16,
+                padding: "24px 24px 20px",
+                borderBottom: "1px solid #f0f0f0",
+              }}>
+                <div style={{ position: "relative", flexShrink: 0 }}>
+                  <Avatar
+                    size={52}
+                    src={selectedLog.user.photoURL}
+                    icon={<UserOutlined />}
+                    style={{
+                      background: "#f0f0f0",
+                      border: "2px solid #fff",
+                      outline: "1.5px solid #e8e8e8",
+                    }}
+                  />
+                  <span style={{
+                    position: "absolute", bottom: 1, right: 1,
+                    width: 11, height: 11, borderRadius: "50%",
+                    background: isIn ? "#22c55e" : "#d1d5db",
+                    border: "2px solid #fff",
+                  }} />
+                </div>
+
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 4 }}>
+                    <Text strong style={{ fontSize: 15, color: "#141414", lineHeight: 1.3 }}>
+                      {selectedLog.user.firstName} {selectedLog.user.surname}
+                    </Text>
+                    <span style={{
+                      fontSize: 11, fontWeight: 500, padding: "1px 7px",
+                      borderRadius: 20, letterSpacing: "0.2px",
+                      background: pill.bg, color: pill.color,
+                      border: `1px solid ${pill.border}`,
+                    }}>
+                      {selectedLog.user.role}
+                    </span>
+                  </div>
+                  <Text type="secondary" style={{ fontSize: 12 }}>
+                    {dayjs(selectedLog.date).format("dddd, MMMM D, YYYY")}
                   </Text>
-                </Space>
+                </div>
+
+                <div style={{
+                  display: "flex", alignItems: "center", gap: 6,
+                  padding: "5px 11px", borderRadius: 20, flexShrink: 0,
+                  background: isIn ? "#f0fdf4" : "#fafafa",
+                  border: `1px solid ${isIn ? "#bbf7d0" : "#e5e5e5"}`,
+                }}>
+                  <span style={{
+                    width: 7, height: 7, borderRadius: "50%", flexShrink: 0,
+                    background: isIn ? "#16a34a" : "#9ca3af",
+                  }} />
+                  <Text style={{
+                    fontSize: 12, fontWeight: 500,
+                    color: isIn ? "#15803d" : "#6b7280",
+                  }}>
+                    {selectedLog.dailyStatus}
+                  </Text>
+                </div>
+              </div>
+
+              {/* ── TIME ROW ── */}
+              <div style={{
+                display: "grid", gridTemplateColumns: "1fr 1fr",
+                background: "#fafafa",
+                borderBottom: "1px solid #f0f0f0",
+              }}>
+                {[
+                  { label: "Time in",  value: timeIn,  dot: "#22c55e" },
+                  { label: "Time out", value: timeOut, dot: "#f97316", divided: true },
+                ].map(({ label, value, dot, divided }) => (
+                  <div key={label} style={{
+                    padding: "16px 20px",
+                    borderLeft: divided ? "1px solid #f0f0f0" : undefined,
+                  }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 5 }}>
+                      <span style={{ width: 6, height: 6, borderRadius: "50%", background: dot }} />
+                      <Text type="secondary" style={{ fontSize: 11, letterSpacing: "0.4px", textTransform: "uppercase" as any }}>
+                        {label}
+                      </Text>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "baseline", gap: 3 }}>
+                      <Text style={{
+                        fontSize: 22, fontWeight: 600,
+                        color: value ? "#141414" : "#d1d5db",
+                        fontVariantNumeric: "tabular-nums",
+                        letterSpacing: "-0.5px",
+                      }}>
+                        {value ? dayjs(value).format("h:mm") : "—"}
+                      </Text>
+                      {value && (
+                        <Text type="secondary" style={{ fontSize: 12 }}>
+                          {dayjs(value).format("A")}
+                        </Text>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* ── ACTIVITIES ── */}
+              <div style={{ padding: "20px 24px" }}>
+                {selectedLog.activities.length > 0 ? (
+                  <>
+                    <Text type="secondary" style={{
+                      fontSize: 11, letterSpacing: "0.5px",
+                      textTransform: "uppercase" as any,
+                      display: "block", marginBottom: 12,
+                    }}>
+                      Activity log · {selectedLog.activities.length}{" "}
+                      {selectedLog.activities.length === 1 ? "entry" : "entries"}
+                    </Text>
+
+                    <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                      {selectedLog.activities.map((act, i) => {
+                        const actIsIn   = act.status === "In TUP";
+                        const accentClr = actIsIn ? "#16a34a" : "#dc2626";
+                        const bgClr     = actIsIn ? "#f0fdf4" : "#fff7f7";
+                        const bdClr     = actIsIn ? "#bbf7d0" : "#fecaca";
+
+                        const targetPerson = (act as any).wentTo || (act as any).scannedTarget;
+                        const displayLabel = targetPerson
+                          ? `Went to ${targetPerson.firstName} ${targetPerson.surname}`
+                          : (REASON_LABEL[act.reason] ?? act.reason);
+
+                        const subLabel = targetPerson
+                          ? targetPerson.role
+                          : (act.timeIn || act.timeOut)
+                          ? `${act.timeIn ? dayjs(act.timeIn).format("h:mm A") : "—"}  →  ${act.timeOut ? dayjs(act.timeOut).format("h:mm A") : "ongoing"}`
+                          : null;
+
+                        const total     = selectedLog.activities.length;
+                        const isFirst   = i === 0;
+                        const isLast    = i === total - 1;
+                        const radius    = isFirst && isLast ? "8px"
+                          : isFirst ? "8px 8px 0 0"
+                          : isLast  ? "0 0 8px 8px"
+                          : "0";
+
+                        return (
+                          <div key={i} style={{
+                            display: "flex", alignItems: "center", gap: 12,
+                            padding: "11px 14px",
+                            background: "#fff",
+                            border: "1px solid #f0f0f0",
+                            borderLeft: `3px solid ${accentClr}`,
+                            borderRadius: radius,
+                            borderTop: i > 0 ? "none" : undefined,
+                          }}>
+                            <div style={{
+                              width: 30, height: 30, borderRadius: "50%", flexShrink: 0,
+                              background: bgClr, border: `1px solid ${bdClr}`,
+                              display: "flex", alignItems: "center", justifyContent: "center",
+                            }}>
+                              <ClockCircleOutlined style={{ fontSize: 13, color: accentClr }} />
+                            </div>
+
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <Text strong style={{
+                                fontSize: 13, display: "block", color: "#141414",
+                                overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                              }}>
+                                {displayLabel}
+                              </Text>
+                              {subLabel && (
+                                <Text type="secondary" style={{ fontSize: 11 }}>
+                                  {subLabel}
+                                </Text>
+                              )}
+                            </div>
+
+                            <span style={{
+                              fontSize: 11, fontWeight: 500, padding: "2px 9px",
+                              borderRadius: 20, flexShrink: 0,
+                              background: bgClr, color: accentClr, border: `1px solid ${bdClr}`,
+                            }}>
+                              {act.status}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </>
+                ) : (
+                  <div style={{
+                    textAlign: "center", padding: "24px 0",
+                    border: "1px dashed #e5e5e5", borderRadius: 8,
+                  }}>
+                    <Text type="secondary" style={{ fontSize: 13 }}>
+                      No activities recorded
+                    </Text>
+                  </div>
+                )}
+              </div>
+
+              {/* ── FOOTER ── */}
+              <div style={{
+                display: "flex", justifyContent: "flex-end",
+                padding: "14px 24px",
+                borderTop: "1px solid #f0f0f0",
+                background: "#fafafa",
+              }}>
+                <Button
+                  onClick={() => setModalVisible(false)}
+                  style={{
+                    background: "linear-gradient(135deg, #ff4d4f, #ff7875)",
+                    border: "none", borderRadius: 8, height: 36,
+                    padding: "0 22px", fontWeight: 500, fontSize: 13,
+                    color: "#fff", boxShadow: "0 2px 6px rgba(255,77,79,0.3)",
+                  }}
+                >
+                  Close
+                </Button>
               </div>
             </div>
-
-            {/* COMBINED SUMMARY BOX */}
-            <Card
-              size="small"
-              variant="borderless"
-              style={{
-                borderRadius: 16,
-                background: "#fff",
-                boxShadow: "0 6px 16px rgba(0,0,0,0.08)",
-              }}
-            >
-              <Space
-                style={{
-                  width: "100%",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                }}
-              >
-                <div>
-                  <Text type="secondary">First Time In</Text>
-                  <Title level={5} style={{ margin: 0 }}>
-                    {getTimeIn(selectedLog)
-                      ? dayjs(getTimeIn(selectedLog)!).format("hh:mm A")
-                      : "-"}
-                  </Title>
-                </div>
-
-                <div>
-                  <Text type="secondary">Last Time Out</Text>
-                  <Title level={5} style={{ margin: 0 }}>
-                    {getTimeOut(selectedLog)
-                      ? dayjs(getTimeOut(selectedLog)!).format("hh:mm A")
-                      : "-"}
-                  </Title>
-                </div>
-
-                <div>
-                  <Text type="secondary">Status</Text>
-                  <Tag
-                    color={
-                      selectedLog.dailyStatus === "In TUP" ? "green" : "volcano"
-                    }
-                    style={{ fontSize: 14, padding: "4px 12px" }}
-                  >
-                    {selectedLog.dailyStatus}
-                  </Tag>
-                </div>
-              </Space>
-            </Card>
-
-            {/* ACTIVITIES */}
-            <div>
-              <Title level={5} style={{ marginBottom: 8 }}>
-                Activity Details
-              </Title>
-
-              {selectedLog.activities.length ? (
-                <Space direction="vertical" style={{ width: "100%" }}>
-                  {selectedLog.activities.map((act, i) => (
-                    <Card
-                      key={i}
-                      size="small"
-                      variant="borderless"
-                      style={{
-                        borderRadius: 14,
-                        borderLeft: `5px solid ${
-                          act.status === "In TUP" ? "#52c41a" : "#f5222d"
-                        }`,
-                        background: "#fafafa",
-                      }}
-                    >
-                      <Space
-                        direction="vertical"
-                        size={4}
-                        style={{ width: "100%" }}
-                      >
-                        <Space
-                          style={{
-                            justifyContent: "space-between",
-                            width: "100%",
-                          }}
-                        >
-                          <Text strong>{act.reason.toUpperCase()}</Text>
-                          <Tag
-                            color={
-                              act.status === "In TUP" ? "green" : "volcano"
-                            }
-                          >
-                            {act.status}
-                          </Tag>
-                        </Space>
-
-                        <Space size="large">
-                          <Text type="secondary">
-                            In:{" "}
-                            {act.timeIn
-                              ? dayjs(act.timeIn).format("hh:mm A")
-                              : "-"}
-                          </Text>
-                          <Text type="secondary">
-                            Out:{" "}
-                            {act.timeOut
-                              ? dayjs(act.timeOut).format("hh:mm A")
-                              : "-"}
-                          </Text>
-                        </Space>
-                      </Space>
-                    </Card>
-                  ))}
-                </Space>
-              ) : (
-                <Text type="secondary">No activities recorded</Text>
-              )}
-            </div>
-
-            {/* ACTION */}
-            <div style={{ textAlign: "center", marginTop: 8 }}>
-              <Button
-                type="primary"
-                onClick={() => setModalVisible(false)}
-                style={{
-                  background: "linear-gradient(135deg, #ff4d4f, #ff7875)",
-                  border: "none",
-                  borderRadius: 14,
-                  height: 46,
-                  width: 160,
-                  fontWeight: 600,
-                  boxShadow: "0 8px 16px rgba(255,77,79,0.45)",
-                }}
-              >
-                Close
-              </Button>
-            </div>
-          </div>
-        )}
+          );
+        })()}
       </Modal>
     </>
   );

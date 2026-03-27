@@ -17,11 +17,12 @@ import {
   ReloadOutlined,
   FilterOutlined,
   ClockCircleOutlined,
-  EllipsisOutlined,
   UserOutlined,
+  ArrowRightOutlined,
+  ArrowLeftOutlined,
 } from "@ant-design/icons";
 import { useEffect, useState, useMemo, useRef } from "react";
-import { getLogs, getStaffLogs } from "../../services/logService";
+import { getLogs, getStaffLogs, getMyTransactions } from "../../services/logService";
 import { useAuth } from "../../contexts/AuthContext";
 import type { ColumnsType } from "antd/es/table";
 import dayjs from "dayjs";
@@ -36,7 +37,9 @@ interface Activity {
   reason: string;
   timeIn?: string;
   timeOut?: string;
-  status: "In TUP" | "Checked Out";
+  status: string;
+  wentTo?: { firstName: string; surname: string; role: string } | null;
+  scannedTarget?: { firstName: string; surname: string; role: string } | null;
 }
 
 interface Attendance {
@@ -57,30 +60,46 @@ interface LogItem {
     photoURL?: string;
     birthdate: string;
   };
-  dailyStatus: "In TUP" | "Checked Out";
+  dailyStatus: string;
   attendance?: Attendance | null;
   activities: Activity[];
 }
+
+// Shape returned by GET /me/transactions
+interface TransactionLog {
+  _id: string;
+  date: string;
+  timeIn?: string | null;
+  timeOut?: string | null;
+  status: string;
+  reason: string;
+  direction: "outgoing" | "incoming"; // outgoing = I scanned, incoming = scanned me
+  otherParty?: {
+    firstName: string;
+    surname: string;
+    role: string;
+    photoURL?: string;
+  } | null;
+  scannedQrString?: string | null;
+  scannedAt?: string;
+}
+
+const normalizeUserLog = (entry: any): LogItem => ({
+  ...entry,
+  userId: entry.userId || entry.user,
+});
 
 /* ================= HELPERS ================= */
 
 const getTimeIn = (log: LogItem) => {
   if (log.attendance?.timeIn) return log.attendance.timeIn;
-
-  const times = log.activities
-    ?.map((a) => a.timeIn)
-    .filter(Boolean) as string[];
-
+  const times = log.activities?.map((a) => a.timeIn).filter(Boolean) as string[];
   return times.length ? times.sort()[0] : null;
 };
 
 const getTimeOut = (log: LogItem) => {
   if (log.attendance?.timeOut) return log.attendance.timeOut;
-
-  const times = log.activities
-    ?.map((a) => a.timeOut)
-    .filter(Boolean) as string[];
-
+  const times = log.activities?.map((a) => a.timeOut).filter(Boolean) as string[];
   return times.length ? times.sort().slice(-1)[0] : null;
 };
 
@@ -91,34 +110,39 @@ const Logs = () => {
   const pollingIntervalMs = 12000;
   const fetchingRef = useRef(false);
   const [logs, setLogs] = useState<LogItem[]>([]);
+  const [transactions, setTransactions] = useState<TransactionLog[]>([]);
   const [loading, setLoading] = useState(false);
   const [filters, setFilters] = useState({
     name: "",
     role: undefined as string | undefined,
     dateRange: null as any,
+    direction: undefined as string | undefined,
   });
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedLog, setSelectedLog] = useState<LogItem | null>(null);
   const [drawerVisible, setDrawerVisible] = useState(false);
+
+  const isNormalUser = user?.role === "Student" || user?.role === "Visitor";
 
   const fetchLogs = async () => {
     if (fetchingRef.current) return;
     fetchingRef.current = true;
     setLoading(true);
     try {
-      let data: LogItem[] = [];
       if (user?.role === "TUP") {
-        data = await getLogs();
+        const data = await getLogs();
+        setLogs((data || []).map(normalizeUserLog));
       } else if (user?.role === "Staff") {
-        data = await getStaffLogs();
+        const data = await getStaffLogs();
+        setLogs((data || []).map(normalizeUserLog));
       } else {
-        // Unauthorized roles: Students/Visitors do not have access
-        data = [];
+        // Student / Visitor — show bidirectional transactions
+        const data = await getMyTransactions();
+        setTransactions(data || []);
       }
-      setLogs(data);
-    } catch (err) {
-      // Swallow errors to avoid unhandled promise rejections
+    } catch {
       setLogs([]);
+      setTransactions([]);
     } finally {
       setLoading(false);
       fetchingRef.current = false;
@@ -127,76 +151,65 @@ const Logs = () => {
 
   useEffect(() => {
     fetchLogs();
-
-    const intervalId = window.setInterval(fetchLogs, pollingIntervalMs);
-
-    const handleFocus = () => fetchLogs();
-    const handleVisibility = () => {
-      if (document.visibilityState === "visible") {
-        fetchLogs();
-      }
-    };
-
+    const intervalId    = window.setInterval(fetchLogs, pollingIntervalMs);
+    const handleFocus   = () => fetchLogs();
+    const handleVisible = () => { if (document.visibilityState === "visible") fetchLogs(); };
     window.addEventListener("focus", handleFocus);
-    document.addEventListener("visibilitychange", handleVisibility);
-
+    document.addEventListener("visibilitychange", handleVisible);
     return () => {
       window.clearInterval(intervalId);
       window.removeEventListener("focus", handleFocus);
-      document.removeEventListener("visibilitychange", handleVisibility);
+      document.removeEventListener("visibilitychange", handleVisible);
     };
   }, []);
 
   /* ================= FILTER ================= */
 
-  const filteredData = useMemo(() => {
-    return logs.filter((log) => {
-      const fullName =
-        `${log.userId.firstName} ${log.userId.surname}`.toLowerCase();
-
+  const filteredGroupedLogs = useMemo(() => {
+    return logs.filter((log: any) => {
+      const fullName = `${log.userId.firstName} ${log.userId.surname}`.toLowerCase();
       const matchesName = fullName.includes(filters.name.toLowerCase());
       const matchesRole = !filters.role || log.userId.role === filters.role;
-
       let matchesDate = true;
       if (filters.dateRange?.length === 2) {
         const [start, end] = filters.dateRange;
         const logDate = dayjs(log.date);
-        matchesDate =
-          logDate.isAfter(start.startOf("day")) &&
-          logDate.isBefore(end.endOf("day"));
+        matchesDate = logDate.isAfter(start.startOf("day")) && logDate.isBefore(end.endOf("day"));
       }
-
       return matchesName && matchesRole && matchesDate;
     });
   }, [logs, filters]);
 
-  /* ================= TABLE ================= */
+  const filteredTransactions = useMemo(() => {
+    return transactions.filter((t) => {
+      let matchesDate = true;
+      if (filters.dateRange?.length === 2) {
+        const [start, end] = filters.dateRange;
+        matchesDate = dayjs(t.date).isAfter(start.startOf("day")) && dayjs(t.date).isBefore(end.endOf("day"));
+      }
+      const matchesDirection = !filters.direction || t.direction === filters.direction;
+      return matchesDate && matchesDirection;
+    });
+  }, [transactions, filters]);
 
-  const columns: ColumnsType<LogItem> = [
+  /* ================= COLUMNS ================= */
+
+  // Admin / Staff grouped log columns
+  const groupedColumns: ColumnsType<LogItem> = [
     {
       title: "Name",
       render: (_, record) => (
         <Space direction="vertical" size={0}>
-          <Text strong>
-            {record.userId.firstName} {record.userId.surname}
-          </Text>
-          <Text type="secondary" style={{ fontSize: 12 }}>
-            {record.userId.qrString || "-"}
-          </Text>
+          <Text strong>{record.userId.firstName} {record.userId.surname}</Text>
+          <Text type="secondary" style={{ fontSize: 12 }}>{record.userId.qrString || "-"}</Text>
         </Space>
       ),
     },
     {
       title: "Role",
       render: (_, record) => {
-        const color =
-          record.userId.role === "Staff"
-            ? "blue"
-            : record.userId.role === "Student"
-              ? "cyan"
-              : "purple";
-
-        return <Tag color={color}>{record.userId.role}</Tag>;
+        const colorMap: Record<string, string> = { Staff: "blue", Student: "cyan", Visitor: "purple" };
+        return <Tag color={colorMap[record.userId.role] ?? "default"}>{record.userId.role}</Tag>;
       },
     },
     {
@@ -205,54 +218,85 @@ const Logs = () => {
       defaultSortOrder: "descend",
     },
     {
-      title: "Time-In",
+      title: "Time In",
       render: (_, record) => {
-        const timeIn = getTimeIn(record);
-        return timeIn ? (
-          <Space>
-            <ClockCircleOutlined style={{ color: "#52c41a" }} />
-            {dayjs(timeIn).format("hh:mm A")}
-          </Space>
-        ) : (
-          "-"
-        );
+        const t = getTimeIn(record);
+        return t ? <Space><ClockCircleOutlined style={{ color: "#52c41a" }} />{dayjs(t).format("hh:mm A")}</Space> : "-";
       },
     },
     {
-      title: "Time-Out",
+      title: "Time Out",
       render: (_, record) => {
-        const timeOut = getTimeOut(record);
-        return timeOut ? (
-          <Space>
-            <ClockCircleOutlined style={{ color: "#f5222d" }} />
-            {dayjs(timeOut).format("hh:mm A")}
-          </Space>
-        ) : (
-          "-"
-        );
+        const t = getTimeOut(record);
+        return t ? <Space><ClockCircleOutlined style={{ color: "#f5222d" }} />{dayjs(t).format("hh:mm A")}</Space> : "-";
       },
     },
     {
       title: "Status",
       render: (_, record) => (
-        <Tag color={record.dailyStatus === "In TUP" ? "green" : "volcano"}>
-          {record.dailyStatus}
-        </Tag>
+        <Tag color={record.dailyStatus === "In TUP" ? "green" : "volcano"}>{record.dailyStatus}</Tag>
+      ),
+    },
+  ];
+
+  // Normal user bidirectional transaction columns
+  const transactionColumns: ColumnsType<TransactionLog> = [
+    {
+      title: "Date & Time",
+      render: (_, record) => (
+        <Space direction="vertical" size={0}>
+          <Text strong>{dayjs(record.date).format("MMM DD, YYYY")}</Text>
+          <Text type="secondary" style={{ fontSize: 12 }}>
+            {record.scannedAt ? dayjs(record.scannedAt).format("hh:mm A") : "—"}
+          </Text>
+        </Space>
+      ),
+      defaultSortOrder: "descend",
+      sorter: (a, b) => dayjs(a.date).unix() - dayjs(b.date).unix(),
+    },
+    {
+      title: "Direction",
+      render: (_, record) => (
+        record.direction === "outgoing" ? (
+          <Tag icon={<ArrowRightOutlined />} color="blue">I Scanned</Tag>
+        ) : (
+          <Tag icon={<ArrowLeftOutlined />} color="orange">Scanned Me</Tag>
+        )
+      ),
+      filters: [
+        { text: "I Scanned", value: "outgoing" },
+        { text: "Scanned Me", value: "incoming" },
+      ],
+      onFilter: (value, record) => record.direction === value,
+    },
+    {
+      title: "Other Party",
+      render: (_, record) => {
+        if (!record.otherParty) return <Text type="secondary">—</Text>;
+        return (
+          <Space>
+            <Avatar size={28} icon={<UserOutlined />} />
+            <Space direction="vertical" size={0}>
+              <Text strong style={{ fontSize: 13 }}>
+                {record.otherParty.firstName} {record.otherParty.surname}
+              </Text>
+              <Text type="secondary" style={{ fontSize: 11 }}>
+                {record.otherParty.role}
+              </Text>
+            </Space>
+          </Space>
+        );
+      },
+    },
+    {
+      title: "QR Code",
+      render: (_, record) => (
+        <Text code style={{ fontSize: 11 }}>{record.scannedQrString || "—"}</Text>
       ),
     },
     {
-      title: "Actions",
-      render: (_, record) => (
-        <Button
-          type="primary"
-          shape="circle"
-          icon={<EllipsisOutlined />}
-          onClick={() => {
-            setSelectedLog(record);
-            setModalVisible(true);
-          }}
-        />
-      ),
+      title: "Status",
+      render: (_, record) => <Tag color="blue">{record.status}</Tag>,
     },
   ];
 
@@ -261,280 +305,419 @@ const Logs = () => {
   return (
     <>
       <Card
-        style={{
-          borderRadius: 12,
-          boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
-        }}
+        style={{ borderRadius: 12, boxShadow: "0 4px 12px rgba(0,0,0,0.05)" }}
         title={
           <Space>
-            <FilterOutlined onClick={() => setDrawerVisible(true)} />
+            <FilterOutlined onClick={() => setDrawerVisible(true)} style={{ cursor: "pointer" }} />
             <Title level={4} style={{ margin: 0 }}>
-              Attendance Logs
+              {isNormalUser ? "Transaction Logs" : "Attendance Logs"}
             </Title>
           </Space>
         }
         extra={
-          <Button icon={<ReloadOutlined />} onClick={fetchLogs}>
-            Refresh
-          </Button>
+          <Button icon={<ReloadOutlined />} onClick={fetchLogs}>Refresh</Button>
         }
       >
+        {/* Filters */}
         <Space wrap style={{ marginBottom: 16 }}>
-          <Input
-            placeholder="Search name"
-            prefix={<SearchOutlined />}
-            allowClear
-            onChange={(e) => setFilters({ ...filters, name: e.target.value })}
-          />
-
-          <Select
-            placeholder="Role"
-            allowClear
-            style={{ width: 160 }}
-            onChange={(value) => setFilters({ ...filters, role: value })}
-          >
-            <Option value="Staff">Staff</Option>
-            <Option value="Student">Student</Option>
-            <Option value="Visitor">Visitor</Option>
-          </Select>
-
-          <RangePicker
-            onChange={(dates) => setFilters({ ...filters, dateRange: dates })}
-          />
+          {!isNormalUser && (
+            <>
+              <Input
+                placeholder="Search name"
+                prefix={<SearchOutlined />}
+                allowClear
+                onChange={(e) => setFilters({ ...filters, name: e.target.value })}
+              />
+              <Select
+                placeholder="Role"
+                allowClear
+                style={{ width: 160 }}
+                onChange={(value) => setFilters({ ...filters, role: value })}
+              >
+                <Option value="Staff">Staff</Option>
+                <Option value="Student">Student</Option>
+                <Option value="Visitor">Visitor</Option>
+              </Select>
+            </>
+          )}
+          {isNormalUser && (
+            <Select
+              placeholder="Direction"
+              allowClear
+              style={{ width: 160 }}
+              onChange={(value) => setFilters({ ...filters, direction: value })}
+            >
+              <Option value="outgoing">I Scanned</Option>
+              <Option value="incoming">Scanned Me</Option>
+            </Select>
+          )}
+          <RangePicker onChange={(dates) => setFilters({ ...filters, dateRange: dates })} />
         </Space>
 
-        <Table
-          columns={columns}
-          dataSource={filteredData}
-          rowKey="_id"
-          loading={loading}
-          pagination={{ pageSize: 10, showSizeChanger: true }}
-        />
+        {isNormalUser ? (
+          <Table<TransactionLog>
+            columns={transactionColumns}
+            dataSource={filteredTransactions}
+            rowKey="_id"
+  loading={loading}
+  pagination={{ pageSize: 10, showSizeChanger: true }}
+  onRow={(record) => ({
+    onClick: (event) => {
+      const target = event.target as HTMLElement;
+
+      // prevent triggering when clicking buttons, links, etc.
+      if (target.closest("button") || target.closest("a")) {
+        return;
+      }
+
+      // Convert TransactionLog to LogItem shape for modal
+      setSelectedLog({
+        _id: record._id,
+        date: record.date,
+        userId: {
+          _id: '',
+          qrString: record.scannedQrString || '',
+          firstName: record.otherParty?.firstName || '',
+          surname: record.otherParty?.surname || '',
+          role: record.otherParty?.role || '',
+          photoURL: record.otherParty?.photoURL || '',
+          birthdate: '',
+        },
+        dailyStatus: record.status,
+        attendance: {
+          timeIn: record.timeIn || undefined,
+          timeOut: record.timeOut || undefined,
+          status: record.status as any,
+        },
+        activities: [
+          {
+            reason: record.reason,
+            timeIn: record.timeIn || undefined,
+            timeOut: record.timeOut || undefined,
+            status: record.status,
+            wentTo: record.direction === "outgoing" && record.otherParty ? record.otherParty : undefined,
+            scannedTarget: record.direction === "incoming" && record.otherParty ? record.otherParty : undefined,
+          },
+        ],
+      });
+      setModalVisible(true);
+    },
+    style: { cursor: "pointer" },
+  })}
+/>
+        ) : (
+          <Table<LogItem>
+            columns={groupedColumns}
+            dataSource={filteredGroupedLogs}
+            rowKey="_id"
+  loading={loading}
+  pagination={{ pageSize: 10, showSizeChanger: true }}
+  onRow={(record) => ({
+    onClick: (event) => {
+      const target = event.target as HTMLElement;
+
+      // prevent triggering when clicking buttons, links, etc.
+      if (target.closest("button") || target.closest("a")) {
+        return;
+      }
+
+      setSelectedLog(record);
+      setModalVisible(true);
+    },
+    style: { cursor: "pointer" },
+  })}
+/>
+        )}
       </Card>
 
       {/* FILTER DRAWER */}
-      <Drawer
-        title="Filters"
-        open={drawerVisible}
-        onClose={() => setDrawerVisible(false)}
-      >
-        <Input
-          placeholder="Search name"
-          allowClear
-          onChange={(e) => setFilters({ ...filters, name: e.target.value })}
-        />
-        <Select
-          placeholder="Role"
-          allowClear
-          style={{ width: "100%", marginTop: 16 }}
-          onChange={(value) => setFilters({ ...filters, role: value })}
-        >
-          <Option value="Staff">Staff</Option>
-          <Option value="Student">Student</Option>
-          <Option value="Visitor">Visitor</Option>
-        </Select>
-        <RangePicker
-          style={{ width: "100%", marginTop: 16 }}
-          onChange={(dates) => setFilters({ ...filters, dateRange: dates })}
-        />
+      <Drawer title="Filters" open={drawerVisible} onClose={() => setDrawerVisible(false)}>
+        {!isNormalUser && (
+          <>
+            <Input placeholder="Search name" allowClear
+              onChange={(e) => setFilters({ ...filters, name: e.target.value })} />
+            <Select placeholder="Role" allowClear style={{ width: "100%", marginTop: 16 }}
+              onChange={(value) => setFilters({ ...filters, role: value })}>
+              <Option value="Staff">Staff</Option>
+              <Option value="Student">Student</Option>
+              <Option value="Visitor">Visitor</Option>
+            </Select>
+          </>
+        )}
+        {isNormalUser && (
+          <Select placeholder="Direction" allowClear style={{ width: "100%" }}
+            onChange={(value) => setFilters({ ...filters, direction: value })}>
+            <Option value="outgoing">I Scanned</Option>
+            <Option value="incoming">Scanned Me</Option>
+          </Select>
+        )}
+        <RangePicker style={{ width: "100%", marginTop: 16 }}
+          onChange={(dates) => setFilters({ ...filters, dateRange: dates })} />
       </Drawer>
 
+      {/* DETAILS MODAL — only for grouped logs (TUP/Staff) */}
       {/* DETAILS MODAL */}
-      <Modal
-        open={modalVisible}
-        onCancel={() => setModalVisible(false)}
-        footer={null}
-        centered
-        width={620}
-        closeIcon={
-          <span
-            style={{
-              color: "#fff",
-              fontSize: 18,
-              fontWeight: 600,
-            }}
-          >
-            ✕
-          </span>
-        }
-      >
-        {selectedLog && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-            {/* HEADER / HERO */}
-            <div
+<Modal
+  open={modalVisible}
+  onCancel={() => setModalVisible(false)}
+  footer={null}
+  centered
+  width={580}
+  styles={{
+    content: { padding: 0, overflow: "hidden", borderRadius: 16 },
+    mask: { backdropFilter: "blur(2px)" },
+  }}
+  closeIcon={
+    <span style={{
+      display: "inline-flex", alignItems: "center", justifyContent: "center",
+      width: 28, height: 28, borderRadius: "50%",
+      background: "rgba(0,0,0,0.06)", color: "#595959",
+      fontSize: 13, fontWeight: 500, lineHeight: 1,
+    }}>✕</span>
+  }
+>
+  {selectedLog && (() => {
+    const timeIn  = getTimeIn(selectedLog);
+    const timeOut = getTimeOut(selectedLog);
+    const isIn    = selectedLog.dailyStatus === "In TUP";
+
+    const ROLE_PILL: Record<string, { bg: string; color: string; border: string }> = {
+      Staff:    { bg: "#EFF6FF", color: "#1D4ED8", border: "#BFDBFE" },
+      Student:  { bg: "#F0FDF4", color: "#166534", border: "#BBF7D0" },
+      Visitor:  { bg: "#FAF5FF", color: "#6B21A8", border: "#E9D5FF" },
+      TUP:      { bg: "#FFF7ED", color: "#9A3412", border: "#FED7AA" },
+      Security: { bg: "#F0F9FF", color: "#075985", border: "#BAE6FD" },
+    };
+    const pill = ROLE_PILL[selectedLog.userId.role] ?? { bg: "#F5F5F5", color: "#404040", border: "#E5E5E5" };
+
+    const REASON_LABEL: Record<string, string> = {
+      attendance:  "Attendance",
+      checkin:     "Check in",
+      checkout:    "Check out",
+      break:       "Break",
+      "go out":    "Went out",
+      transaction: "Transaction",
+      Transaction: "Transaction",
+    };
+
+    return (
+      <div>
+        {/* ── HEADER ── */}
+        <div style={{
+          display: "flex", alignItems: "center", gap: 16,
+          padding: "24px 24px 20px",
+          borderBottom: "1px solid #f0f0f0",
+          position: "relative",
+        }}>
+          {/* Avatar with presence dot */}
+          <div style={{ position: "relative", flexShrink: 0 }}>
+            <Avatar
+              size={52}
+              src={selectedLog.userId.photoURL}
+              icon={<UserOutlined />}
               style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 16,
-                padding: 16,
-                borderRadius: 16,
-                background: "linear-gradient(135deg, #ff4d4f, #ff7875)",
-                color: "#fff",
-                position: "relative",
+                background: "#f0f0f0",
+                border: "2px solid #fff",
+                outline: "1.5px solid #e8e8e8",
               }}
-            >
-              <Avatar
-                size={72}
-                src={selectedLog.userId.photoURL}
-                icon={<UserOutlined />}
-                style={{
-                  border: "3px solid #fff",
-                  boxShadow: "0 4px 12px rgba(0,0,0,0.25)",
-                }}
-              />
+            />
+            <span style={{
+              position: "absolute", bottom: 1, right: 1,
+              width: 11, height: 11, borderRadius: "50%",
+              background: isIn ? "#22c55e" : "#d1d5db",
+              border: "2px solid #fff",
+            }} />
+          </div>
 
-              <div style={{ flex: 1 }}>
-                <Title level={4} style={{ margin: 0, color: "#fff" }}>
-                  {selectedLog.userId.firstName} {selectedLog.userId.surname}
-                </Title>
-
-                <Space size="small">
-                  <Tag color="white" style={{ color: "#ff4d4f" }}>
-                    {selectedLog.userId.role}
-                  </Tag>
-                  <Text style={{ color: "rgba(255,255,255,0.85)" }}>
-                    Date Entered:{" "}
-                    {dayjs(selectedLog.date).format("MMM DD, YYYY")}
-                  </Text>
-                </Space>
-              </div>
+          {/* Name + role + date */}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 4 }}>
+              <Text strong style={{ fontSize: 15, color: "#141414", lineHeight: 1.3 }}>
+                {selectedLog.userId.firstName} {selectedLog.userId.surname}
+              </Text>
+              <span style={{
+                fontSize: 11, fontWeight: 500, padding: "1px 7px",
+                borderRadius: 20, letterSpacing: "0.2px",
+                background: pill.bg, color: pill.color,
+                border: `1px solid ${pill.border}`,
+              }}>
+                {selectedLog.userId.role}
+              </span>
             </div>
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              {dayjs(selectedLog.date).format("dddd, MMMM D, YYYY")}
+            </Text>
+          </div>
 
-            {/* COMBINED SUMMARY BOX */}
-            <Card
-              size="small"
-              variant="borderless"
-              style={{
-                borderRadius: 16,
-                background: "#fff",
-                boxShadow: "0 6px 16px rgba(0,0,0,0.08)",
-              }}
-            >
-              <Space
-                style={{
-                  width: "100%",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                }}
-              >
-                <div>
-                  <Text type="secondary">First Time In</Text>
-                  <Title level={5} style={{ margin: 0 }}>
-                    {getTimeIn(selectedLog)
-                      ? dayjs(getTimeIn(selectedLog)!).format("hh:mm A")
-                      : "-"}
-                  </Title>
-                </div>
+          {/* Status badge */}
+          <div style={{
+            display: "flex", alignItems: "center", gap: 6,
+            padding: "5px 11px", borderRadius: 20,
+            background: isIn ? "#f0fdf4" : "#fafafa",
+            border: `1px solid ${isIn ? "#bbf7d0" : "#e5e5e5"}`,
+            flexShrink: 0,
+          }}>
+            <span style={{
+              width: 7, height: 7, borderRadius: "50%", flexShrink: 0,
+              background: isIn ? "#16a34a" : "#9ca3af",
+            }} />
+            <Text style={{
+              fontSize: 12, fontWeight: 500,
+              color: isIn ? "#15803d" : "#6b7280",
+            }}>
+              {selectedLog.dailyStatus}
+            </Text>
+          </div>
+        </div>
 
-                <div>
-                  <Text type="secondary">Last Time Out</Text>
-                  <Title level={5} style={{ margin: 0 }}>
-                    {getTimeOut(selectedLog)
-                      ? dayjs(getTimeOut(selectedLog)!).format("hh:mm A")
-                      : "-"}
-                  </Title>
-                </div>
-
-                <div>
-                  <Text type="secondary">Status</Text>
-                  <Tag
-                    color={
-                      selectedLog.dailyStatus === "In TUP" ? "green" : "volcano"
-                    }
-                    style={{ fontSize: 14, padding: "4px 12px" }}
-                  >
-                    {selectedLog.dailyStatus}
-                  </Tag>
-                </div>
-              </Space>
-            </Card>
-
-            {/* ACTIVITIES */}
-            <div>
-              <Title level={5} style={{ marginBottom: 8 }}>
-                Activity Details
-              </Title>
-
-              {selectedLog.activities.length ? (
-                <Space direction="vertical" style={{ width: "100%" }}>
-                  {selectedLog.activities.map((act, i) => (
-                    <Card
-                      key={i}
-                      size="small"
-                      variant="borderless"
-                      style={{
-                        borderRadius: 14,
-                        borderLeft: `5px solid ${
-                          act.status === "In TUP" ? "#52c41a" : "#f5222d"
-                        }`,
-                        background: "#fafafa",
-                      }}
-                    >
-                      <Space
-                        direction="vertical"
-                        size={4}
-                        style={{ width: "100%" }}
-                      >
-                        <Space
-                          style={{
-                            justifyContent: "space-between",
-                            width: "100%",
-                          }}
-                        >
-                          <Text strong>{act.reason.toUpperCase()}</Text>
-                          <Tag
-                            color={
-                              act.status === "In TUP" ? "green" : "volcano"
-                            }
-                          >
-                            {act.status}
-                          </Tag>
-                        </Space>
-
-                        <Space size="large">
-                          <Text type="secondary">
-                            In:{" "}
-                            {act.timeIn
-                              ? dayjs(act.timeIn).format("hh:mm A")
-                              : "-"}
-                          </Text>
-                          <Text type="secondary">
-                            Out:{" "}
-                            {act.timeOut
-                              ? dayjs(act.timeOut).format("hh:mm A")
-                              : "-"}
-                          </Text>
-                        </Space>
-                      </Space>
-                    </Card>
-                  ))}
-                </Space>
-              ) : (
-                <Text type="secondary">No activities recorded</Text>
+        {/* ── TIME ROW ── */}
+        <div style={{
+          display: "grid", gridTemplateColumns: "1fr 1fr",
+          background: "#fafafa",
+          borderBottom: "1px solid #f0f0f0",
+        }}>
+          {[
+            { label: "Time in",  value: timeIn,  dot: "#22c55e" },
+            { label: "Time out", value: timeOut, dot: "#f97316", divided: true },
+          ].map(({ label, value, dot, divided }) => (
+            <div key={label} style={{
+              padding: "16px 20px",
+              borderLeft: divided ? "1px solid #f0f0f0" : undefined,
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 5 }}>
+                <span style={{ width: 6, height: 6, borderRadius: "50%", background: dot }} />
+                <Text type="secondary" style={{ fontSize: 11, letterSpacing: "0.4px", textTransform: "uppercase" as any }}>
+                  {label}
+                </Text>
+              </div>
+              <Text style={{
+                fontSize: 22, fontWeight: 600, color: value ? "#141414" : "#d1d5db",
+                fontVariantNumeric: "tabular-nums", letterSpacing: "-0.5px",
+              }}>
+                {value ? dayjs(value).format("h:mm") : "—"}
+              </Text>
+              {value && (
+                <Text type="secondary" style={{ fontSize: 12, marginLeft: 3 }}>
+                  {dayjs(value).format("A")}
+                </Text>
               )}
             </div>
+          ))}
+        </div>
 
-            {/* ACTION */}
-            <div style={{ textAlign: "center", marginTop: 8 }}>
-              <Button
-                type="primary"
-                onClick={() => setModalVisible(false)}
-                style={{
-                  background: "linear-gradient(135deg, #ff4d4f, #ff7875)",
-                  border: "none",
-                  borderRadius: 14,
-                  height: 46,
-                  width: 160,
-                  fontWeight: 600,
-                  boxShadow: "0 8px 16px rgba(255,77,79,0.45)",
-                }}
-              >
-                Close
-              </Button>
+        {/* ── ACTIVITIES ── */}
+        <div style={{ padding: "20px 24px" }}>
+          {selectedLog.activities.length > 0 ? (
+            <>
+              <Text type="secondary" style={{
+                fontSize: 11, letterSpacing: "0.5px",
+                textTransform: "uppercase" as any,
+                display: "block", marginBottom: 12,
+              }}>
+                Activity log · {selectedLog.activities.length} {selectedLog.activities.length === 1 ? "entry" : "entries"}
+              </Text>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                {selectedLog.activities.map((act, i) => {
+                  const actIsIn   = act.status === "In TUP";
+                  const accentClr = actIsIn ? "#16a34a" : "#dc2626";
+                  const bgClr     = actIsIn ? "#f0fdf4" : "#fff7f7";
+                  const bdClr     = actIsIn ? "#bbf7d0" : "#fecaca";
+
+                  const targetPerson = act.wentTo || act.scannedTarget;
+                  const displayLabel = targetPerson
+                    ? `Went to ${targetPerson.firstName} ${targetPerson.surname}`
+                    : (REASON_LABEL[act.reason] ?? act.reason);
+
+                  const subLabel = targetPerson
+                    ? targetPerson.role
+                    : (act.timeIn || act.timeOut)
+                    ? `${act.timeIn ? dayjs(act.timeIn).format("h:mm A") : "—"}  →  ${act.timeOut ? dayjs(act.timeOut).format("h:mm A") : "ongoing"}`
+                    : null;
+
+                  const isFirst = i === 0;
+                  const isLast  = i === selectedLog.activities.length - 1;
+
+                  return (
+                    <div key={i} style={{
+                      display: "flex", alignItems: "center", gap: 12,
+                      padding: "11px 14px",
+                      background: "#fff",
+                      border: "1px solid #f0f0f0",
+                      borderLeft: `3px solid ${accentClr}`,
+                      borderRadius: isFirst && isLast ? 8
+                        : isFirst ? "8px 8px 0 0"
+                        : isLast  ? "0 0 8px 8px"
+                        : 0,
+                      borderTop: i > 0 ? "none" : undefined,
+                    }}>
+                      {/* Icon circle */}
+                      <div style={{
+                        width: 30, height: 30, borderRadius: "50%", flexShrink: 0,
+                        background: bgClr, border: `1px solid ${bdClr}`,
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                      }}>
+                        <ClockCircleOutlined style={{ fontSize: 13, color: accentClr }} />
+                      </div>
+
+                      {/* Text */}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <Text strong style={{ fontSize: 13, display: "block",
+                          overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                          color: "#141414" }}>
+                          {displayLabel}
+                        </Text>
+                        {subLabel && (
+                          <Text type="secondary" style={{ fontSize: 11 }}>{subLabel}</Text>
+                        )}
+                      </div>
+
+                      {/* Status pill */}
+                      <span style={{
+                        fontSize: 11, fontWeight: 500, padding: "2px 9px",
+                        borderRadius: 20, flexShrink: 0,
+                        background: bgClr, color: accentClr, border: `1px solid ${bdClr}`,
+                      }}>
+                        {act.status}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          ) : (
+            <div style={{
+              textAlign: "center", padding: "24px 0",
+              border: "1px dashed #e5e5e5", borderRadius: 8,
+            }}>
+              <Text type="secondary" style={{ fontSize: 13 }}>No activity details recorded</Text>
             </div>
-          </div>
-        )}
-      </Modal>
+          )}
+        </div>
+
+        {/* ── FOOTER ── */}
+        <div style={{
+          display: "flex", justifyContent: "flex-end",
+          padding: "14px 24px",
+          borderTop: "1px solid #f0f0f0",
+          background: "#fafafa",
+        }}>
+          <Button
+            onClick={() => setModalVisible(false)}
+            style={{
+              background: "linear-gradient(135deg, #ff4d4f, #ff7875)",
+              border: "none", borderRadius: 8, height: 36,
+              padding: "0 22px", fontWeight: 500, fontSize: 13,
+              color: "#fff", boxShadow: "0 2px 6px rgba(255,77,79,0.3)",
+            }}
+          >
+            Close
+          </Button>
+        </div>
+      </div>
+    );
+  })()}
+</Modal>
     </>
   );
 };

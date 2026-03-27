@@ -14,7 +14,7 @@ import {
 } from "antd";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Html5Qrcode } from "html5-qrcode";
-import { userScanQR } from "../../services/logService";
+import { userScanQR, getCurrentStatus } from "../../services/logService";
 import {
   UserOutlined,
   ClockCircleOutlined,
@@ -22,8 +22,10 @@ import {
   CheckCircleFilled,
   LogoutOutlined,
   LoginOutlined,
+  EnvironmentOutlined,
 } from "@ant-design/icons";
 import { EditOutlined } from "@ant-design/icons";
+import dayjs from "dayjs";
 
 const { Title, Text } = Typography;
 const qrcodeRegionId = "html5qr-code-full-region";
@@ -39,6 +41,26 @@ const Dashboard = () => {
   const processingRef = useRef(false);
   const modeRef = useRef<"checkin" | "checkout">("checkin");
   const [manualQR, setManualQR] = useState("");
+  const [currentStatus, setCurrentStatus] = useState<any>({
+    status: "Loading...",
+    lastTime: null,
+  });
+  const [statusLoading, setStatusLoading] = useState(true);
+
+  const fetchCurrentStatus = async () => {
+    try {
+      const status = await getCurrentStatus();
+      setCurrentStatus(status);
+    } catch (error) {
+      console.error("Failed to fetch status");
+    } finally {
+      setStatusLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchCurrentStatus();
+  }, []);
 
   useEffect(() => {
     if (cooldown <= 0) {
@@ -68,8 +90,7 @@ const Dashboard = () => {
     lastScannedRef.current = decodedText;
 
     try {
-      const currentMode = modeRef.current;
-      const result = await userScanQR(decodedText, currentMode);
+      const result = await userScanQR(decodedText);
 
       setScanResult({
         ...result,
@@ -77,17 +98,32 @@ const Dashboard = () => {
       });
 
       message.success({
-        content:
-          currentMode === "checkin"
-            ? "Transaction check-in successful"
-            : "Transaction check-out successful",
+        content: "Transaction recorded successfully",
         icon: <CheckCircleFilled style={{ color: "#52c41a" }} />,
       });
 
+      // Fetch updated status
+      await fetchCurrentStatus();
+
       setCooldown(3);
     } catch (err: any) {
-      message.error(err?.response?.data?.message || "Scan failed");
-      setCooldown(2);
+      const errorMsg = err?.response?.data?.message || "Scan failed";
+      
+      // If already checked in, refresh dashboard after 2 seconds for next scan
+      if (errorMsg.includes("already check in")) {
+        message.warning(errorMsg);
+        
+        // Wait 2 seconds then refresh dashboard
+        setTimeout(async () => {
+          await fetchCurrentStatus();
+          setScanResult(null); // Clear previous result
+          processingRef.current = false;
+          lastScannedRef.current = null;
+        }, 2000);
+      } else {
+        message.error(errorMsg);
+        setCooldown(2);
+      }
     }
   }, []);
 
@@ -106,7 +142,7 @@ const Dashboard = () => {
     lastScannedRef.current = manualQR.trim();
 
     try {
-      const result = await userScanQR(manualQR.trim(), mode);
+      const result = await userScanQR(manualQR.trim());
 
       setScanResult({
         ...result,
@@ -114,18 +150,33 @@ const Dashboard = () => {
       });
 
       message.success({
-        content:
-          mode === "checkin"
-            ? "Transaction check-in successful"
-            : "Transaction check-out successful",
+        content: "Transaction recorded successfully",
         icon: <CheckCircleFilled style={{ color: "#52c41a" }} />,
       });
+
+      // Fetch updated status
+      await fetchCurrentStatus();
 
       setCooldown(3);
       setManualQR("");
     } catch (err: any) {
-      message.error(err?.response?.data?.message || "Scan failed");
-      setCooldown(2);
+      const errorMsg = err?.response?.data?.message || "Scan failed";
+      
+      // If already checked in, refresh dashboard after 2 seconds for next scan
+      if (errorMsg.includes("already check in")) {
+        message.warning(errorMsg);
+        
+        // Wait 2 seconds then refresh dashboard
+        setTimeout(async () => {
+          await fetchCurrentStatus();
+          setScanResult(null); // Clear previous result
+          processingRef.current = false;
+          lastScannedRef.current = null;
+        }, 2000);
+      } else {
+        message.error(errorMsg);
+        setCooldown(2);
+      }
     }
   };
 
@@ -186,6 +237,72 @@ const Dashboard = () => {
       }}
     >
       <div style={{ maxWidth: "1200px", margin: "0 auto" }}>
+        {/* Status Card */}
+        <Card
+          variant="borderless"
+          style={{
+            borderRadius: "20px",
+            boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
+            marginBottom: 24,
+            background:
+              currentStatus.status === "Inside TUP"
+                ? "linear-gradient(135deg, #52c41a 0%, #52c41a 100%)"
+                : "linear-gradient(135deg, #f5222d 0%, #f5222d 100%)",
+            color: "#fff",
+          }}
+          loading={statusLoading}
+        >
+          <Row gutter={24}>
+            <Col xs={24} md={12}>
+              <Space direction="vertical" size="small">
+                <Text
+                  style={{
+                    color: "#fff",
+                    fontSize: 14,
+                    opacity: 0.9,
+                  }}
+                >
+                  <EnvironmentOutlined /> Current Location Status
+                </Text>
+                <Title
+                  level={2}
+                  style={{
+                    color: "#fff",
+                    margin: 0,
+                    fontSize: 32,
+                  }}
+                >
+                  {currentStatus.status}
+                </Title>
+              </Space>
+            </Col>
+            <Col xs={24} md={12} style={{ textAlign: "right" }}>
+              {currentStatus.lastTime && (
+                <Space direction="vertical" size="small" align="end">
+                  <Text
+                    style={{
+                      color: "#fff",
+                      fontSize: 12,
+                      opacity: 0.8,
+                    }}
+                  >
+                    Last Updated
+                  </Text>
+                  <Text
+                    strong
+                    style={{
+                      color: "#fff",
+                      fontSize: 16,
+                    }}
+                  >
+                    {dayjs(currentStatus.lastTime).format("MMM DD, YYYY HH:mm A")}
+                  </Text>
+                </Space>
+              )}
+            </Col>
+          </Row>
+        </Card>
+
         <Row gutter={24} style={{ alignItems: "stretch" }}>
           {" "}
           {/* gutter adds the gap */}
@@ -405,6 +522,19 @@ const Dashboard = () => {
               }}
             >
               {scanResult ? (
+                (() => {
+                  const resultUser = scanResult?.user;
+                  const displayName = resultUser
+                    ? `${resultUser.firstName || ""} ${resultUser.surname || ""}`.trim()
+                    : "Transaction Recorded";
+                  const displayRole = resultUser?.role
+                    ? String(resultUser.role).toUpperCase()
+                    : "TRANSACTION";
+                  const displayTime = scanResult?.time
+                    ? new Date(scanResult.time)
+                    : new Date();
+
+                  return (
                 <div
                   style={{
                     textAlign: "center",
@@ -424,7 +554,7 @@ const Dashboard = () => {
                   >
                     <Avatar
                       size={140}
-                      src={scanResult.user.photoURL}
+                      src={resultUser?.photoURL}
                       icon={<UserOutlined />}
                       style={{
                         border: "4px solid #fff",
@@ -453,7 +583,7 @@ const Dashboard = () => {
                   </div>
 
                   <Title level={2} style={{ marginBottom: 4 }}>
-                    {scanResult.user.firstName} {scanResult.user.surname}
+                    {displayName}
                   </Title>
                   <div style={{ marginBottom: 24 }}>
                     <Tag
@@ -465,7 +595,7 @@ const Dashboard = () => {
                         fontWeight: 600,
                       }}
                     >
-                      {scanResult.user.role.toUpperCase()}
+                      {displayRole}
                     </Tag>
                   </div>
 
@@ -491,7 +621,7 @@ const Dashboard = () => {
                         Timestamp
                       </Text>
                       <Text strong style={{ fontSize: 18 }}>
-                        {scanResult.time.toLocaleTimeString([], {
+                        {displayTime.toLocaleTimeString([], {
                           hour: "2-digit",
                           minute: "2-digit",
                         })}
@@ -499,6 +629,8 @@ const Dashboard = () => {
                     </Col>
                   </Row>
                 </div>
+                  );
+                })()
               ) : (
                 <div
                   style={{

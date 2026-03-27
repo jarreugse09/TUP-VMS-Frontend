@@ -7,6 +7,7 @@ import {
   QrcodeOutlined,
   LineChartOutlined,
   UsergroupDeleteOutlined,
+  CalendarOutlined,
 } from '@ant-design/icons';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -46,11 +47,19 @@ const Sidebar = ({ collapsed, setCollapsed }: SidebarProps) => {
     )
       return '2';
 
-    if (path.startsWith('/attendance')) return '3';
+    // ── Attendance — covers all role-based paths ──
+    if (
+      path.startsWith('/attendance') ||
+      path.startsWith('/staff/attendance') ||
+      path.startsWith('/user/attendance') ||
+      path.startsWith('/security/attendance')
+    )
+      return '3';
+
     if (path.startsWith('/qr-requests')) return '5';
-    if (path.startsWith('/profile')) return '4';
+    if (path.startsWith('/profile'))     return '4';
     if (path.startsWith('/admin/manage-users')) return '6';
-    if (path.startsWith('/admin/analytics')) return '7';
+    if (path.startsWith('/admin/analytics'))   return '7';
 
     return '1';
   };
@@ -61,29 +70,33 @@ const Sidebar = ({ collapsed, setCollapsed }: SidebarProps) => {
   /* ================= ROLE-BASED MENU ================= */
 
   if (role === 'TUP') {
+    // Admin sees the shared /attendance (all users), not UserAttendance
     roleItems.push(
-      { key: '1', icon: <DashboardOutlined />, label: <Link to="/dashboard">Dashboard</Link> },
-      { key: '2', icon: <HistoryOutlined />, label: <Link to="/logs">Logs</Link> },
-      { key: '3', icon: <UserOutlined />, label: <Link to="/attendance">Attendance</Link> },
-      { key: '5', icon: <QrcodeOutlined />, label: <Link to="/qr-requests">QR Requests</Link> },
-      { key: '6', icon: <UsergroupDeleteOutlined />, label: <Link to="/admin/manage-users">Manage Users</Link> },
-      { key: '7', icon: <LineChartOutlined />, label: <Link to="/admin/analytics">Analytics</Link> }
+      { key: '1', icon: <DashboardOutlined />,       label: <Link to="/dashboard">Dashboard</Link> },
+      { key: '2', icon: <HistoryOutlined />,          label: <Link to="/logs">Logs</Link> },
+      { key: '3', icon: <CalendarOutlined />,         label: <Link to="/attendance">Attendance</Link> },
+      { key: '5', icon: <QrcodeOutlined />,           label: <Link to="/qr-requests">QR Requests</Link> },
+      { key: '6', icon: <UsergroupDeleteOutlined />,  label: <Link to="/admin/manage-users">Manage Users</Link> },
+      { key: '7', icon: <LineChartOutlined />,        label: <Link to="/admin/analytics">Analytics</Link> }
     );
   } else if (role === 'Staff') {
     roleItems.push(
       { key: '1', icon: <DashboardOutlined />, label: <Link to="/staff/dashboard">Dashboard</Link> },
-      { key: '2', icon: <HistoryOutlined />, label: <Link to="/staff/logs">Logs</Link> }
+      { key: '2', icon: <HistoryOutlined />,   label: <Link to="/staff/logs">Logs</Link> },
+      { key: '3', icon: <CalendarOutlined />,  label: <Link to="/staff/attendance">Attendance</Link> },
     );
   } else if (role === 'Security') {
     roleItems.push(
       { key: '1', icon: <DashboardOutlined />, label: <Link to="/security/dashboard">Dashboard</Link> },
-      { key: '2', icon: <HistoryOutlined />, label: <Link to="/logs">Logs</Link> },
-      { key: '3', icon: <UserOutlined />, label: <Link to="/attendance">Attendance</Link> }
+      { key: '2', icon: <HistoryOutlined />,   label: <Link to="/logs">Logs</Link> },
+      { key: '3', icon: <CalendarOutlined />,  label: <Link to="/security/attendance">Attendance</Link> },
     );
   } else {
+    // Student / Visitor
     roleItems.push(
       { key: '1', icon: <DashboardOutlined />, label: <Link to="/user/dashboard">Dashboard</Link> },
-      { key: '2', icon: <HistoryOutlined />, label: <Link to="/user/logs">Logs</Link> }
+      { key: '2', icon: <HistoryOutlined />,   label: <Link to="/user/logs">Logs</Link> },
+      { key: '3', icon: <CalendarOutlined />,  label: <Link to="/user/attendance">Attendance</Link> },
     );
   }
 

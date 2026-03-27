@@ -310,7 +310,6 @@ const Register = () => {
         photoURL,
       };
 
-      console.log("Register payload", payload);
 
       await apiRegister(payload);
 
