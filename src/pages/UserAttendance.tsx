@@ -15,6 +15,7 @@ import {
   LogoutOutlined,
 } from "@ant-design/icons";
 import { useEffect, useState, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { getMyAttendance as fetchMyAttendance } from "../services/logService";
 import dayjs from "dayjs";
@@ -83,6 +84,7 @@ const reasonLabel: Record<string, string> = {
 
 const UserAttendance = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const pollingIntervalMs = 12000;
   const fetchingRef = useRef(false);
   const [logs,         setLogs]         = useState<LogItem[]>([]);
@@ -106,6 +108,10 @@ const UserAttendance = () => {
   };
 
   useEffect(() => {
+    if (!user) {
+      navigate("/login", { replace: true });
+      return;
+    }
     fetchLogs();
     const intervalId    = window.setInterval(fetchLogs, pollingIntervalMs);
     const handleFocus   = () => fetchLogs();
@@ -117,7 +123,7 @@ const UserAttendance = () => {
       window.removeEventListener("focus", handleFocus);
       document.removeEventListener("visibilitychange", handleVisible);
     };
-  }, []);
+  }, [user, navigate]);
 
   const todayLog    = logs.find((l) => isToday(l.date)) ?? null;
   const isInTUP     = todayLog?.dailyStatus === "In TUP";
