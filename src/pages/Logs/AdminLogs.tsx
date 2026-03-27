@@ -25,10 +25,11 @@ import { getLogs, exportLogs } from "../../services/logService";
 import type { ColumnsType } from "antd/es/table";
 import dayjs from "dayjs";
 
+const isEqual = (a: any, b: any) =>
+  JSON.stringify(a) === JSON.stringify(b);
 const { RangePicker } = DatePicker;
 const { Title, Text } = Typography;
 const { Option } = Select;
-
 /* ================= TYPES ================= */
 
 interface Activity {
@@ -89,7 +90,8 @@ const Logs = () => {
   const pollingIntervalMs = 12000;
   const fetchingRef = useRef(false);
   const [logs, setLogs] = useState<LogItem[]>([]);
-  const [loading, setLoading] = useState(false);
+const [loading, setLoading] = useState(false);
+const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [filters, setFilters] = useState({
     name: "",
     role: undefined as string | undefined,
@@ -108,18 +110,24 @@ const Logs = () => {
   const [exportPassword, setExportPassword] = useState("");
   const [exporting, setExporting] = useState(false);
 
-  const fetchLogs = async () => {
-    if (fetchingRef.current) return;
-    fetchingRef.current = true;
-    setLoading(true);
-    try {
-      const data = await getLogs();
-      setLogs(data);
-    } finally {
-      setLoading(false);
-      fetchingRef.current = false;
-    }
-  };
+const fetchLogs = async (isSilent = false) => {
+  if (fetchingRef.current) return;
+  fetchingRef.current = true;
+
+  if (!isSilent) setLoading(true);
+
+  try {const data = await getLogs();
+
+    setLogs((prev) => {
+      if (isEqual(prev, data)) return prev; // ✅ no re-render
+      return data;
+    });
+  } finally {
+    if (!isSilent) setLoading(false); // ✅ prevents flicker
+    setIsInitialLoad(false);
+    fetchingRef.current = false;
+  }
+};
 
   const handleExport = async () => {
     if (!exportPassword) {
@@ -173,26 +181,32 @@ const Logs = () => {
   };
 
   useEffect(() => {
-    fetchLogs();
+  // Initial load (WITH spinner)
+  fetchLogs(false);
 
-    const intervalId = window.setInterval(fetchLogs, pollingIntervalMs);
+  // Background refresh (NO spinner)
+  const intervalId = window.setInterval(
+    () => fetchLogs(true),
+    pollingIntervalMs
+  );
 
-    const handleFocus = () => fetchLogs();
-    const handleVisibility = () => {
-      if (document.visibilityState === "visible") {
-        fetchLogs();
-      }
-    };
+  const handleFocus = () => fetchLogs(true);
 
-    window.addEventListener("focus", handleFocus);
-    document.addEventListener("visibilitychange", handleVisibility);
+  const handleVisibility = () => {
+    if (document.visibilityState === "visible") {
+      fetchLogs(true);
+    }
+  };
 
-    return () => {
-      window.clearInterval(intervalId);
-      window.removeEventListener("focus", handleFocus);
-      document.removeEventListener("visibilitychange", handleVisibility);
-    };
-  }, []);
+  window.addEventListener("focus", handleFocus);
+  document.addEventListener("visibilitychange", handleVisibility);
+
+  return () => {
+    window.clearInterval(intervalId);
+    window.removeEventListener("focus", handleFocus);
+    document.removeEventListener("visibilitychange", handleVisibility);
+  };
+}, []);
 
   /* ================= FILTER ================= */
 
@@ -219,7 +233,7 @@ const Logs = () => {
 
   /* ================= TABLE ================= */
 
-  const columns: ColumnsType<LogItem> = [
+const columns = useMemo<ColumnsType<LogItem>>(() => [
     {
       title: "Name",
       render: (_, record) => (
@@ -276,7 +290,7 @@ const Logs = () => {
         </Tag>
       ),
     },
-  ];
+  ],[]);
 
   /* ================= RENDER ================= */
 
@@ -297,7 +311,7 @@ const Logs = () => {
         }
         extra={
           <Space>
-            <Button icon={<ReloadOutlined />} onClick={fetchLogs}>
+            <Button icon={<ReloadOutlined />} onClick={() => fetchLogs(false)}>
               Refresh
             </Button>
             <Button onClick={() => setExportModalOpen(true)}>Download</Button>
@@ -332,7 +346,7 @@ const Logs = () => {
   columns={columns}
   dataSource={filteredData}
   rowKey="_id"
-  loading={loading}
+  loading={loading && isInitialLoad} // ✅ only first load shows spinner
   pagination={{ pageSize: 10, showSizeChanger: true }}
   onRow={(record) => ({
     onClick: (event) => {
