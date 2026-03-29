@@ -3,27 +3,30 @@ import {
   Routes,
   Route,
   Navigate,
-} from "react-router-dom";
-import { Layout, Modal, Button, Typography, message, Spin } from "antd";
-import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
-import Sidebar from "./components/Sidebar";
-import { useAuth } from "./contexts/AuthContext";
-import { submitFirstPhotoCapture } from "./services/userService";
+} from 'react-router-dom';
+import { Layout, Modal, Button, Typography, message, Spin, Drawer } from 'antd';
+import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react';
+import { MenuOutlined } from '@ant-design/icons';
+import Sidebar from './components/Sidebar';
+import { useAuth } from './contexts/AuthContext';
+import { submitFirstPhotoCapture } from './services/userService';
 
-const Login = lazy(() => import("./pages/Login"));
-const Register = lazy(() => import("./pages/Register"));
-const Profile = lazy(() => import("./pages/Profile"));
-const Dashboard = lazy(() => import("./pages/Dashboard/Dashboard"));
-const AdminDashboard = lazy(() => import("./pages/Dashboard/AdminDashboard"));
-const StaffDashboard = lazy(() => import("./pages/Dashboard/StaffDashboard"));
-const AdminLogs = lazy(() => import("./pages/Logs/AdminLogs"));
-const Logs = lazy(() => import("./pages/Logs/Logs"));
-const StaffLogs = lazy(() => import("./pages/Logs/StaffLogs"));
-const Attendance = lazy(() => import("./pages/Attendance"));
-const QRRequests = lazy(() => import("./pages/QRRequests"));
-const Analytics = lazy(() => import("./pages/Analytics"));
-const ManageUsers = lazy(() => import("./pages/Manage User"));
-const MyAttendance = lazy(() => import("./pages/UserAttendance"));
+const Login = lazy(() => import('./pages/Login'));
+const Register = lazy(() => import('./pages/Register'));
+const Profile = lazy(() => import('./pages/Profile'));
+const Dashboard = lazy(() => import('./pages/Dashboard/Dashboard'));
+const AdminDashboard = lazy(() => import('./pages/Dashboard/AdminDashboard'));
+const StaffDashboard = lazy(() => import('./pages/Dashboard/StaffDashboard'));
+const AdminLogs = lazy(() => import('./pages/Logs/AdminLogs'));
+const Logs = lazy(() => import('./pages/Logs/Logs'));
+const StaffLogs = lazy(() => import('./pages/Logs/StaffLogs'));
+const Attendance = lazy(() => import('./pages/Attendance'));
+const QRRequests = lazy(() => import('./pages/QRRequests'));
+const Analytics = lazy(() => import('./pages/Analytics'));
+const ManageUsers = lazy(() => import('./pages/Manage User'));
+const MyAttendance = lazy(() => import('./pages/UserAttendance'));
+const Alerts = lazy(() => import('./pages/Alerts'));
+const Chat = lazy(() => import('./pages/Chat'));
 
 const { Content } = Layout;
 const { Text } = Typography;
@@ -31,10 +34,10 @@ const { Text } = Typography;
 const RouteFallback = () => (
   <div
     style={{
-      minHeight: "50vh",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
+      minHeight: '50vh',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
     }}
   >
     <Spin size="large" />
@@ -43,7 +46,7 @@ const RouteFallback = () => (
 
 function App() {
   const { token, user, updateUser } = useAuth();
-  const [collapsed, setCollapsed] = useState(false);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [captureOpen, setCaptureOpen] = useState(false);
   const [capturedPhoto, setCapturedPhoto] = useState<string | null>(null);
   const [submittingPhoto, setSubmittingPhoto] = useState(false);
@@ -60,13 +63,21 @@ function App() {
   }, [mustCapturePhoto]);
 
   useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  useEffect(() => {
     if (!captureOpen || capturedPhoto) return;
 
     const startCamera = async () => {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
           video: {
-            facingMode: "user",
+            facingMode: 'user',
             width: { ideal: 640 },
             height: { ideal: 480 },
           },
@@ -79,7 +90,7 @@ function App() {
         }
       } catch {
         message.error(
-          "Camera permission is required. Please allow camera access.",
+          'Camera permission is required. Please allow camera access.',
         );
       }
     };
@@ -88,7 +99,7 @@ function App() {
 
     return () => {
       if (streamRef.current) {
-        streamRef.current.getTracks().forEach((track) => track.stop());
+        streamRef.current.getTracks().forEach(track => track.stop());
         streamRef.current = null;
       }
     };
@@ -96,26 +107,26 @@ function App() {
 
   const handleCapture = () => {
     if (!videoRef.current) return;
-    const canvas = document.createElement("canvas");
+    const canvas = document.createElement('canvas');
     canvas.width = videoRef.current.videoWidth || 640;
     canvas.height = videoRef.current.videoHeight || 480;
-    const ctx = canvas.getContext("2d");
+    const ctx = canvas.getContext('2d');
     if (!ctx) return;
     ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
-    const photoDataUrl = canvas.toDataURL("image/jpeg", 0.8);
+    const photoDataUrl = canvas.toDataURL('image/jpeg', 0.8);
     setCapturedPhoto(photoDataUrl);
   };
 
   const handleRetake = async () => {
     setCapturedPhoto(null);
     if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current.getTracks().forEach(track => track.stop());
       streamRef.current = null;
     }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
-          facingMode: "user",
+          facingMode: 'user',
           width: { ideal: 640 },
           height: { ideal: 480 },
         },
@@ -128,14 +139,14 @@ function App() {
       }
     } catch {
       message.error(
-        "Camera permission is required. Please allow camera access.",
+        'Camera permission is required. Please allow camera access.',
       );
     }
   };
 
   const handleSubmitCapture = async () => {
     if (!capturedPhoto) {
-      message.warning("Please capture your photo first.");
+      message.warning('Please capture your photo first.');
       return;
     }
 
@@ -147,9 +158,9 @@ function App() {
         photoURL: res?.user?.photoURL,
       });
       setCaptureOpen(false);
-      message.success("Profile photo saved.");
+      message.success('Profile photo saved.');
     } catch {
-      message.error("Failed to save photo. Please try again.");
+      message.error('Failed to save photo. Please try again.');
     } finally {
       setSubmittingPhoto(false);
     }
@@ -180,7 +191,7 @@ function App() {
     }
   > = {
     TUP: {
-      dashboardPath: "/dashboard",
+      dashboardPath: '/dashboard',
       dashboardElement: <AdminDashboard />,
       extraRoutes: [
         <Route key="logs" path="/logs" element={<AdminLogs />} />,
@@ -200,59 +211,82 @@ function App() {
           path="/admin/manage-users"
           element={<ManageUsers />}
         />,
+        <Route key="alerts" path="/alerts" element={<Alerts />} />,
+        <Route key="chat" path="/chat" element={<Chat />} />,
       ],
     },
 
     Staff: {
-      dashboardPath: "/staff/dashboard",
+      dashboardPath: '/staff/dashboard',
       dashboardElement: <StaffDashboard />,
       extraRoutes: [
         <Route key="logs" path="/staff/logs" element={<StaffLogs />} />,
         <Route key="attendance" path="/attendance" element={<Attendance />} />,
-        <Route key="my-attendance" path="/staff/attendance" element={<MyAttendance />} />,
+        <Route
+          key="my-attendance"
+          path="/staff/attendance"
+          element={<MyAttendance />}
+        />,
       ],
     },
     Security: {
-      dashboardPath: "/security/dashboard",
+      dashboardPath: '/security/dashboard',
       dashboardElement: <AdminDashboard />, // or a custom security dashboard
       extraRoutes: [
         <Route key="logs" path="/logs" element={<AdminLogs />} />,
         <Route key="attendance" path="/attendance" element={<Attendance />} />,
+        <Route key="alerts" path="/alerts" element={<Alerts />} />,
+        <Route key="chat" path="/chat" element={<Chat />} />,
       ],
     },
     Visitor: {
-      dashboardPath: "/user/dashboard",
+      dashboardPath: '/user/dashboard',
       dashboardElement: <Dashboard />,
       extraRoutes: [
         <Route key="logs" path="/user/logs" element={<Logs />} />,
-        <Route key="attendance" path="/user/attendance" element={<MyAttendance />} />,
+        <Route
+          key="attendance"
+          path="/user/attendance"
+          element={<MyAttendance />}
+        />,
       ],
     },
     Student: {
-      dashboardPath: "/user/dashboard",
+      dashboardPath: '/user/dashboard',
       dashboardElement: <Dashboard />,
       extraRoutes: [
         <Route key="logs" path="/user/logs" element={<Logs />} />,
-        <Route key="attendance" path="/user/attendance" element={<MyAttendance />} />,
+        <Route
+          key="attendance"
+          path="/user/attendance"
+          element={<MyAttendance />}
+        />,
       ],
     },
   };
 
-  const currentRole = user?.role || user?.staffType || "Visitor";
-  const roleConfig = roleRoutes[currentRole] || roleRoutes["Visitor"];
-  const contentMargin = collapsed ? 80 : 200;
+  const currentRole = user?.role || user?.staffType || 'Visitor';
+  const roleConfig = roleRoutes[currentRole] || roleRoutes['Visitor'];
+  const contentMargin = isMobile ? 0 : 220;
 
   return (
     <Router>
-      <Layout style={{ minHeight: "100vh" }}>
-        <Sidebar collapsed={collapsed} setCollapsed={setCollapsed} />
+      <Layout style={{ minHeight: '100vh' }}>
+        {/* Sidebar - handles mobile drawer internally */}
+        <Sidebar />
 
-        <Layout style={{ marginLeft: contentMargin, transition: "all 0.2s" }}>
+        <Layout
+          style={{
+            marginLeft: isMobile ? 0 : contentMargin,
+            transition: 'margin-left 0.3s ease',
+          }}
+        >
           <Content
             style={{
-              padding: "24px",
-              minHeight: "100vh",
-              background: "#f0f2f5",
+              padding: isMobile ? '16px' : '24px',
+              paddingTop: isMobile ? '72px' : '24px',
+              minHeight: '100vh',
+              background: '#f0f2f5',
             }}
           >
             <Suspense fallback={<RouteFallback />}>
@@ -265,7 +299,7 @@ function App() {
                   path={roleConfig.dashboardPath}
                   element={roleConfig.dashboardElement}
                 />
-                {roleConfig.extraRoutes?.map((r) => r)}
+                {roleConfig.extraRoutes?.map(r => r)}
 
                 {/* Redirect root & unknown paths */}
                 <Route
@@ -287,10 +321,10 @@ function App() {
               keyboard={false}
               footer={null}
               centered
-              width={760}
+              width={isMobile ? '95%' : 760}
               destroyOnClose={false}
             >
-              <Text style={{ display: "block", marginBottom: 12 }}>
+              <Text style={{ display: 'block', marginBottom: 12 }}>
                 This step is required for accounts created by admin. You cannot
                 continue until a photo is captured. You can retake before
                 submitting.
@@ -298,14 +332,14 @@ function App() {
 
               <div
                 style={{
-                  width: "100%",
-                  background: "#111",
+                  width: '100%',
+                  background: '#111',
                   borderRadius: 12,
-                  overflow: "hidden",
-                  minHeight: 320,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
+                  overflow: 'hidden',
+                  minHeight: isMobile ? 240 : 320,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
                 }}
               >
                 {capturedPhoto ? (
@@ -313,9 +347,9 @@ function App() {
                     src={capturedPhoto}
                     alt="Captured preview"
                     style={{
-                      width: "100%",
-                      maxHeight: 420,
-                      objectFit: "contain",
+                      width: '100%',
+                      maxHeight: isMobile ? 300 : 420,
+                      objectFit: 'contain',
                     }}
                   />
                 ) : (
@@ -325,9 +359,9 @@ function App() {
                     playsInline
                     muted
                     style={{
-                      width: "100%",
-                      maxHeight: 420,
-                      objectFit: "cover",
+                      width: '100%',
+                      maxHeight: isMobile ? 300 : 420,
+                      objectFit: 'cover',
                     }}
                   />
                 )}
@@ -335,10 +369,11 @@ function App() {
 
               <div
                 style={{
-                  display: "flex",
-                  justifyContent: "flex-end",
+                  display: 'flex',
+                  justifyContent: 'flex-end',
                   gap: 8,
                   marginTop: 16,
+                  flexWrap: 'wrap',
                 }}
               >
                 {capturedPhoto ? (

@@ -8,23 +8,28 @@ import {
   DatePicker,
   Select,
   Checkbox,
-} from "antd";
-import Chart from "../components/Chart";
-import { TeamOutlined, LoginOutlined, LogoutOutlined } from "@ant-design/icons";
-import { useEffect, useState } from "react";
-import dayjs from "dayjs";
+  Grid,
+} from 'antd';
+import Chart from '../components/Chart';
+import { TeamOutlined, LoginOutlined, LogoutOutlined } from '@ant-design/icons';
+import { useEffect, useState } from 'react';
+import dayjs from 'dayjs';
 import {
   getAnalytics,
   getHourlyAnalytics,
   type AnalyticsResponse,
   type HourlyAnalyticsResponse,
-} from "@/services/analyticsService";
+} from '@/services/analyticsService';
 
 const { Title, Text } = Typography;
 const { RangePicker } = DatePicker;
 
 /* ================= COMPONENT ================= */
 const Analytics = () => {
+  const { useBreakpoint } = Grid;
+  const screens = useBreakpoint();
+  const isMobile = !screens.md;
+
   const [data, setData] = useState<AnalyticsResponse | null>(null);
   const [hourlyData, setHourlyData] = useState<HourlyAnalyticsResponse | null>(
     null,
@@ -53,23 +58,23 @@ const Analytics = () => {
   };
 
   const [rangeType, setRangeType] = useState<
-    "day" | "week" | "month" | "quarter" | "year" | "custom" | "all"
-  >("day");
+    'day' | 'week' | 'month' | 'quarter' | 'year' | 'custom' | 'all'
+  >('day');
   const [singleDate, setSingleDate] = useState<any>(dayjs());
 
   const applyRangeByType = (type: typeof rangeType, payload?: any) => {
-    if (type === "all") {
+    if (type === 'all') {
       setRange(null);
       fetchAnalytics();
       return;
     }
 
-    if (type === "custom") {
+    if (type === 'custom') {
       if (payload?.[0] && payload?.[1]) {
         setRange(payload);
         fetchAnalytics(
-          payload[0].format("YYYY-MM-DD"),
-          payload[1].format("YYYY-MM-DD"),
+          payload[0].format('YYYY-MM-DD'),
+          payload[1].format('YYYY-MM-DD'),
         );
       }
       return;
@@ -80,39 +85,39 @@ const Analytics = () => {
     let end: any;
 
     switch (type) {
-      case "day":
-        start = date.startOf("day");
-        end = date.endOf("day");
+      case 'day':
+        start = date.startOf('day');
+        end = date.endOf('day');
         break;
-      case "week":
-        start = date.startOf("week");
-        end = date.endOf("week");
+      case 'week':
+        start = date.startOf('week');
+        end = date.endOf('week');
         break;
-      case "month":
-        start = date.startOf("month");
-        end = date.endOf("month");
+      case 'month':
+        start = date.startOf('month');
+        end = date.endOf('month');
         break;
-      case "quarter": {
+      case 'quarter': {
         const qStart = Math.floor(date.month() / 3) * 3;
-        start = date.month(qStart).startOf("month");
-        end = start.add(2, "month").endOf("month");
+        start = date.month(qStart).startOf('month');
+        end = start.add(2, 'month').endOf('month');
         break;
       }
-      case "year":
-        start = date.startOf("year");
-        end = date.endOf("year");
+      case 'year':
+        start = date.startOf('year');
+        end = date.endOf('year');
         break;
     }
 
     setRange([start, end]);
     setSingleDate(date);
 
-    if (type === "day") {
+    if (type === 'day') {
       // For day view, fetch both hourly for chart AND daily for role cards
-      fetchHourlyAnalytics(start.format("YYYY-MM-DD"));
-      fetchAnalytics(start.format("YYYY-MM-DD"), end.format("YYYY-MM-DD"));
+      fetchHourlyAnalytics(start.format('YYYY-MM-DD'));
+      fetchAnalytics(start.format('YYYY-MM-DD'), end.format('YYYY-MM-DD'));
     } else {
-      fetchAnalytics(start.format("YYYY-MM-DD"), end.format("YYYY-MM-DD"));
+      fetchAnalytics(start.format('YYYY-MM-DD'), end.format('YYYY-MM-DD'));
     }
   };
 
@@ -122,12 +127,12 @@ const Analytics = () => {
   }, []);
 
   const handleDateChange = (dates: any) => {
-    setRangeType("custom");
+    setRangeType('custom');
     setRange(dates);
     if (dates) {
       fetchAnalytics(
-        dates[0].format("YYYY-MM-DD"),
-        dates[1].format("YYYY-MM-DD"),
+        dates[0].format('YYYY-MM-DD'),
+        dates[1].format('YYYY-MM-DD'),
       );
     } else {
       fetchAnalytics();
@@ -139,11 +144,11 @@ const Analytics = () => {
     applyRangeByType(rangeType, date);
   };
 
-  const DEFAULT_ROLES: Array<"Student" | "Staff" | "Visitor" | "TUP"> = [
-    "Student",
-    "Staff",
-    "Visitor",
-    "TUP",
+  const DEFAULT_ROLES: Array<'Student' | 'Staff' | 'Visitor' | 'TUP'> = [
+    'Student',
+    'Staff',
+    'Visitor',
+    'TUP',
   ];
   const [selectedRoles, setSelectedRoles] = useState<string[]>(DEFAULT_ROLES);
 
@@ -151,69 +156,87 @@ const Analytics = () => {
   if (!data) return null;
 
   const roleColors: Record<string, string> = {
-    Student: "#1890ff",
-    Staff: "#52c41a",
-    Visitor: "#faad14",
-    TUP: "#722ed1",
+    Student: '#1890ff',
+    Staff: '#52c41a',
+    Visitor: '#faad14',
+    TUP: '#722ed1',
   };
 
   const allRoles = Object.keys(data.roles) as Array<
-    "Student" | "Staff" | "Visitor" | "TUP"
+    'Student' | 'Staff' | 'Visitor' | 'TUP'
   >;
 
   return (
-    <Space direction="vertical" size="large" style={{ width: "100%" }}>
+    <Space direction="vertical" size="large" style={{ width: '100%' }}>
       {/* HEADER */}
-      <Space style={{ width: "100%", justifyContent: "space-between" }} wrap>
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: isMobile ? 'column' : 'row',
+          justifyContent: 'space-between',
+          alignItems: isMobile ? 'flex-start' : 'center',
+          gap: isMobile ? 12 : 0,
+          width: '100%',
+        }}
+      >
         <Title level={4} style={{ margin: 0 }}>
           Attendance Analytics
         </Title>
 
-        <Space>
+        <Space
+          direction={isMobile ? 'vertical' : 'horizontal'}
+          style={{ width: isMobile ? '100%' : 'auto' }}
+          size={8}
+        >
           <Select
             value={rangeType}
-            onChange={(val) => {
+            onChange={val => {
               setRangeType(val as any);
-              if (val === "all") applyRangeByType("all");
-              else if (val === "custom") setRange(null);
+              if (val === 'all') applyRangeByType('all');
+              else if (val === 'custom') setRange(null);
               else applyRangeByType(val as any, singleDate);
             }}
             options={[
-              { label: "Day", value: "day" },
-              { label: "Week", value: "week" },
-              { label: "Month", value: "month" },
-              { label: "Quarter", value: "quarter" },
-              { label: "Year", value: "year" },
-              { label: "Custom Range", value: "custom" },
-              { label: "All", value: "all" },
+              { label: 'Day', value: 'day' },
+              { label: 'Week', value: 'week' },
+              { label: 'Month', value: 'month' },
+              { label: 'Quarter', value: 'quarter' },
+              { label: 'Year', value: 'year' },
+              { label: 'Custom Range', value: 'custom' },
+              { label: 'All', value: 'all' },
             ]}
-            style={{ width: 160 }}
+            style={{ width: isMobile ? '100%' : 160 }}
           />
 
-          {rangeType === "custom" ? (
-            <RangePicker value={range} onChange={handleDateChange} />
-          ) : rangeType === "all" ? (
+          {rangeType === 'custom' ? (
+            <RangePicker
+              value={range}
+              onChange={handleDateChange}
+              style={{ width: isMobile ? '100%' : undefined }}
+            />
+          ) : rangeType === 'all' ? (
             <Text type="secondary">All time</Text>
           ) : (
             <DatePicker
-              picker={rangeType === "day" ? "date" : (rangeType as any)}
+              picker={rangeType === 'day' ? 'date' : (rangeType as any)}
               value={singleDate}
               onChange={handleSinglePickerChange}
+              style={{ width: isMobile ? '100%' : undefined }}
             />
           )}
         </Space>
-      </Space>
+      </div>
 
       {/* ROLE SUMMARY */}
       <Card variant="borderless">
         <Row gutter={[16, 16]}>
-          {allRoles.map((role) => (
+          {allRoles.map(role => (
             <Col xs={24} sm={12} md={6} key={role}>
               <Card
                 variant="outlined"
                 style={{
                   borderRadius: 12,
-                  boxShadow: "0 4px 12px rgba(0,0,0,0.06)",
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.06)',
                 }}
                 styles={{ body: { padding: 16 } }}
               >
@@ -228,8 +251,8 @@ const Analytics = () => {
                   style={{
                     borderRadius: 8,
                     marginBottom: 12,
-                    background: "#fafafa",
-                    textAlign: "center",
+                    background: '#fafafa',
+                    textAlign: 'center',
                   }}
                   styles={{ body: { padding: 12 } }}
                 >
@@ -248,16 +271,16 @@ const Analytics = () => {
                       variant="borderless"
                       style={{
                         borderRadius: 8,
-                        background: "#f6ffed",
-                        textAlign: "center",
+                        background: '#f6ffed',
+                        textAlign: 'center',
                       }}
                       styles={{ body: { padding: 12 } }}
                     >
-                      <LoginOutlined style={{ color: "#52c41a" }} />
+                      <LoginOutlined style={{ color: '#52c41a' }} />
                       <Statistic
                         title="Inside"
                         value={data.roles[role].usersCurrentlyInside}
-                        valueStyle={{ color: "#52c41a" }}
+                        valueStyle={{ color: '#52c41a' }}
                       />
                     </Card>
                   </Col>
@@ -268,16 +291,16 @@ const Analytics = () => {
                       variant="borderless"
                       style={{
                         borderRadius: 8,
-                        background: "#fff1f0",
-                        textAlign: "center",
+                        background: '#fff1f0',
+                        textAlign: 'center',
                       }}
                       styles={{ body: { padding: 12 } }}
                     >
-                      <LogoutOutlined style={{ color: "#ff4d4f" }} />
+                      <LogoutOutlined style={{ color: '#ff4d4f' }} />
                       <Statistic
                         title="Outside"
                         value={data.roles[role].usersCheckedOut}
-                        valueStyle={{ color: "#ff4d4f" }}
+                        valueStyle={{ color: '#ff4d4f' }}
                       />
                     </Card>
                   </Col>
@@ -293,10 +316,11 @@ const Analytics = () => {
         title={
           <div
             style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: 12,
+              display: 'flex',
+              flexDirection: isMobile ? 'column' : 'row',
+              alignItems: isMobile ? 'flex-start' : 'center',
+              justifyContent: 'space-between',
+              gap: isMobile ? 8 : 12,
             }}
           >
             <span style={{ fontWeight: 600 }}>Daily Entries by Role</span>
@@ -305,9 +329,9 @@ const Analytics = () => {
               allowClear
               placeholder="Filter roles"
               value={selectedRoles}
-              onChange={(vals) => setSelectedRoles(vals as string[])}
-              style={{ minWidth: 220 }}
-              options={allRoles.map((role) => ({
+              onChange={vals => setSelectedRoles(vals as string[])}
+              style={{ minWidth: isMobile ? '100%' : 220 }}
+              options={allRoles.map(role => ({
                 label: (
                   <Space>
                     <Checkbox checked={selectedRoles.includes(role)} />
@@ -315,9 +339,9 @@ const Analytics = () => {
                       style={{
                         width: 10,
                         height: 10,
-                        borderRadius: "50%",
+                        borderRadius: '50%',
                         background: roleColors[role],
-                        display: "inline-block",
+                        display: 'inline-block',
                       }}
                     />
                     {role}
@@ -329,8 +353,8 @@ const Analytics = () => {
           </div>
         }
         xKey="_id"
-        data={rangeType === "day" ? [] : data.combinedDaily}
-        lines={allRoles.map((r) => ({
+        data={rangeType === 'day' ? [] : data.combinedDaily}
+        lines={allRoles.map(r => ({
           dataKey: r,
           name: r,
           color: roleColors[r],
@@ -342,14 +366,14 @@ const Analytics = () => {
         rangeType={rangeType}
         rangeStart={(range
           ? range[0]
-          : singleDate.startOf(rangeType === "day" ? "day" : rangeType)
+          : singleDate.startOf(rangeType === 'day' ? 'day' : rangeType)
         ).toDate()}
         rangeEnd={(range
           ? range[1]
-          : singleDate.endOf(rangeType === "day" ? "day" : rangeType)
+          : singleDate.endOf(rangeType === 'day' ? 'day' : rangeType)
         ).toDate()}
         hourlyData={
-          rangeType === "day" && hourlyData ? hourlyData.hourly : undefined
+          rangeType === 'day' && hourlyData ? hourlyData.hourly : undefined
         }
       />
     </Space>

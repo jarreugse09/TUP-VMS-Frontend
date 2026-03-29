@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { Layout, Menu, Divider } from 'antd';
 import {
   DashboardOutlined,
@@ -8,25 +9,50 @@ import {
   LineChartOutlined,
   UsergroupDeleteOutlined,
   CalendarOutlined,
+  BellOutlined,
+  MessageOutlined,
+  MenuOutlined,
+  CloseOutlined,
 } from '@ant-design/icons';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 const { Sider } = Layout;
 
-interface SidebarProps {
-  collapsed: boolean;
-  setCollapsed: (collapsed: boolean) => void;
-}
-
-const Sidebar = ({ collapsed, setCollapsed }: SidebarProps) => {
+const Sidebar = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  // Close mobile sidebar when route changes
+  useEffect(() => {
+    if (isMobile) {
+      setMobileOpen(false);
+    }
+  }, [location.pathname, isMobile]);
 
   const handleLogout = () => {
     logout();
     navigate('/login');
+  };
+
+  const toggleMobileSidebar = () => {
+    setMobileOpen(!mobileOpen);
+  };
+
+  const closeMobileSidebar = () => {
+    setMobileOpen(false);
   };
 
   const getSelectedKey = () => {
@@ -57,9 +83,11 @@ const Sidebar = ({ collapsed, setCollapsed }: SidebarProps) => {
       return '3';
 
     if (path.startsWith('/qr-requests')) return '5';
-    if (path.startsWith('/profile'))     return '4';
+    if (path.startsWith('/profile')) return '4';
     if (path.startsWith('/admin/manage-users')) return '6';
-    if (path.startsWith('/admin/analytics'))   return '7';
+    if (path.startsWith('/admin/analytics')) return '7';
+    if (path.startsWith('/alerts')) return '8';
+    if (path.startsWith('/chat')) return '9';
 
     return '1';
   };
@@ -72,88 +100,178 @@ const Sidebar = ({ collapsed, setCollapsed }: SidebarProps) => {
   if (role === 'TUP') {
     // Admin sees the shared /attendance (all users), not UserAttendance
     roleItems.push(
-      { key: '1', icon: <DashboardOutlined />,       label: <Link to="/dashboard">Dashboard</Link> },
-      { key: '2', icon: <HistoryOutlined />,          label: <Link to="/logs">Logs</Link> },
-      { key: '3', icon: <CalendarOutlined />,         label: <Link to="/attendance">Attendance</Link> },
-      { key: '5', icon: <QrcodeOutlined />,           label: <Link to="/qr-requests">QR Requests</Link> },
-      { key: '6', icon: <UsergroupDeleteOutlined />,  label: <Link to="/admin/manage-users">Manage Users</Link> },
-      { key: '7', icon: <LineChartOutlined />,        label: <Link to="/admin/analytics">Analytics</Link> }
+      {
+        key: '1',
+        icon: <DashboardOutlined />,
+        label: <Link to="/dashboard">Dashboard</Link>,
+      },
+      {
+        key: '2',
+        icon: <HistoryOutlined />,
+        label: <Link to="/logs">Logs</Link>,
+      },
+      {
+        key: '3',
+        icon: <CalendarOutlined />,
+        label: <Link to="/attendance">Attendance</Link>,
+      },
+      {
+        key: '5',
+        icon: <QrcodeOutlined />,
+        label: <Link to="/qr-requests">QR Requests</Link>,
+      },
+      {
+        key: '6',
+        icon: <UsergroupDeleteOutlined />,
+        label: <Link to="/admin/manage-users">Manage Users</Link>,
+      },
+      {
+        key: '7',
+        icon: <LineChartOutlined />,
+        label: <Link to="/admin/analytics">Analytics</Link>,
+      },
+      {
+        key: '8',
+        icon: <BellOutlined />,
+        label: <Link to="/alerts">Alerts</Link>,
+      },
+      {
+        key: '9',
+        icon: <MessageOutlined />,
+        label: <Link to="/chat">Chat</Link>,
+      },
     );
   } else if (role === 'Staff') {
     roleItems.push(
-      { key: '1', icon: <DashboardOutlined />, label: <Link to="/staff/dashboard">Dashboard</Link> },
-      { key: '2', icon: <HistoryOutlined />,   label: <Link to="/staff/logs">Logs</Link> },
-      { key: '3', icon: <CalendarOutlined />,  label: <Link to="/staff/attendance">Attendance</Link> },
+      {
+        key: '1',
+        icon: <DashboardOutlined />,
+        label: <Link to="/staff/dashboard">Dashboard</Link>,
+      },
+      {
+        key: '2',
+        icon: <HistoryOutlined />,
+        label: <Link to="/staff/logs">Logs</Link>,
+      },
+      {
+        key: '3',
+        icon: <CalendarOutlined />,
+        label: <Link to="/staff/attendance">Attendance</Link>,
+      },
     );
   } else if (role === 'Security') {
     roleItems.push(
-      { key: '1', icon: <DashboardOutlined />, label: <Link to="/security/dashboard">Dashboard</Link> },
-      { key: '2', icon: <HistoryOutlined />,   label: <Link to="/logs">Logs</Link> },
-      { key: '3', icon: <CalendarOutlined />,  label: <Link to="/security/attendance">Attendance</Link> },
+      {
+        key: '1',
+        icon: <DashboardOutlined />,
+        label: <Link to="/security/dashboard">Dashboard</Link>,
+      },
+      {
+        key: '2',
+        icon: <HistoryOutlined />,
+        label: <Link to="/logs">Logs</Link>,
+      },
+      {
+        key: '3',
+        icon: <CalendarOutlined />,
+        label: <Link to="/security/attendance">Attendance</Link>,
+      },
+      {
+        key: '8',
+        icon: <BellOutlined />,
+        label: <Link to="/alerts">Alerts</Link>,
+      },
+      {
+        key: '9',
+        icon: <MessageOutlined />,
+        label: <Link to="/chat">Chat</Link>,
+      },
     );
   } else {
     // Student / Visitor
     roleItems.push(
-      { key: '1', icon: <DashboardOutlined />, label: <Link to="/user/dashboard">Dashboard</Link> },
-      { key: '2', icon: <HistoryOutlined />,   label: <Link to="/user/logs">Logs</Link> },
-      { key: '3', icon: <CalendarOutlined />,  label: <Link to="/user/attendance">Attendance</Link> },
+      {
+        key: '1',
+        icon: <DashboardOutlined />,
+        label: <Link to="/user/dashboard">Dashboard</Link>,
+      },
+      {
+        key: '2',
+        icon: <HistoryOutlined />,
+        label: <Link to="/user/logs">Logs</Link>,
+      },
+      {
+        key: '3',
+        icon: <CalendarOutlined />,
+        label: <Link to="/user/attendance">Attendance</Link>,
+      },
     );
   }
 
   const menuItems = [
     ...roleItems,
-    { key: '4', icon: <UserOutlined />, label: <Link to="/profile">Profile</Link> },
+    {
+      key: '4',
+      icon: <UserOutlined />,
+      label: <Link to="/profile">Profile</Link>,
+    },
   ];
 
   const logoutItems = [
-    { key: 'logout', icon: <LogoutOutlined />, label: 'Logout', onClick: handleLogout },
+    {
+      key: 'logout',
+      icon: <LogoutOutlined />,
+      label: 'Logout',
+      onClick: handleLogout,
+    },
   ];
 
   /* ================= RENDER ================= */
 
   return (
-    <Sider
-      collapsible
-      collapsed={collapsed}
-      onCollapse={setCollapsed}
-      width={220}
-      style={{
-        height: '100vh',
-        position: 'fixed',
-        left: 0,
-        top: 0,
-        bottom: 0,
-        background: 'linear-gradient(180deg, #b1122b 0%, #8c0d22 100%)',
-        boxShadow: '4px 0 16px rgba(0,0,0,0.15)',
-        zIndex: 100,
-      }}
-    >
-      <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-        {/* LOGO */}
-        <div
-          style={{
-            height: 64,
-            margin: 16,
-            borderRadius: 12,
-            background: 'rgba(255,255,255,0.15)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontWeight: 800,
-            fontSize: collapsed ? 20 : 18,
-            color: '#fff',
-            letterSpacing: 1,
-          }}
+    <>
+      {/* Mobile Burger Menu Button */}
+      {isMobile && !mobileOpen && (
+        <button
+          onClick={toggleMobileSidebar}
+          className="sidebar-burger-btn"
+          aria-label="Toggle menu"
         >
-          {collapsed ? 'T' : 'TUP VMS'}
+          <MenuOutlined />
+        </button>
+      )}
+
+      {/* Mobile Overlay */}
+      <div
+        className={`sidebar-overlay ${isMobile && mobileOpen ? 'visible' : ''}`}
+        onClick={closeMobileSidebar}
+      />
+
+      {/* Sidebar */}
+      <div
+        className={`sidebar-container ${isMobile && !mobileOpen ? 'hidden' : 'visible'}`}
+      >
+        {/* LOGO with integrated close button */}
+        <div className="sidebar-logo">
+          <span>TUP VMS</span>
+          {isMobile && (
+            <button
+              onClick={closeMobileSidebar}
+              className="sidebar-close-btn"
+              aria-label="Close menu"
+            >
+              <CloseOutlined />
+            </button>
+          )}
         </div>
 
         {/* MENU */}
-        <div style={{ flex: 1, padding: '0 8px' }}>
+        <div className="sidebar-menu-container">
           <Menu
             mode="inline"
             selectedKeys={[getSelectedKey()]}
             items={menuItems}
+            onClick={isMobile ? closeMobileSidebar : undefined}
             style={{
               background: 'transparent',
               borderRight: 'none',
@@ -163,7 +281,7 @@ const Sidebar = ({ collapsed, setCollapsed }: SidebarProps) => {
         </div>
 
         {/* LOGOUT */}
-        <div style={{ padding: '0 8px 20px' }}>
+        <div className="sidebar-logout-container">
           <Divider style={{ borderColor: 'rgba(255,255,255,0.25)' }} />
           <Menu
             mode="inline"
@@ -173,35 +291,7 @@ const Sidebar = ({ collapsed, setCollapsed }: SidebarProps) => {
           />
         </div>
       </div>
-
-      {/* MENU STYLES */}
-      <style>{`
-        .ant-menu-item {
-          color: rgba(255,255,255,0.85) !important;
-          border-radius: 10px !important;
-          margin: 6px 0 !important;
-        }
-
-        .ant-menu-item:hover {
-          background: rgba(255,255,255,0.18) !important;
-          color: #fff !important;
-        }
-
-        .ant-menu-item-selected {
-          background: #fff !important;
-          color: #8c0d22 !important;
-          font-weight: 600;
-        }
-
-        .ant-menu-item-selected .anticon {
-          color: #8c0d22 !important;
-        }
-
-        .ant-layout-sider-trigger {
-          background: rgba(0,0,0,0.25) !important;
-        }
-      `}</style>
-    </Sider>
+    </>
   );
 };
 

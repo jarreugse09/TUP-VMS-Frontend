@@ -1,4 +1,5 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo } from 'react';
+import { Grid } from 'antd';
 import {
   Table,
   Tag,
@@ -13,7 +14,7 @@ import {
   Typography,
   Modal,
   Avatar,
-} from "antd";
+} from 'antd';
 import {
   ReloadOutlined,
   FilterOutlined,
@@ -22,20 +23,20 @@ import {
   CheckCircleOutlined,
   EnvironmentOutlined,
   ClockCircleOutlined,
-} from "@ant-design/icons";
+} from '@ant-design/icons';
 import {
   getQRRequests,
   approveQRRequest,
   rejectQRRequest,
-} from "../services/userService";
-import dayjs from "dayjs";
+} from '../services/userService';
+import dayjs from 'dayjs';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
 
 interface QRRequestItem {
   _id: string;
-  requestType?: "QR" | "PROFILE_PHOTO";
+  requestType?: 'QR' | 'PROFILE_PHOTO';
   reason?: string;
   oldQR?: string;
   newQR?: string;
@@ -43,7 +44,7 @@ interface QRRequestItem {
   newQRImage?: string;
   oldPhotoURL?: string;
   newPhotoImage?: string;
-  status: "Pending" | "Approved" | "Rejected";
+  status: 'Pending' | 'Approved' | 'Rejected';
   createdAt: string;
   userId?: {
     _id?: string;
@@ -56,18 +57,21 @@ interface QRRequestItem {
 }
 
 const toAssetUrl = (path?: string) => {
-  if (!path) return "";
+  if (!path) return '';
   if (/^https?:\/\//i.test(path)) return path;
 
-  const base = import.meta.env.VITE_API_URL || "";
+  const base = import.meta.env.VITE_API_URL || '';
   if (!base) return path;
 
-  const normalizedBase = base.replace(/\/$/, "");
-  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  const normalizedBase = base.replace(/\/$/, '');
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
   return `${normalizedBase}${normalizedPath}`;
 };
 
 const QRRequests = () => {
+  const { useBreakpoint } = Grid;
+  const screens = useBreakpoint();
+  const isMobile = !screens.md;
   const [data, setData] = useState<QRRequestItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -76,7 +80,7 @@ const QRRequests = () => {
   );
 
   const [filters, setFilters] = useState({
-    name: "",
+    name: '',
     role: undefined as string | undefined,
     status: undefined as string | undefined,
   });
@@ -89,11 +93,11 @@ const QRRequests = () => {
         ? res.map((item: any) => ({
             ...item,
             // Support both backend keys while preserving current API shape.
-            newQR: item?.newQR ?? item?.newQRString ?? "",
-            newQRString: item?.newQRString ?? item?.newQR ?? "",
-            requestType: item?.requestType || "QR",
-            oldPhotoURL: item?.oldPhotoURL || item?.userId?.photoURL || "",
-            newPhotoImage: item?.newPhotoImage || "",
+            newQR: item?.newQR ?? item?.newQRString ?? '',
+            newQRString: item?.newQRString ?? item?.newQR ?? '',
+            requestType: item?.requestType || 'QR',
+            oldPhotoURL: item?.oldPhotoURL || item?.userId?.photoURL || '',
+            newPhotoImage: item?.newPhotoImage || '',
             userId: {
               ...item?.userId,
               qrString: item?.userId?.qrString ?? null,
@@ -104,7 +108,7 @@ const QRRequests = () => {
 
       setData(normalized);
     } catch {
-      message.error("Failed to load QR requests");
+      message.error('Failed to load QR requests');
     } finally {
       setLoading(false);
     }
@@ -118,10 +122,10 @@ const QRRequests = () => {
     try {
       setActionLoading(id);
       await approveQRRequest(id);
-      message.success("Request approved");
+      message.success('Request approved');
       fetch();
     } catch {
-      message.error("Failed to approve");
+      message.error('Failed to approve');
     } finally {
       setActionLoading(null);
     }
@@ -131,10 +135,10 @@ const QRRequests = () => {
     try {
       setActionLoading(id);
       await rejectQRRequest(id);
-      message.success("Request rejected");
+      message.success('Request rejected');
       fetch();
     } catch {
-      message.error("Failed to reject");
+      message.error('Failed to reject');
     } finally {
       setActionLoading(null);
     }
@@ -143,7 +147,7 @@ const QRRequests = () => {
   /* ================= FILTER ================= */
 
   const filteredData = useMemo(() => {
-    return data.filter((r) => {
+    return data.filter(r => {
       const fullName =
         `${r.userId?.firstName} ${r.userId?.surname}`.toLowerCase();
 
@@ -159,62 +163,62 @@ const QRRequests = () => {
 
   const columns: any[] = [
     {
-      title: "User",
-      key: "user",
+      title: 'User',
+      key: 'user',
       render: (_: any, record: QRRequestItem) => (
         <Space direction="vertical" size={0}>
           <Text strong>
             {record.userId?.firstName} {record.userId?.surname}
           </Text>
           <Text type="secondary" style={{ fontSize: 12 }}>
-            {record.userId?.qrString || "-"}
+            {record.userId?.qrString || '-'}
           </Text>
         </Space>
       ),
     },
     {
-      title: "Role",
-      dataIndex: ["userId", "role"],
+      title: 'Role',
+      dataIndex: ['userId', 'role'],
       render: (role: string) => {
         const color =
-          role === "Staff" ? "blue" : role === "Student" ? "cyan" : "purple";
+          role === 'Staff' ? 'blue' : role === 'Student' ? 'cyan' : 'purple';
         return <Tag color={color}>{role}</Tag>;
       },
     },
     {
-      title: "Type",
-      dataIndex: "requestType",
-      render: (value: "QR" | "PROFILE_PHOTO") => (
-        <Tag color={value === "PROFILE_PHOTO" ? "magenta" : "geekblue"}>
-          {value === "PROFILE_PHOTO" ? "Profile Photo" : "QR Change"}
+      title: 'Type',
+      dataIndex: 'requestType',
+      render: (value: 'QR' | 'PROFILE_PHOTO') => (
+        <Tag color={value === 'PROFILE_PHOTO' ? 'magenta' : 'geekblue'}>
+          {value === 'PROFILE_PHOTO' ? 'Profile Photo' : 'QR Change'}
         </Tag>
       ),
     },
     {
-      title: "Old QR",
-      dataIndex: "oldQR",
+      title: 'Old QR',
+      dataIndex: 'oldQR',
       render: (_: string, record: QRRequestItem) =>
-        record.requestType === "PROFILE_PHOTO" ? (
-          "-"
+        record.requestType === 'PROFILE_PHOTO' ? (
+          '-'
         ) : (
-          <Text code>{record.oldQR || "-"}</Text>
+          <Text code>{record.oldQR || '-'}</Text>
         ),
     },
     {
-      title: "New QR String",
-      dataIndex: "newQRString",
+      title: 'New QR String',
+      dataIndex: 'newQRString',
       render: (_: string, record: QRRequestItem) => {
-        if (record.requestType === "PROFILE_PHOTO") return "-";
+        if (record.requestType === 'PROFILE_PHOTO') return '-';
         const qrValue = record.newQRString || record.newQR;
-        return qrValue ? <Text code>{qrValue}</Text> : "-";
+        return qrValue ? <Text code>{qrValue}</Text> : '-';
       },
     },
     {
-      title: "Uploaded Image",
-      dataIndex: "newQRImage",
+      title: 'Uploaded Image',
+      dataIndex: 'newQRImage',
       render: (_: string, record: QRRequestItem) => {
         const imagePath =
-          record.requestType === "PROFILE_PHOTO"
+          record.requestType === 'PROFILE_PHOTO'
             ? record.newPhotoImage
             : record.newQRImage;
 
@@ -223,28 +227,28 @@ const QRRequests = () => {
             <Image src={toAssetUrl(imagePath)} width={80} />
           </a>
         ) : (
-          "-"
+          '-'
         );
       },
     },
     {
-      title: "Status",
-      dataIndex: "status",
+      title: 'Status',
+      dataIndex: 'status',
       render: (s: string) => {
         const colors: Record<string, string> = {
-          Pending: "gold",
-          Approved: "green",
-          Rejected: "red",
+          Pending: 'gold',
+          Approved: 'green',
+          Rejected: 'red',
         };
         return <Tag color={colors[s]}>{s}</Tag>;
       },
     },
     {
-      title: "Actions",
-      key: "actions",
+      title: 'Actions',
+      key: 'actions',
       render: (_: any, record: QRRequestItem) => {
         // ⛔ Hide actions once resolved
-        if (record.status !== "Pending") {
+        if (record.status !== 'Pending') {
           return <Text type="secondary">—</Text>;
         }
 
@@ -258,8 +262,8 @@ const QRRequests = () => {
                 type="primary"
                 loading={actionLoading === record._id}
                 style={{
-                  background: "linear-gradient(135deg, #52c41a, #73d13d)",
-                  border: "none",
+                  background: 'linear-gradient(135deg, #52c41a, #73d13d)',
+                  border: 'none',
                 }}
               >
                 Approve
@@ -285,46 +289,72 @@ const QRRequests = () => {
   return (
     <Card
       style={{
-        height: "100%",
+        height: '100%',
         borderRadius: 12,
-        boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
+        boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
       }}
       title={
-        <Space>
-          <FilterOutlined style={{ color: "#1677ff" }} />
-          <Title level={4} style={{ margin: 0 }}>
-            Change Requests
-          </Title>
-        </Space>
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: isMobile ? 'column' : 'row',
+            justifyContent: 'space-between',
+            alignItems: isMobile ? 'flex-start' : 'center',
+            gap: isMobile ? 12 : 0,
+            width: '100%',
+          }}
+        >
+          <Space>
+            <Title level={4} style={{ margin: 0 }}>
+              Change Requests
+            </Title>
+          </Space>
+          <Button
+            icon={<ReloadOutlined />}
+            onClick={fetch}
+            loading={loading}
+            size={isMobile ? 'small' : 'middle'}
+          >
+            {isMobile ? null : 'Refresh'}
+          </Button>
+        </div>
       }
-      extra={
-        <Button icon={<ReloadOutlined />} onClick={fetch} loading={loading}>
-          Refresh
-        </Button>
-      }
+      styles={{
+        header: {
+          padding: isMobile ? '12px 16px' : '16px 24px',
+          borderBottom: '1px solid #f0f0f0',
+        },
+        body: {
+          padding: isMobile ? '16px' : '24px',
+        },
+      }}
     >
       {/* Filters */}
       <div
         style={{
           marginBottom: 20,
-          display: "flex",
-          gap: 12,
-          flexWrap: "wrap",
+          display: 'flex',
+          gap: 8,
+          flexWrap: 'wrap',
+          alignItems: 'center',
         }}
       >
         <Input
           placeholder="Search name..."
           prefix={<SearchOutlined />}
           allowClear
-          style={{ width: 250 }}
-          onChange={(e) => setFilters({ ...filters, name: e.target.value })}
+          style={{ flex: 1, minWidth: isMobile ? '100%' : 200 }}
+          onChange={e => setFilters({ ...filters, name: e.target.value })}
+          size={isMobile ? 'middle' : 'middle'}
         />
 
         <Select
-          placeholder="Filter by Role"
+          placeholder="Role"
           allowClear
-          style={{ width: 160 }}
-          onChange={(value) => setFilters({ ...filters, role: value })}
+          style={{ width: isMobile ? 'calc(50% - 4px)' : 120 }}
+          onChange={value => setFilters({ ...filters, role: value })}
+          value={filters.role}
+          size={isMobile ? 'middle' : 'middle'}
         >
           <Option value="Staff">Staff</Option>
           <Option value="Student">Student</Option>
@@ -334,8 +364,10 @@ const QRRequests = () => {
         <Select
           placeholder="Status"
           allowClear
-          style={{ width: 160 }}
-          onChange={(value) => setFilters({ ...filters, status: value })}
+          style={{ width: isMobile ? 'calc(50% - 4px)' : 120 }}
+          onChange={value => setFilters({ ...filters, status: value })}
+          value={filters.status}
+          size={isMobile ? 'middle' : 'middle'}
         >
           <Option value="Pending">Pending</Option>
           <Option value="Approved">Approved</Option>
@@ -350,15 +382,16 @@ const QRRequests = () => {
         loading={loading}
         pagination={{ pageSize: 10, showSizeChanger: true }}
         bordered
-        onRow={(record) => ({
-          onClick: (event) => {
+        scroll={{ x: 900 }}
+        onRow={record => ({
+          onClick: event => {
             const target = event.target as HTMLElement;
-            if (target.closest("button") || target.closest("a")) {
+            if (target.closest('button') || target.closest('a')) {
               return;
             }
             setSelectedRequest(record);
           },
-          style: { cursor: "pointer" },
+          style: { cursor: 'pointer' },
         })}
       />
 
@@ -367,22 +400,23 @@ const QRRequests = () => {
         onCancel={() => setSelectedRequest(null)}
         footer={null}
         centered
-        width={580}
+        width="90%"
+        style={{ maxWidth: 580 }}
         styles={{
-          content: { padding: 0, overflow: "hidden", borderRadius: 16 },
-          mask: { backdropFilter: "blur(2px)" },
+          content: { padding: 0, overflow: 'hidden', borderRadius: 16 },
+          mask: { backdropFilter: 'blur(2px)' },
         }}
         closeIcon={
           <span
             style={{
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
               width: 28,
               height: 28,
-              borderRadius: "50%",
-              background: "rgba(0,0,0,0.06)",
-              color: "#595959",
+              borderRadius: '50%',
+              background: 'rgba(0,0,0,0.06)',
+              color: '#595959',
               fontSize: 13,
               fontWeight: 500,
               lineHeight: 1,
@@ -394,14 +428,14 @@ const QRRequests = () => {
       >
         {selectedRequest &&
           (() => {
-            const isPhotoReq = selectedRequest.requestType === "PROFILE_PHOTO";
+            const isPhotoReq = selectedRequest.requestType === 'PROFILE_PHOTO';
             const status = selectedRequest.status;
 
             // Status color mapping
             const statusColors: Record<string, string> = {
-              PENDING: "#faad14",
-              APPROVED: "#52c41a",
-              REJECTED: "#ff4d4f",
+              PENDING: '#faad14',
+              APPROVED: '#52c41a',
+              REJECTED: '#ff4d4f',
             };
 
             return (
@@ -409,22 +443,22 @@ const QRRequests = () => {
                 {/* ── HEADER ── */}
                 <div
                   style={{
-                    display: "flex",
-                    alignItems: "center",
+                    display: 'flex',
+                    alignItems: 'center',
                     gap: 16,
-                    padding: "24px 24px 20px",
-                    borderBottom: "1px solid #f0f0f0",
+                    padding: '24px 24px 20px',
+                    borderBottom: '1px solid #f0f0f0',
                   }}
                 >
-                  <div style={{ position: "relative", flexShrink: 0 }}>
+                  <div style={{ position: 'relative', flexShrink: 0 }}>
                     <Avatar
                       size={52}
                       src={selectedRequest.userId?.photoURL}
                       icon={<UserOutlined />}
                       style={{
-                        background: "#f0f0f0",
-                        border: "2px solid #fff",
-                        outline: "1.5px solid #e8e8e8",
+                        background: '#f0f0f0',
+                        border: '2px solid #fff',
+                        outline: '1.5px solid #e8e8e8',
                       }}
                     />
                   </div>
@@ -432,10 +466,10 @@ const QRRequests = () => {
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div
                       style={{
-                        display: "flex",
-                        alignItems: "center",
+                        display: 'flex',
+                        alignItems: 'center',
                         gap: 8,
-                        flexWrap: "wrap",
+                        flexWrap: 'wrap',
                         marginBottom: 4,
                       }}
                     >
@@ -443,61 +477,61 @@ const QRRequests = () => {
                         strong
                         style={{
                           fontSize: 15,
-                          color: "#141414",
+                          color: '#141414',
                           lineHeight: 1.3,
                         }}
                       >
-                        {selectedRequest.userId?.firstName}{" "}
+                        {selectedRequest.userId?.firstName}{' '}
                         {selectedRequest.userId?.surname}
                       </Text>
                       <span
                         style={{
                           fontSize: 11,
                           fontWeight: 500,
-                          padding: "1px 7px",
+                          padding: '1px 7px',
                           borderRadius: 20,
-                          letterSpacing: "0.2px",
-                          background: "#f5f5f5",
-                          color: "#595959",
-                          border: "1px solid #d9d9d9",
+                          letterSpacing: '0.2px',
+                          background: '#f5f5f5',
+                          color: '#595959',
+                          border: '1px solid #d9d9d9',
                         }}
                       >
-                        {selectedRequest.userId?.role || "User"}
+                        {selectedRequest.userId?.role || 'User'}
                       </span>
                     </div>
                     <Text type="secondary" style={{ fontSize: 12 }}>
-                      Requested on{" "}
+                      Requested on{' '}
                       {dayjs(selectedRequest.createdAt).format(
-                        "MMM DD, YYYY • hh:mm A",
+                        'MMM DD, YYYY • hh:mm A',
                       )}
                     </Text>
                   </div>
 
                   <div
                     style={{
-                      display: "flex",
-                      alignItems: "center",
+                      display: 'flex',
+                      alignItems: 'center',
                       gap: 6,
-                      padding: "5px 11px",
+                      padding: '5px 11px',
                       borderRadius: 20,
                       flexShrink: 0,
-                      background: "#fff",
-                      border: `1px solid ${statusColors[status] || "#e5e5e5"}`,
+                      background: '#fff',
+                      border: `1px solid ${statusColors[status] || '#e5e5e5'}`,
                     }}
                   >
                     <span
                       style={{
                         width: 7,
                         height: 7,
-                        borderRadius: "50%",
-                        background: statusColors[status] || "#9ca3af",
+                        borderRadius: '50%',
+                        background: statusColors[status] || '#9ca3af',
                       }}
                     />
                     <Text
                       style={{
                         fontSize: 12,
                         fontWeight: 600,
-                        color: statusColors[status] || "#6b7280",
+                        color: statusColors[status] || '#6b7280',
                       }}
                     >
                       {status}
@@ -505,247 +539,196 @@ const QRRequests = () => {
                   </div>
                 </div>
 
-                {/* ── COMPARISON SECTION (The "Change" Detail) ── */}
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr 1fr",
-                    background: "#fafafa",
-                    borderBottom: "1px solid #f0f0f0",
-                  }}
-                >
-                  <div
-                    style={{
-                      padding: "16px 20px",
-                      borderRight: "1px solid #f0f0f0",
-                    }}
-                  >
+                {/* ── DETAILS ── */}
+                <div style={{ padding: '20px 24px' }}>
+                  {/* Request Type */}
+                  <div style={{ marginBottom: 16 }}>
                     <Text
                       type="secondary"
                       style={{
-                        fontSize: 10,
-                        letterSpacing: "0.5px",
-                        textTransform: "uppercase",
-                        display: "block",
-                        marginBottom: 8,
+                        fontSize: 11,
+                        letterSpacing: '0.5px',
+                        textTransform: 'uppercase' as any,
+                        display: 'block',
+                        marginBottom: 6,
                       }}
                     >
-                      Current State
+                      Request Type
                     </Text>
-                    {isPhotoReq ? (
-                      <Avatar
-                        shape="square"
-                        size={64}
-                        src={selectedRequest.userId?.photoURL}
-                        style={{ borderRadius: 8, border: "1px solid #d9d9d9" }}
+                    <Tag
+                      color={isPhotoReq ? 'magenta' : 'geekblue'}
+                      style={{ margin: 0 }}
+                    >
+                      {isPhotoReq ? 'Profile Photo Change' : 'QR Code Change'}
+                    </Tag>
+                  </div>
+
+                  {/* Reason */}
+                  {selectedRequest.reason && (
+                    <div style={{ marginBottom: 16 }}>
+                      <Text
+                        type="secondary"
+                        style={{
+                          fontSize: 11,
+                          letterSpacing: '0.5px',
+                          textTransform: 'uppercase' as any,
+                          display: 'block',
+                          marginBottom: 6,
+                        }}
+                      >
+                        Reason
+                      </Text>
+                      <Text style={{ fontSize: 14 }}>
+                        {selectedRequest.reason}
+                      </Text>
+                    </div>
+                  )}
+
+                  {/* QR Code Details */}
+                  {!isPhotoReq && (
+                    <div
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: '1fr 1fr',
+                        gap: 16,
+                        marginBottom: 16,
+                      }}
+                    >
+                      <div>
+                        <Text
+                          type="secondary"
+                          style={{
+                            fontSize: 11,
+                            letterSpacing: '0.5px',
+                            textTransform: 'uppercase' as any,
+                            display: 'block',
+                            marginBottom: 6,
+                          }}
+                        >
+                          Old QR Code
+                        </Text>
+                        <Text code style={{ fontSize: 13 }}>
+                          {selectedRequest.oldQR || '—'}
+                        </Text>
+                      </div>
+                      <div>
+                        <Text
+                          type="secondary"
+                          style={{
+                            fontSize: 11,
+                            letterSpacing: '0.5px',
+                            textTransform: 'uppercase' as any,
+                            display: 'block',
+                            marginBottom: 6,
+                          }}
+                        >
+                          New QR Code
+                        </Text>
+                        <Text code style={{ fontSize: 13 }}>
+                          {selectedRequest.newQRString ||
+                            selectedRequest.newQR ||
+                            '—'}
+                        </Text>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Uploaded Image */}
+                  {(selectedRequest.newQRImage ||
+                    selectedRequest.newPhotoImage) && (
+                    <div>
+                      <Text
+                        type="secondary"
+                        style={{
+                          fontSize: 11,
+                          letterSpacing: '0.5px',
+                          textTransform: 'uppercase' as any,
+                          display: 'block',
+                          marginBottom: 6,
+                        }}
+                      >
+                        {isPhotoReq ? 'New Photo' : 'New QR Image'}
+                      </Text>
+                      <Image
+                        src={toAssetUrl(
+                          isPhotoReq
+                            ? selectedRequest.newPhotoImage
+                            : selectedRequest.newQRImage,
+                        )}
+                        style={{
+                          maxWidth: '100%',
+                          borderRadius: 8,
+                          border: '1px solid #e5e5e5',
+                        }}
                       />
-                    ) : (
-                      <Text strong style={{ fontSize: 16, color: "#595959" }}>
-                        {selectedRequest.userId?.qrString || "No QR Set"}
-                      </Text>
-                    )}
-                  </div>
-                  <div style={{ padding: "16px 20px" }}>
-                    <Text
-                      type="secondary"
-                      style={{
-                        fontSize: 10,
-                        letterSpacing: "0.5px",
-                        textTransform: "uppercase",
-                        display: "block",
-                        marginBottom: 8,
-                      }}
-                    >
-                      Requested Change
-                    </Text>
-                    {isPhotoReq ? (
-                      <a
-                        href={toAssetUrl(selectedRequest.newPhotoImage)}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        <div
-                          style={{
-                            position: "relative",
-                            width: 64,
-                            height: 64,
-                          }}
-                        >
-                          <Avatar
-                            shape="square"
-                            size={64}
-                            src={toAssetUrl(selectedRequest.newPhotoImage)}
-                            style={{
-                              borderRadius: 8,
-                              border: "2px solid #ff4d4f",
-                            }}
-                          />
-                          <div
-                            style={{
-                              position: "absolute",
-                              top: -5,
-                              right: -5,
-                              background: "#ff4d4f",
-                              borderRadius: "50%",
-                              width: 18,
-                              height: 18,
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                            }}
-                          >
-                            <CheckCircleOutlined
-                              style={{ color: "#fff", fontSize: 10 }}
-                            />
-                          </div>
-                        </div>
-                      </a>
-                    ) : (
-                      <Text strong style={{ fontSize: 16, color: "#ff4d4f" }}>
-                        {selectedRequest.newQRString ||
-                          selectedRequest.newQR ||
-                          "N/A"}
-                      </Text>
-                    )}
-                  </div>
-                </div>
-
-                {/* ── METADATA & REASON ── */}
-                <div style={{ padding: "20px 24px" }}>
-                  <div
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: 12,
-                    }}
-                  >
-                    {/* Request Type Item */}
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 12,
-                        padding: "12px",
-                        background: "#fff",
-                        border: "1px solid #f0f0f0",
-                        borderRadius: 8,
-                      }}
-                    >
-                      <div
-                        style={{
-                          width: 32,
-                          height: 32,
-                          borderRadius: "50%",
-                          background: "#e6f7ff",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                        }}
-                      >
-                        <EnvironmentOutlined style={{ color: "#1890ff" }} />
-                      </div>
-                      <div>
-                        <Text
-                          type="secondary"
-                          style={{ fontSize: 11, display: "block" }}
-                        >
-                          Request Type
-                        </Text>
-                        <Text strong>
-                          {isPhotoReq
-                            ? "Profile Photo Update"
-                            : "QR Code Identification"}
-                        </Text>
-                      </div>
                     </div>
-
-                    {/* Reason Item */}
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "flex-start",
-                        gap: 12,
-                        padding: "12px",
-                        background: "#fff7e6",
-                        border: "1px solid #ffd591",
-                        borderRadius: 8,
-                      }}
-                    >
-                      <div
-                        style={{
-                          width: 32,
-                          height: 32,
-                          borderRadius: "50%",
-                          background: "#fff",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          flexShrink: 0,
-                        }}
-                      >
-                        <ClockCircleOutlined style={{ color: "#faad14" }} />
-                      </div>
-                      <div>
-                        <Text
-                          type="secondary"
-                          style={{ fontSize: 11, display: "block" }}
-                        >
-                          Reason for Request
-                        </Text>
-                        <Text style={{ color: "#874d00" }}>
-                          {selectedRequest.reason || "No reason provided."}
-                        </Text>
-                      </div>
-                    </div>
-
-                    {/* Evidence Image Link (If QR update has an image attached) */}
-                    {!isPhotoReq && selectedRequest.newQRImage && (
-                      <div style={{ textAlign: "center", marginTop: 8 }}>
-                        <a
-                          href={toAssetUrl(selectedRequest.newQRImage)}
-                          target="_blank"
-                          rel="noreferrer"
-                          style={{
-                            fontSize: 13,
-                            fontWeight: 500,
-                            color: "#ff4d4f",
-                            textDecoration: "underline",
-                          }}
-                        >
-                          View Uploaded Proof Image
-                        </a>
-                      </div>
-                    )}
-                  </div>
+                  )}
                 </div>
 
                 {/* ── FOOTER ── */}
                 <div
                   style={{
-                    display: "flex",
-                    justifyContent: "flex-end",
-                    padding: "14px 24px",
-                    borderTop: "1px solid #f0f0f0",
-                    background: "#fafafa",
+                    display: 'flex',
+                    justifyContent: 'flex-end',
+                    gap: 8,
+                    padding: '14px 24px',
+                    borderTop: '1px solid #f0f0f0',
+                    background: '#fafafa',
                   }}
                 >
-                  <button
+                  {selectedRequest.status === 'Pending' && (
+                    <>
+                      <Popconfirm
+                        title="Reject this request?"
+                        onConfirm={() => {
+                          onReject(selectedRequest._id);
+                          setSelectedRequest(null);
+                        }}
+                      >
+                        <Button
+                          danger
+                          loading={actionLoading === selectedRequest._id}
+                          style={{ borderRadius: 8, height: 36 }}
+                        >
+                          Reject
+                        </Button>
+                      </Popconfirm>
+                      <Popconfirm
+                        title="Approve this request?"
+                        onConfirm={() => {
+                          onApprove(selectedRequest._id);
+                          setSelectedRequest(null);
+                        }}
+                      >
+                        <Button
+                          type="primary"
+                          loading={actionLoading === selectedRequest._id}
+                          style={{
+                            background:
+                              'linear-gradient(135deg, #52c41a, #73d13d)',
+                            border: 'none',
+                            borderRadius: 8,
+                            height: 36,
+                          }}
+                        >
+                          Approve
+                        </Button>
+                      </Popconfirm>
+                    </>
+                  )}
+                  <Button
                     onClick={() => setSelectedRequest(null)}
                     style={{
-                      background: "linear-gradient(135deg, #ff4d4f, #ff7875)",
-                      border: "none",
+                      background: 'linear-gradient(135deg, #ff4d4f, #ff7875)',
+                      border: 'none',
                       borderRadius: 8,
                       height: 36,
-                      padding: "0 22px",
-                      fontWeight: 500,
-                      fontSize: 13,
-                      color: "#fff",
-                      cursor: "pointer",
-                      boxShadow: "0 2px 6px rgba(255,77,79,0.3)",
+                      color: '#fff',
+                      boxShadow: '0 2px 6px rgba(255,77,79,0.3)',
                     }}
                   >
                     Close
-                  </button>
+                  </Button>
                 </div>
               </div>
             );
