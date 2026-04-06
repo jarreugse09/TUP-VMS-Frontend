@@ -12,6 +12,7 @@ import {
   Space,
   Badge,
   Input,
+  Grid,
 } from "antd";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Html5Qrcode } from "html5-qrcode";
@@ -30,6 +31,8 @@ const { Title, Text } = Typography;
 const qrcodeRegionId = "html5qr-code-full-region";
 
 const AdminDashboard = () => {
+  const { useBreakpoint } = Grid;
+  const screens = useBreakpoint();
   const [mode, setMode] = useState<"checkin" | "checkout">("checkin");
   const [scanResult, setScanResult] = useState<any>(null);
   const [cooldown, setCooldown] = useState(0);
@@ -46,7 +49,8 @@ const AdminDashboard = () => {
   const [resultMessage, setResultMessage] = useState<string | null>(null);
 
   // Detect mobile
-  const isMobile = window.innerWidth < 768;
+  const isMobile = !screens.md;
+  const isTablet = Boolean(screens.md && !screens.xl);
 
   useEffect(() => {
     if (cooldown <= 0) {
@@ -317,12 +321,12 @@ const AdminDashboard = () => {
 
                 <div
                   style={{
-                    position: "absolute",
+                  position: "absolute",
                     top: "50%",
                     left: "50%",
                     transform: "translate(-50%, -50%)",
-                    width: "250px",
-                    height: "250px",
+                    width: isMobile ? "180px" : isTablet ? "220px" : "250px",
+                    height: isMobile ? "180px" : isTablet ? "220px" : "250px",
                     border: "2px solid #1677ff",
                     borderRadius: "12px",
                     pointerEvents: "none",
@@ -575,7 +579,7 @@ const AdminDashboard = () => {
                   <Divider dashed style={{ margin: "24px 0" }} />
 
                   <Row gutter={16}>
-                    <Col span={12}>
+                    <Col xs={24} sm={12}>
                       <Text
                         type="secondary"
                         style={{ display: "block", marginBottom: 4 }}
@@ -586,7 +590,7 @@ const AdminDashboard = () => {
                         {mode === "checkin" ? "CHECKED IN" : "CHECKED OUT"}
                       </Text>
                     </Col>
-                    <Col span={12}>
+                    <Col xs={24} sm={12}>
                       <Text
                         type="secondary"
                         style={{ display: "block", marginBottom: 4 }}

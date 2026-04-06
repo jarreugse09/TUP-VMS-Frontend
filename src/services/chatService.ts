@@ -5,8 +5,11 @@ export const getMessages = async () => {
     return response.data.data;
 };
 
-export const sendMessage = async (message: string) => {
-    const response = await api.post("/chat/send", { message });
+export const sendMessage = async (message: string, recipientId?: string | null) => {
+    const response = await api.post("/chat/send", {
+        message,
+        recipientId: recipientId || null,
+    });
     return response.data.data;
 };
 

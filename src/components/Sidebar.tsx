@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Layout, Menu, Divider } from 'antd';
+import { Menu, Divider, Badge, Grid } from 'antd';
 import {
   DashboardOutlined,
   HistoryOutlined,
@@ -16,31 +16,26 @@ import {
 } from '@ant-design/icons';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-
-const { Sider } = Layout;
+import { useAlerts } from '../hooks/useAlerts';
+import { useChat } from '../hooks/useChat';
 
 const Sidebar = () => {
   const { user, logout } = useAuth();
+  const { useBreakpoint } = Grid;
+  const screens = useBreakpoint();
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
-
-  useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
+  const isCompactNav = !screens.xl;
+  const isMobile = !screens.md;
+  const burgerLabel = isMobile ? 'Toggle menu' : 'Toggle navigation';
 
   // Close mobile sidebar when route changes
   useEffect(() => {
-    if (isMobile) {
+    if (isCompactNav) {
       setMobileOpen(false);
     }
-  }, [location.pathname, isMobile]);
+  }, [location.pathname, isCompactNav]);
 
   const handleLogout = () => {
     logout();
@@ -92,8 +87,27 @@ const Sidebar = () => {
     return '1';
   };
 
-  const role = user?.role;
+  const role =
+    user?.role === 'Staff' && user?.staffType === 'Security'
+      ? 'Security'
+      : user?.role;
+  const isNotificationAudience = role === 'TUP' || role === 'Security';
+  const { unreadCount: alertUnreadCount } = useAlerts({
+    enabled: isNotificationAudience,
+    playCue: isNotificationAudience,
+  });
+  const { unreadCount: chatUnreadCount } = useChat();
   const roleItems: any[] = [];
+  const alertIcon = (
+    <Badge count={alertUnreadCount} size="small" offset={[4, -2]}>
+      <BellOutlined />
+    </Badge>
+  );
+  const chatIcon = (
+    <Badge count={isNotificationAudience ? chatUnreadCount : 0} size="small" offset={[4, -2]}>
+      <MessageOutlined />
+    </Badge>
+  );
 
   /* ================= ROLE-BASED MENU ================= */
 
@@ -132,12 +146,12 @@ const Sidebar = () => {
       },
       {
         key: '8',
-        icon: <BellOutlined />,
+        icon: alertIcon,
         label: <Link to="/alerts">Alerts</Link>,
       },
       {
         key: '9',
-        icon: <MessageOutlined />,
+        icon: chatIcon,
         label: <Link to="/chat">Chat</Link>,
       },
     );
@@ -178,12 +192,12 @@ const Sidebar = () => {
       },
       {
         key: '8',
-        icon: <BellOutlined />,
+        icon: alertIcon,
         label: <Link to="/alerts">Alerts</Link>,
       },
       {
         key: '9',
-        icon: <MessageOutlined />,
+        icon: chatIcon,
         label: <Link to="/chat">Chat</Link>,
       },
     );
@@ -231,11 +245,11 @@ const Sidebar = () => {
   return (
     <>
       {/* Mobile Burger Menu Button */}
-      {isMobile && !mobileOpen && (
+      {isCompactNav && !mobileOpen && (
         <button
           onClick={toggleMobileSidebar}
           className="sidebar-burger-btn"
-          aria-label="Toggle menu"
+          aria-label={burgerLabel}
         >
           <MenuOutlined />
         </button>
@@ -243,22 +257,25 @@ const Sidebar = () => {
 
       {/* Mobile Overlay */}
       <div
-        className={`sidebar-overlay ${isMobile && mobileOpen ? 'visible' : ''}`}
+        className={`sidebar-overlay ${isCompactNav && mobileOpen ? 'visible' : ''}`}
         onClick={closeMobileSidebar}
       />
 
       {/* Sidebar */}
       <div
-        className={`sidebar-container ${isMobile && !mobileOpen ? 'hidden' : 'visible'}`}
+        className={`sidebar-container ${isCompactNav ? 'is-compact' : 'is-desktop'} ${isCompactNav && !mobileOpen ? 'hidden' : 'visible'}`}
       >
         {/* LOGO with integrated close button */}
         <div className="sidebar-logo">
-          <span>TUP VMS</span>
-          {isMobile && (
+          <div className="sidebar-logo-copy">
+            <span>TUP VMS</span>
+            <small>Campus monitoring platform</small>
+          </div>
+          {isCompactNav && (
             <button
               onClick={closeMobileSidebar}
               className="sidebar-close-btn"
-              aria-label="Close menu"
+              aria-label="Close navigation"
             >
               <CloseOutlined />
             </button>
@@ -271,7 +288,7 @@ const Sidebar = () => {
             mode="inline"
             selectedKeys={[getSelectedKey()]}
             items={menuItems}
-            onClick={isMobile ? closeMobileSidebar : undefined}
+            onClick={isCompactNav ? closeMobileSidebar : undefined}
             style={{
               background: 'transparent',
               borderRight: 'none',

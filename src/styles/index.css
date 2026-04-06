@@ -2,6 +2,43 @@
 body {
   margin: 0;
   padding: 0;
+  background: #f0f2f5;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+.app-shell-layout {
+  min-width: 0;
+}
+
+.app-shell-content {
+  min-width: 0;
+}
+
+.app-shell-inner {
+  width: 100%;
+  max-width: 1440px;
+  margin: 0 auto;
+}
+
+.app-shell-inner .ant-card,
+.app-shell-inner .ant-table-wrapper,
+.app-shell-inner .ant-space {
+  min-width: 0;
+}
+
+.app-shell-inner .ant-row {
+  min-width: 0;
+}
+
+.app-shell-inner .ant-col {
+  min-width: 0;
 }
 
 /* Video must fully cover container */
@@ -127,18 +164,40 @@ body {
 
 /* Sidebar Logo */
 .sidebar-logo {
-  height: 64px;
+  min-height: 72px;
   margin: 16px;
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.15);
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
   font-weight: 800;
   font-size: 18px;
   color: #fff;
   letter-spacing: 1px;
   position: relative;
+}
+
+.sidebar-logo-copy {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.sidebar-logo-copy span {
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+.sidebar-logo-copy small {
+  margin-top: 4px;
+  font-size: 11px;
+  line-height: 1.4;
+  letter-spacing: 0.2px;
+  color: rgba(255, 255, 255, 0.8);
 }
 
 /* Close button inside logo */
@@ -171,6 +230,7 @@ body {
   padding: 0 8px;
   overflow-y: auto;
 }
+
 
 /* Sidebar Logout Container */
 .sidebar-logout-container {
@@ -207,6 +267,27 @@ body {
   color: #8c0d22 !important;
 }
 
+.ant-table-wrapper {
+  width: 100%;
+}
+
+.ant-table-content {
+  overflow-x: auto;
+}
+
+.ant-modal {
+  max-width: calc(100vw - 24px);
+}
+
+.ant-modal .ant-modal-content {
+  overflow: hidden;
+}
+
+.ant-image,
+.ant-image img {
+  max-width: 100%;
+}
+
 /* ================= RESPONSIVE STYLES ================= */
 
 /* Hide burger menu when Ant Design modal is open */
@@ -226,16 +307,64 @@ body .ant-modal-open .sidebar-burger-btn {
   }
 
   .sidebar-container {
+    width: min(82vw, 320px);
     transform: translateX(-100%);
   }
 
   .sidebar-container.visible {
     transform: translateX(0);
   }
+
+  .sidebar-logo {
+    margin: 14px;
+    padding: 14px;
+  }
+
+  .sidebar-logo-copy span {
+    font-size: 16px;
+  }
+
+  .sidebar-logo-copy small {
+    font-size: 10px;
+  }
+
+  .app-shell-inner {
+    max-width: 100%;
+  }
+
+  .app-shell-content .ant-card {
+    border-radius: 14px;
+  }
 }
 
-/* Desktop Styles (screens >= 768px) */
-@media (min-width: 768px) {
+/* Tablet Styles */
+@media (min-width: 768px) and (max-width: 1199px) {
+  .sidebar-burger-btn {
+    display: flex;
+    top: 20px;
+    left: 20px;
+  }
+
+  .sidebar-overlay.visible {
+    display: block;
+  }
+
+  .sidebar-container {
+    width: 280px;
+    transform: translateX(-100%);
+  }
+
+  .sidebar-container.visible {
+    transform: translateX(0);
+  }
+
+  .app-shell-inner {
+    max-width: 100%;
+  }
+}
+
+/* Desktop Styles */
+@media (min-width: 1200px) {
   .sidebar-burger-btn {
     display: none;
   }

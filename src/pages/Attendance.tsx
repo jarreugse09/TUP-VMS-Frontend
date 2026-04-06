@@ -22,7 +22,6 @@ import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
 import LogDetailsModal from '../components/LogDetailsModal';
 
-const isEqual = (a: any, b: any) => JSON.stringify(a) === JSON.stringify(b);
 const { Title, Text } = Typography;
 const { Option } = Select;
 
@@ -82,6 +81,7 @@ const Logs = () => {
   const { useBreakpoint } = Grid;
   const screens = useBreakpoint();
   const isMobile = !screens.md;
+  const isTablet = Boolean(screens.md && !screens.xl);
   const pollingIntervalMs = 12000;
   const fetchingRef = useRef(false);
   const [logs, setLogs] = useState<LogItem[]>([]);
@@ -303,7 +303,7 @@ const Logs = () => {
           <Select
             placeholder="Role"
             allowClear
-            style={{ width: isMobile ? '100%' : 120 }}
+            style={{ width: isMobile ? '100%' : isTablet ? 160 : 120 }}
             onChange={value => setFilters({ ...filters, role: value })}
             value={filters.role}
             size={isMobile ? 'middle' : 'middle'}
@@ -314,7 +314,7 @@ const Logs = () => {
           </Select>
 
           <DatePicker.RangePicker
-            style={{ width: isMobile ? '100%' : undefined }}
+            style={{ width: isMobile ? '100%' : isTablet ? 260 : undefined }}
             onChange={dates => setFilters({ ...filters, dateRange: dates })}
             value={filters.dateRange}
             size={isMobile ? 'middle' : 'middle'}
@@ -327,7 +327,7 @@ const Logs = () => {
           rowKey="_id"
           loading={loading && isInitialLoad}
           pagination={{ pageSize: 10, showSizeChanger: true }}
-          scroll={{ x: 800 }}
+          scroll={{ x: isMobile ? 800 : 960 }}
           onRow={record => ({
             onClick: event => {
               const target = event.target as HTMLElement;

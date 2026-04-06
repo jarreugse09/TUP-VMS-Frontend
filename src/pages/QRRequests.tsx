@@ -17,12 +17,8 @@ import {
 } from 'antd';
 import {
   ReloadOutlined,
-  FilterOutlined,
   SearchOutlined,
   UserOutlined,
-  CheckCircleOutlined,
-  EnvironmentOutlined,
-  ClockCircleOutlined,
 } from '@ant-design/icons';
 import {
   getQRRequests,
@@ -72,6 +68,7 @@ const QRRequests = () => {
   const { useBreakpoint } = Grid;
   const screens = useBreakpoint();
   const isMobile = !screens.md;
+  const isTablet = Boolean(screens.md && !screens.xl);
   const [data, setData] = useState<QRRequestItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -351,7 +348,7 @@ const QRRequests = () => {
         <Select
           placeholder="Role"
           allowClear
-          style={{ width: isMobile ? 'calc(50% - 4px)' : 120 }}
+          style={{ width: isMobile ? 'calc(50% - 4px)' : isTablet ? 160 : 120 }}
           onChange={value => setFilters({ ...filters, role: value })}
           value={filters.role}
           size={isMobile ? 'middle' : 'middle'}
@@ -364,7 +361,7 @@ const QRRequests = () => {
         <Select
           placeholder="Status"
           allowClear
-          style={{ width: isMobile ? 'calc(50% - 4px)' : 120 }}
+          style={{ width: isMobile ? 'calc(50% - 4px)' : isTablet ? 160 : 120 }}
           onChange={value => setFilters({ ...filters, status: value })}
           value={filters.status}
           size={isMobile ? 'middle' : 'middle'}
@@ -382,7 +379,7 @@ const QRRequests = () => {
         loading={loading}
         pagination={{ pageSize: 10, showSizeChanger: true }}
         bordered
-        scroll={{ x: 900 }}
+        scroll={{ x: isMobile ? 900 : 1040 }}
         onRow={record => ({
           onClick: event => {
             const target = event.target as HTMLElement;
@@ -400,8 +397,8 @@ const QRRequests = () => {
         onCancel={() => setSelectedRequest(null)}
         footer={null}
         centered
-        width="90%"
-        style={{ maxWidth: 580 }}
+        width={isMobile ? '96%' : isTablet ? 680 : '90%'}
+        style={{ maxWidth: isTablet ? 680 : 580 }}
         styles={{
           content: { padding: 0, overflow: 'hidden', borderRadius: 16 },
           mask: { backdropFilter: 'blur(2px)' },
@@ -444,10 +441,11 @@ const QRRequests = () => {
                 <div
                   style={{
                     display: 'flex',
-                    alignItems: 'center',
+                    alignItems: isMobile ? 'flex-start' : 'center',
                     gap: 16,
-                    padding: '24px 24px 20px',
+                    padding: isMobile ? '18px 18px 16px' : '24px 24px 20px',
                     borderBottom: '1px solid #f0f0f0',
+                    flexWrap: isMobile ? 'wrap' : 'nowrap',
                   }}
                 >
                   <div style={{ position: 'relative', flexShrink: 0 }}>
@@ -540,7 +538,7 @@ const QRRequests = () => {
                 </div>
 
                 {/* ── DETAILS ── */}
-                <div style={{ padding: '20px 24px' }}>
+                <div style={{ padding: isMobile ? '16px 18px' : '20px 24px' }}>
                   {/* Request Type */}
                   <div style={{ marginBottom: 16 }}>
                     <Text

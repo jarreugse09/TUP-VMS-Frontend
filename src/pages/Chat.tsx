@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
 import {
-  Card,
   Input,
   Button,
   List,
@@ -12,6 +11,7 @@ import {
   Spin,
   Tag,
   Tooltip,
+  Segmented,
 } from 'antd';
 import {
   SendOutlined,
@@ -41,14 +41,26 @@ interface ChatUser {
 
 const Chat = () => {
   const { user } = useAuth();
-  const { messages, onlineUsers, loading, sendMessage } = useChat();
+  const { messages, onlineUsers, loading, unreadCount, sendMessage, markAsRead } =
+    useChat();
   const [newMessage, setNewMessage] = useState('');
   const [selectedUser, setSelectedUser] = useState<ChatUser | null>(null);
   const [chatUsers, setChatUsers] = useState<ChatUser[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [searchText, setSearchText] = useState('');
   const [isMobileView, setIsMobileView] = useState(window.innerWidth < 768);
+  const [activeChannel, setActiveChannel] = useState<'direct' | 'system'>(
+    'direct',
+  );
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const isSecurityUser =
+    user?.role === 'Security' ||
+    (user?.role === 'Staff' && user?.staffType === 'Security');
+
+  const systemMessages = messages.filter((msg: any) => msg.senderRole === 'System');
+  const humanMessages = messages.filter((msg: any) => msg.senderRole !== 'System');
+  const systemUnreadCount = systemMessages.filter((msg: any) => !msg.isRead).length;
+  const directUnreadCount = Math.max(0, unreadCount - systemUnreadCount);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -61,6 +73,38 @@ const Chat = () => {
   useEffect(() => {
     fetchChatUsers();
   }, []);
+
+  useEffect(() => {
+    if (!user?._id || activeChannel !== 'system') return;
+
+    const unreadSystemMessageIds = systemMessages
+      .filter((msg: any) => !msg.isRead)
+      .map((msg: any) => msg._id);
+
+    if (unreadSystemMessageIds.length) {
+      markAsRead(unreadSystemMessageIds);
+    }
+  }, [activeChannel, markAsRead, systemMessages, user?._id]);
+
+  useEffect(() => {
+    if (!selectedUser || !user?._id || activeChannel !== 'direct') return;
+
+    const unreadMessageIds = messages
+      .filter((msg: any) => {
+        if (msg.isRead) return false;
+        if (msg.senderId === user._id) return false;
+        if (msg.senderRole === 'System') return false;
+        return (
+          (msg.senderId === selectedUser._id && msg.recipientId === user._id) ||
+          (msg.senderId === selectedUser._id && !msg.recipientId)
+        );
+      })
+      .map((msg: any) => msg._id);
+
+    if (unreadMessageIds.length) {
+      markAsRead(unreadMessageIds);
+    }
+  }, [messages, markAsRead, selectedUser, user?._id]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -83,8 +127,8 @@ const Chat = () => {
   };
 
   const handleSend = () => {
-    if (!newMessage.trim()) return;
-    sendMessage(newMessage);
+    if (!newMessage.trim() || !selectedUser) return;
+    sendMessage(newMessage, selectedUser._id);
     setNewMessage('');
   };
 
@@ -99,16 +143,24 @@ const Chat = () => {
     if (role === 'TUP') {
       return <UserOutlined style={{ color: '#1890ff' }} />;
     }
+    if (role === 'System') {
+      return <MessageOutlined style={{ color: '#722ed1' }} />;
+    }
     return <SecurityScanOutlined style={{ color: '#52c41a' }} />;
   };
 
   const getRoleColor = (role: string) => {
-    return role === 'TUP' ? '#1890ff' : '#52c41a';
+    if (role === 'TUP') return '#1890ff';
+    if (role === 'System') return '#722ed1';
+    return '#52c41a';
   };
 
   const getRoleTag = (role: string) => {
     if (role === 'TUP') {
       return <Tag color="blue">Admin</Tag>;
+    }
+    if (role === 'System') {
+      return <Tag color="purple">System</Tag>;
     }
     return <Tag color="green">Security</Tag>;
   };
@@ -128,18 +180,21 @@ const Chat = () => {
     );
   });
 
-  const filteredMessages = selectedUser
+  const filteredMessages = activeChannel === 'system'
+    ? systemMessages
+    : selectedUser
     ? messages.filter(
         (msg: any) =>
           msg.senderId === selectedUser._id ||
-          msg.recipientId === selectedUser._id ||
-          !msg.recipientId,
+          msg.recipientId === selectedUser._id,
       )
-    : messages;
+    : humanMessages;
 
   const getLastMessage = (userId: string) => {
     const userMessages = messages.filter(
-      (msg: any) => msg.senderId === userId || msg.recipientId === userId,
+      (msg: any) =>
+        msg.senderRole !== 'System' &&
+        (msg.senderId === userId || msg.recipientId === userId),
     );
     if (userMessages.length === 0) return null;
     return userMessages[userMessages.length - 1];
@@ -148,13 +203,39 @@ const Chat = () => {
   const getUnreadCount = (userId: string) => {
     return messages.filter(
       (msg: any) =>
-        msg.senderId === userId && msg.recipientId === user?._id && !msg.isRead,
+        !msg.isRead &&
+        msg.senderRole !== 'System' &&
+        msg.senderId === userId &&
+        (msg.recipientId === user?._id || !msg.recipientId),
     ).length;
   };
 
+  const channelSelector = isSecurityUser ? (
+    <Segmented
+      value={activeChannel}
+      onChange={value => {
+        setActiveChannel(value as 'direct' | 'system');
+        if (value === 'system') {
+          setSelectedUser(null);
+        }
+      }}
+      options={[
+        {
+          label: `Messages${directUnreadCount ? ` (${directUnreadCount})` : ''}`,
+          value: 'direct',
+        },
+        {
+          label: `System Feed${systemUnreadCount ? ` (${systemUnreadCount})` : ''}`,
+          value: 'system',
+        },
+      ]}
+      block={isMobileView}
+    />
+  ) : null;
+
   // Mobile view: show either contact list or chat
   if (isMobileView) {
-    if (selectedUser) {
+    if (selectedUser && activeChannel === 'direct') {
       // Show chat view on mobile
       return (
         <div
@@ -364,6 +445,12 @@ const Chat = () => {
               <Title level={5} style={{ margin: 0 }}>
                 Messages
               </Title>
+              {unreadCount > 0 && (
+                <Badge
+                  count={unreadCount}
+                  style={{ backgroundColor: '#b1122b' }}
+                />
+              )}
             </Space>
             <Search
               placeholder="Search contacts..."
@@ -372,12 +459,53 @@ const Chat = () => {
               prefix={<SearchOutlined />}
               allowClear
             />
+            {channelSelector}
           </Space>
         </div>
 
         {/* Contact List */}
         <div style={{ flex: 1, overflow: 'auto' }}>
-          {loadingUsers ? (
+          {activeChannel === 'system' ? (
+            loading ? (
+              <div style={{ textAlign: 'center', padding: 24 }}>
+                <Spin />
+              </div>
+            ) : systemMessages.length === 0 ? (
+              <Empty
+                description="No system alerts yet"
+                image={Empty.PRESENTED_IMAGE_SIMPLE}
+                style={{ padding: 24 }}
+              />
+            ) : (
+              <List
+                dataSource={systemMessages}
+                renderItem={(msg: any) => (
+                  <List.Item style={{ padding: '12px 16px' }}>
+                    <List.Item.Meta
+                      avatar={
+                        <Avatar
+                          size={44}
+                          icon={getRoleIcon('System')}
+                          style={{ backgroundColor: getRoleColor('System') }}
+                        />
+                      }
+                      title={
+                        <Space>
+                          <Text strong>{msg.senderName}</Text>
+                          {!msg.isRead && <Badge status="processing" />}
+                        </Space>
+                      }
+                      description={
+                        <Text type="secondary" style={{ whiteSpace: 'pre-line' }}>
+                          {msg.message}
+                        </Text>
+                      }
+                    />
+                  </List.Item>
+                )}
+              />
+            )
+          ) : loadingUsers ? (
             <div style={{ textAlign: 'center', padding: 24 }}>
               <Spin />
             </div>
@@ -555,7 +683,20 @@ const Chat = () => {
               <Title level={5} style={{ margin: 0 }}>
                 Messages
               </Title>
+              {directUnreadCount > 0 && activeChannel === 'direct' && (
+                <Badge
+                  count={directUnreadCount}
+                  style={{ backgroundColor: '#b1122b' }}
+                />
+              )}
+              {systemUnreadCount > 0 && activeChannel === 'system' && (
+                <Badge
+                  count={systemUnreadCount}
+                  style={{ backgroundColor: '#722ed1' }}
+                />
+              )}
             </Space>
+            {channelSelector}
             <Search
               placeholder="Search contacts..."
               value={searchText}
@@ -568,7 +709,26 @@ const Chat = () => {
 
         {/* Contact List */}
         <div style={{ flex: 1, overflow: 'auto' }}>
-          {loadingUsers ? (
+          {activeChannel === 'system' ? (
+            <div style={{ padding: 18 }}>
+              <div
+                style={{
+                  padding: 16,
+                  borderRadius: 14,
+                  background: 'linear-gradient(135deg, #f5f3ff 0%, #eef2ff 100%)',
+                  border: '1px solid #ddd6fe',
+                }}
+              >
+                <Text strong style={{ display: 'block', marginBottom: 6 }}>
+                  Hawkeye Incident Feed
+                </Text>
+                <Text type="secondary">
+                  System-generated weapon and suspicious alerts appear here for
+                  security monitoring. This channel is read-only.
+                </Text>
+              </div>
+            </div>
+          ) : loadingUsers ? (
             <div style={{ textAlign: 'center', padding: 24 }}>
               <Spin />
             </div>
@@ -726,7 +886,23 @@ const Chat = () => {
             flexShrink: 0,
           }}
         >
-          {selectedUser ? (
+          {activeChannel === 'system' ? (
+            <Space>
+              <Avatar
+                size={40}
+                icon={getRoleIcon('System')}
+                style={{ backgroundColor: getRoleColor('System') }}
+              />
+              <div>
+                <Text strong style={{ fontSize: 15, display: 'block' }}>
+                  System Feed
+                </Text>
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  Hawkeye incident alerts for security monitoring
+                </Text>
+              </div>
+            </Space>
+          ) : selectedUser ? (
             <Space>
               <Avatar
                 size={40}
@@ -770,7 +946,9 @@ const Chat = () => {
           ) : filteredMessages.length === 0 ? (
             <Empty
               description={
-                selectedUser
+                activeChannel === 'system'
+                  ? 'No system alerts yet'
+                  : selectedUser
                   ? `No messages with ${selectedUser.firstName} yet`
                   : 'No messages yet'
               }
@@ -861,40 +1039,56 @@ const Chat = () => {
         </div>
 
         {/* Input */}
-        <div
-          style={{
-            padding: '16px 20px',
-            borderTop: '1px solid #f0f0f0',
-            background: '#fff',
-            flexShrink: 0,
-          }}
-        >
-          <Space.Compact style={{ width: '100%' }}>
-            <Input
-              value={newMessage}
-              onChange={e => setNewMessage(e.target.value)}
-              onKeyPress={handleKeyPress}
-              placeholder={
-                selectedUser
-                  ? `Message ${selectedUser.firstName}...`
-                  : 'Type a message...'
-              }
-              style={{ flex: 1, borderRadius: '20px 0 0 20px' }}
-              size="large"
-              disabled={!selectedUser}
-            />
-            <Button
-              type="primary"
-              icon={<SendOutlined />}
-              onClick={handleSend}
-              disabled={!newMessage.trim() || !selectedUser}
-              size="large"
-              style={{ borderRadius: '0 20px 20px 0' }}
-            >
-              Send
-            </Button>
-          </Space.Compact>
-        </div>
+        {activeChannel === 'system' ? (
+          <div
+            style={{
+              padding: '16px 20px',
+              borderTop: '1px solid #f0f0f0',
+              background: '#fafafa',
+              flexShrink: 0,
+            }}
+          >
+            <Text type="secondary">
+              This channel is reserved for Hawkeye incident alerts and is
+              read-only for security personnel.
+            </Text>
+          </div>
+        ) : (
+          <div
+            style={{
+              padding: '16px 20px',
+              borderTop: '1px solid #f0f0f0',
+              background: '#fff',
+              flexShrink: 0,
+            }}
+          >
+            <Space.Compact style={{ width: '100%' }}>
+              <Input
+                value={newMessage}
+                onChange={e => setNewMessage(e.target.value)}
+                onKeyPress={handleKeyPress}
+                placeholder={
+                  selectedUser
+                    ? `Message ${selectedUser.firstName}...`
+                    : 'Type a message...'
+                }
+                style={{ flex: 1, borderRadius: '20px 0 0 20px' }}
+                size="large"
+                disabled={!selectedUser}
+              />
+              <Button
+                type="primary"
+                icon={<SendOutlined />}
+                onClick={handleSend}
+                disabled={!newMessage.trim() || !selectedUser}
+                size="large"
+                style={{ borderRadius: '0 20px 20px 0' }}
+              >
+                Send
+              </Button>
+            </Space.Compact>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -20,6 +20,14 @@ export const markAllAlertsAsRead = async () => {
     return response.data;
 };
 
+export const updateAlertIncidentStatus = async (
+    alertId: string,
+    incidentStatus: "new" | "acknowledged" | "in_progress" | "resolved"
+) => {
+    const response = await api.patch(`/alerts/${alertId}/status`, { incidentStatus });
+    return response.data.data;
+};
+
 export const deleteAlert = async (alertId: string) => {
     const response = await api.delete(`/alerts/${alertId}`);
     return response.data;

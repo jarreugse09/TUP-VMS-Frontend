@@ -29,6 +29,7 @@ const Analytics = () => {
   const { useBreakpoint } = Grid;
   const screens = useBreakpoint();
   const isMobile = !screens.md;
+  const isTablet = Boolean(screens.md && !screens.xl);
 
   const [data, setData] = useState<AnalyticsResponse | null>(null);
   const [hourlyData, setHourlyData] = useState<HourlyAnalyticsResponse | null>(
@@ -265,7 +266,7 @@ const Analytics = () => {
 
                 {/* INSIDE / CHECKED OUT */}
                 <Row gutter={12}>
-                  <Col span={12}>
+                  <Col xs={24} sm={12}>
                     <Card
                       size="small"
                       variant="borderless"
@@ -285,7 +286,7 @@ const Analytics = () => {
                     </Card>
                   </Col>
 
-                  <Col span={12}>
+                  <Col xs={24} sm={12}>
                     <Card
                       size="small"
                       variant="borderless"
@@ -330,7 +331,7 @@ const Analytics = () => {
               placeholder="Filter roles"
               value={selectedRoles}
               onChange={vals => setSelectedRoles(vals as string[])}
-              style={{ minWidth: isMobile ? '100%' : 220 }}
+              style={{ minWidth: isMobile ? '100%' : isTablet ? 260 : 220 }}
               options={allRoles.map(role => ({
                 label: (
                   <Space>

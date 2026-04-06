@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState } from 'react';
 import { Badge, Dropdown, List, Typography, Button, Empty, Spin } from 'antd';
 import {
   BellOutlined,

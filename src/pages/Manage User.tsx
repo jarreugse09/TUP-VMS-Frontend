@@ -53,6 +53,7 @@ const ManageUsers = () => {
   const { useBreakpoint } = Grid;
   const screens = useBreakpoint();
   const isMobile = !screens.md;
+  const isTablet = Boolean(screens.md && !screens.xl);
 
   const [registerForm] = Form.useForm();
   const selectedRole = Form.useWatch('role', registerForm);
@@ -386,7 +387,7 @@ const ManageUsers = () => {
                   onClick={() => setShowRegisterForm(true)}
                   size={isMobile ? 'small' : 'middle'}
                 >
-                  {isMobile ? null : 'Register New Student/Staff'}
+                  {isMobile ? null : isTablet ? 'Register User' : 'Register New Student/Staff'}
                 </Button>
                 <Button
                   icon={<ReloadOutlined />}
@@ -431,7 +432,7 @@ const ManageUsers = () => {
             <Select
               placeholder="Role"
               allowClear
-              style={{ width: isMobile ? 'calc(50% - 4px)' : 120 }}
+              style={{ width: isMobile ? 'calc(50% - 4px)' : isTablet ? 160 : 120 }}
               onChange={value => setFilters({ ...filters, role: value })}
               value={filters.role}
               size={isMobile ? 'middle' : 'middle'}
@@ -443,7 +444,7 @@ const ManageUsers = () => {
             </Select>
 
             <RangePicker
-              style={{ width: isMobile ? '100%' : undefined }}
+              style={{ width: isMobile ? '100%' : isTablet ? 260 : undefined }}
               onChange={dates => setFilters({ ...filters, dateRange: dates })}
               value={filters.dateRange}
               size={isMobile ? 'middle' : 'middle'}
@@ -456,7 +457,7 @@ const ManageUsers = () => {
             rowKey="_id"
             loading={loading}
             pagination={{ pageSize: 10, showSizeChanger: true }}
-            scroll={{ x: 800 }}
+            scroll={{ x: isMobile ? 800 : 960 }}
             onRow={record => ({
               onClick: event => {
                 const target = event.target as HTMLElement;
@@ -477,7 +478,7 @@ const ManageUsers = () => {
             onCancel={() => setSelectedUser(null)}
             footer={null}
             centered
-            width={isMobile ? '95%' : 540}
+            width={isMobile ? '96%' : isTablet ? 620 : 540}
             styles={{
               content: {
                 padding: 0,

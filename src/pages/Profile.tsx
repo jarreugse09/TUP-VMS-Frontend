@@ -12,12 +12,12 @@ import {
   Skeleton,
   Row,
   Col,
-  Drawer,
   Modal,
   Form,
   Input,
   Upload,
   Radio,
+  Grid,
 } from "antd";
 import {
   ReloadOutlined,
@@ -42,10 +42,13 @@ const MAROON_LIGHT = "#fff5f5";
 const MAROON_MID = "#ffd6d6";
 
 const Profile = () => {
+  const { useBreakpoint } = Grid;
+  const screens = useBreakpoint();
+  const isMobile = !screens.md;
+  const isTablet = Boolean(screens.md && !screens.xl);
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [requesting, setRequesting] = useState(false);
-  const [drawerVisible, setDrawerVisible] = useState(false);
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [showPhotoRequestModal, setShowPhotoRequestModal] = useState(false);
   const [uploadingFile, setUploadingFile] = useState<File | null>(null);
@@ -218,9 +221,9 @@ const Profile = () => {
 
   if (loading) {
     return (
-      <div style={{ padding: 24 }}>
-        <Row gutter={24}>
-          <Col span={12}>
+      <div style={{ padding: isMobile ? 12 : isTablet ? 16 : 24 }}>
+        <Row gutter={[16, 16]}>
+          <Col xs={24} md={12}>
             <Card
               variant="borderless"
               style={{ borderRadius: 16, border: "1px solid #f0f0f0" }}
@@ -228,7 +231,7 @@ const Profile = () => {
               <Skeleton active avatar paragraph={{ rows: 4 }} />
             </Card>
           </Col>
-          <Col span={12}>
+          <Col xs={24} md={12}>
             <Card
               variant="borderless"
               style={{ borderRadius: 16, border: "1px solid #f0f0f0" }}
@@ -274,7 +277,7 @@ const Profile = () => {
           <div
             id="qr-download-container"
             style={{
-              padding: 24,
+              padding: isMobile ? 16 : 24,
               background: "#fff",
               borderRadius: 12,
               border: "1px solid #f0f0f0",
@@ -283,7 +286,7 @@ const Profile = () => {
           >
             <QRCode
               value={profile.qrCode.qrString}
-              size={220}
+              size={isMobile ? 180 : isTablet ? 200 : 220}
               color="#141414"
             />
           </div>
@@ -365,8 +368,14 @@ const Profile = () => {
 
   /* ─── MAIN RENDER ───────────────────────────────────────────────────────── */
   return (
-    <div style={{ maxWidth: 1100, margin: "0 auto", padding: 16 }}>
-      <Row gutter={24} align="stretch">
+    <div
+      style={{
+        maxWidth: 1100,
+        margin: "0 auto",
+        padding: isMobile ? 4 : isTablet ? 8 : 16,
+      }}
+    >
+      <Row gutter={[16, 16]} align="stretch">
         {/* ── LEFT: Identification ── */}
         <Col xs={24} md={12}>
           <Card
@@ -516,26 +525,32 @@ const Profile = () => {
               >
                 Request Profile Photo Update
               </Button>
+              {isMobile && (
+                <Button
+                  block
+                  size="middle"
+                  icon={<QrcodeOutlined />}
+                  onClick={handleRequestQRChange}
+                  style={{
+                    borderRadius: 8,
+                    borderColor: MAROON,
+                    color: MAROON,
+                    fontWeight: 600,
+                    fontSize: 13,
+                  }}
+                >
+                  Request QR Update
+                </Button>
+              )}
             </div>
           </Card>
         </Col>
 
         {/* ── RIGHT: QR Card (desktop) ── */}
-        <Col xs={0} md={12}>
+        <Col xs={24} md={12}>
           {renderQRCard()}
         </Col>
       </Row>
-
-      {/* ── QR Drawer (mobile) ── */}
-      <Drawer
-        title="Access Control"
-        placement="right"
-        onClose={() => setDrawerVisible(false)}
-        open={drawerVisible}
-        width="90%"
-      >
-        {renderQRCard()}
-      </Drawer>
 
       {/* ── REQUEST QR CHANGE MODAL ── */}
       <Modal
@@ -554,6 +569,7 @@ const Profile = () => {
         }}
         cancelButtonProps={{ style: { borderRadius: 6 } }}
         confirmLoading={requesting}
+        width={isMobile ? "96%" : 560}
         styles={{
           header: { borderBottom: "1px solid #f0f0f0", paddingBottom: 12 },
         }}
@@ -614,6 +630,7 @@ const Profile = () => {
         }}
         cancelButtonProps={{ style: { borderRadius: 6 } }}
         confirmLoading={photoRequesting}
+        width={isMobile ? "96%" : isTablet ? 620 : 680}
         styles={{
           header: { borderBottom: "1px solid #f0f0f0", paddingBottom: 12 },
         }}
@@ -687,7 +704,7 @@ const Profile = () => {
                   background: "#141414",
                   borderRadius: 10,
                   overflow: "hidden",
-                  minHeight: 240,
+                  minHeight: isMobile ? 200 : 240,
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
@@ -700,7 +717,7 @@ const Profile = () => {
                     alt="Captured preview"
                     style={{
                       width: "100%",
-                      maxHeight: 320,
+                      maxHeight: isMobile ? 260 : 320,
                       objectFit: "contain",
                     }}
                   />
@@ -712,7 +729,7 @@ const Profile = () => {
                     muted
                     style={{
                       width: "100%",
-                      maxHeight: 320,
+                      maxHeight: isMobile ? 260 : 320,
                       objectFit: "cover",
                     }}
                   />
@@ -725,6 +742,7 @@ const Profile = () => {
                   justifyContent: "flex-end",
                   gap: 8,
                   marginTop: 10,
+                  flexWrap: "wrap",
                 }}
               >
                 {capturedPhoto ? (
