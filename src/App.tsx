@@ -68,19 +68,24 @@ function AppContent() {
   );
 
   useEffect(() => {
-    if (mustCapturePhoto && !isCameraBlocked) {
-      setCaptureOpen(true);
-    } else {
-      setCaptureOpen(false);
-    }
-  }, [mustCapturePhoto, isCameraBlocked]);
+  const shouldBeOpen = mustCapturePhoto && !isCameraBlocked;
 
-  useEffect(() => {
-    if (!captureOpen && streamRef.current) {
+  if (!shouldBeOpen) {
+    // Actively kill the stream whenever we leave an allowed page
+    if (streamRef.current) {
       streamRef.current.getTracks().forEach((track) => track.stop());
       streamRef.current = null;
     }
-  }, [captureOpen]);
+    // Also clear the video element's source so browser releases the device
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+    setCapturedPhoto(null);
+    setCaptureOpen(false);
+  } else {
+    setCaptureOpen(true);
+  }
+}, [mustCapturePhoto, isCameraBlocked]);
 
   useEffect(() => {
     if (!captureOpen || capturedPhoto) return;
@@ -242,7 +247,7 @@ function AppContent() {
             footer={null}
             centered
             width={760}
-            destroyOnClose={false}
+            destroyOnClose={true}
           >
             <Text style={{ display: "block", marginBottom: 12 }}>
               This step is required for accounts created by admin. You cannot
