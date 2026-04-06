@@ -1,8 +1,15 @@
+import React, { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
 import {
   BrowserRouter as Router,
   Routes,
   Route,
   Navigate,
+  useLocation,
+} from "react-router-dom";
+import { Layout, Modal, Button, Typography, message, Spin } from "antd";
+import Sidebar from "./components/Sidebar";
+import { useAuth } from "./contexts/AuthContext";
+import { submitFirstPhotoCapture } from "./services/userService";
 } from 'react-router-dom';
 import { Layout, Modal, Button, Typography, message, Spin, Drawer } from 'antd';
 import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react';
@@ -31,20 +38,29 @@ const Chat = lazy(() => import('./pages/Chat'));
 const { Content } = Layout;
 const { Text } = Typography;
 
+const CAMERA_BLOCKED_PATHS = [
+  "/logs",
+  "/attendance",
+  "/qr-requests",
+  "/admin/analytics",
+  "/admin/manage-users",
+  "/staff/logs",
+  "/staff/attendance",
+  "/user/logs",
+  "/user/attendance",
+];
+
 const RouteFallback = () => (
-  <div
-    style={{
-      minHeight: '50vh',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-    }}
-  >
+  <div style={{ minHeight: "50vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
     <Spin size="large" />
   </div>
 );
 
+// ─── Inner component (needs useLocation, must be inside <Router>) ──────────────
+
 function App() {
+  const location = useLocation();
+  const [collapsed, setCollapsed] = useState(false);
   const { token, user, updateUser } = useAuth();
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [captureOpen, setCaptureOpen] = useState(false);
@@ -58,9 +74,29 @@ function App() {
     [user?.mustCapturePhoto],
   );
 
+  const isCameraBlocked = CAMERA_BLOCKED_PATHS.some((path) =>
+    location.pathname.startsWith(path),
+  );
+
   useEffect(() => {
-    setCaptureOpen(mustCapturePhoto);
-  }, [mustCapturePhoto]);
+  const shouldBeOpen = mustCapturePhoto && !isCameraBlocked;
+
+  if (!shouldBeOpen) {
+    // Actively kill the stream whenever we leave an allowed page
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    }
+    // Also clear the video element's source so browser releases the device
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+    setCapturedPhoto(null);
+    setCaptureOpen(false);
+  } else {
+    setCaptureOpen(true);
+  }
+}, [mustCapturePhoto, isCameraBlocked]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -77,7 +113,7 @@ function App() {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
           video: {
-            facingMode: 'user',
+            facingMode: "user",
             width: { ideal: 640 },
             height: { ideal: 480 },
           },
@@ -89,9 +125,7 @@ function App() {
           await videoRef.current.play();
         }
       } catch {
-        message.error(
-          'Camera permission is required. Please allow camera access.',
-        );
+        message.error("Camera permission is required. Please allow camera access.");
       }
     };
 
@@ -149,14 +183,10 @@ function App() {
       message.warning('Please capture your photo first.');
       return;
     }
-
     setSubmittingPhoto(true);
     try {
       const res = await submitFirstPhotoCapture(capturedPhoto);
-      updateUser({
-        mustCapturePhoto: false,
-        photoURL: res?.user?.photoURL,
-      });
+      updateUser({ mustCapturePhoto: false, photoURL: res?.user?.photoURL });
       setCaptureOpen(false);
       message.success('Profile photo saved.');
     } catch {
@@ -166,30 +196,12 @@ function App() {
     }
   };
 
-  if (!token) {
-    // Public routes
-    return (
-      <Router>
-        <Suspense fallback={<RouteFallback />}>
-          <Routes>
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
-            <Route path="*" element={<Navigate to="/login" replace />} />
-          </Routes>
-        </Suspense>
-      </Router>
-    );
-  }
-
-  // Define role-based dashboards and extra routes
-  const roleRoutes: Record<
-    string,
-    {
-      dashboardPath: string;
-      dashboardElement: JSX.Element;
-      extraRoutes?: JSX.Element[];
-    }
-  > = {
+  // Use React.ReactElement for dashboardElement and extraRoutes
+  const roleRoutes: Record<string, {
+    dashboardPath: string;
+    dashboardElement: React.ReactElement;
+    extraRoutes?: React.ReactElement[];
+  }> = {
     TUP: {
       dashboardPath: '/dashboard',
       dashboardElement: <AdminDashboard />,
@@ -215,7 +227,6 @@ function App() {
         <Route key="chat" path="/chat" element={<Chat />} />,
       ],
     },
-
     Staff: {
       dashboardPath: '/staff/dashboard',
       dashboardElement: <StaffDashboard />,
@@ -265,9 +276,9 @@ function App() {
     },
   };
 
-  const currentRole = user?.role || user?.staffType || 'Visitor';
-  const roleConfig = roleRoutes[currentRole] || roleRoutes['Visitor'];
-  const contentMargin = isMobile ? 0 : 220;
+  const currentRole = user?.role || user?.staffType || "Visitor";
+  const roleConfig = roleRoutes[currentRole] || roleRoutes["Visitor"];
+  const contentMargin = collapsed ? 80 : 200;
 
   return (
     <Router>
