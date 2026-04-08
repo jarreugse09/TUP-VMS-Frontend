@@ -6,6 +6,7 @@ import {
     getUnreadCount,
     markMessagesAsRead,
 } from "../services/chatService";
+import { getWebSocketUrl } from "../services/api";
 import { useAuth } from "../contexts/AuthContext";
 
 interface Message {
@@ -100,7 +101,7 @@ export const useChat = () => {
         const token = localStorage.getItem("token");
         if (!token) return;
 
-        const wsUrl = `ws://localhost:5000/ws?token=${token}`;
+        const wsUrl = getWebSocketUrl(token);
         const ws = new WebSocket(wsUrl);
         wsRef.current = ws;
 

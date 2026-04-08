@@ -6,6 +6,7 @@ import {
     markAllAlertsAsRead,
     updateAlertIncidentStatus,
 } from "../services/alertService";
+import { getWebSocketUrl } from "../services/api";
 import { useAuth } from "../contexts/AuthContext";
 
 interface Alert {
@@ -144,7 +145,7 @@ export const useAlerts = (options: boolean | UseAlertsOptions = true) => {
         const token = localStorage.getItem("token");
         if (!token) return;
 
-        const wsUrl = `ws://localhost:5000/ws?token=${token}`;
+        const wsUrl = getWebSocketUrl(token);
         const ws = new WebSocket(wsUrl);
         wsRef.current = ws;
 

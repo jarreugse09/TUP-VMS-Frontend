@@ -1,8 +1,6 @@
 import {
   Table,
   Card,
-  Input,
-  Select,
   Tag,
   Space,
   Typography,
@@ -10,7 +8,6 @@ import {
   message,
 } from 'antd';
 import {
-  SearchOutlined,
   ReloadOutlined,
   FilterOutlined,
   DownloadOutlined,
@@ -26,7 +23,6 @@ import LogDetailsModal from '../../components/LogDetailsModal';
 
 const isEqual = (a: any, b: any) => JSON.stringify(a) === JSON.stringify(b);
 const { Title, Text } = Typography;
-const { Option } = Select;
 
 /* ================= TYPES ================= */
 

@@ -19,39 +19,43 @@ const Container = styled.div`
     url("/images/tup-bg.png");
   background-size: cover;
   background-position: center;
-  padding: 24px;
+  padding: 16px;
   overflow: hidden;
+
+  @media (min-width: 768px) {
+    padding: 24px;
+  }
 `;
 
 const FormContainer = styled.div`
   width: 100%;
-  max-width: 450px;
+  max-width: 520px;
   background: rgba(255, 255, 255, 0.1);
   backdrop-filter: blur(10px);
   border-radius: 20px;
-  padding: 50px;
+  padding: clamp(24px, 4vw, 40px);
   border: 1px solid rgba(255, 255, 255, 0.2);
   box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
 
   @media (max-width: 500px) {
-    padding: 40px 30px;
+    padding: 22px 18px;
   }
 `;
 
 const Header = styled.div`
   text-align: center;
-  margin-bottom: 40px;
+  margin-bottom: 28px;
   color: white;
 
   .logo-text {
-    font-size: 42px;
+    font-size: clamp(32px, 6vw, 42px);
     font-weight: 800;
     margin-bottom: 8px;
     letter-spacing: -1px;
   }
 
   .subtitle {
-    font-size: 16px;
+    font-size: 15px;
     opacity: 0.8;
   }
 `;

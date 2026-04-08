@@ -4,6 +4,7 @@ import {
   getUnreadCount,
   markMessagesAsRead,
 } from '../services/chatService';
+import { getWebSocketUrl } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 
 interface ChatNotificationMessage {
@@ -79,7 +80,7 @@ export const useChatNotifications = (enabled: boolean = true) => {
     const token = localStorage.getItem('token');
     if (!token) return;
 
-    const ws = new WebSocket(`ws://localhost:5000/ws?token=${token}`);
+    const ws = new WebSocket(getWebSocketUrl(token));
     wsRef.current = ws;
 
     ws.onmessage = event => {

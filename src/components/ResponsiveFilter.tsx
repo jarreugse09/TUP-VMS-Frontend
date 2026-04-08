@@ -13,7 +13,6 @@ import {
 import {
   SearchOutlined,
   FilterOutlined,
-  CalendarOutlined,
   ClearOutlined,
 } from '@ant-design/icons';
 
@@ -49,7 +48,6 @@ const ResponsiveFilter = ({
   const screens = useBreakpoint();
   const isMobile = !screens.md;
   const isTablet = screens.md && !screens.lg;
-  const isDesktop = screens.lg;
 
   const [drawerOpen, setDrawerOpen] = useState(false);
 

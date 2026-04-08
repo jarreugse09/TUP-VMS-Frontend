@@ -1,15 +1,4 @@
-import {
-  Modal,
-  Select,
-  DatePicker,
-  Input,
-  Space,
-  Typography,
-  Button,
-} from 'antd';
-import { InfoCircleOutlined, LockOutlined } from '@ant-design/icons';
-
-const { Text } = Typography;
+import { Modal, Select, DatePicker, Input, Space } from 'antd';
 const { Option } = Select;
 const { RangePicker } = DatePicker;
 
@@ -42,9 +31,7 @@ const ExportModal = ({
   exporting,
   exportMode,
   onExportModeChange,
-  exportMonth,
   onExportMonthChange,
-  exportRange,
   onExportRangeChange,
   exportFormat,
   onExportFormatChange,
