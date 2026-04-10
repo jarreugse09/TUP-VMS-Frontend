@@ -97,9 +97,12 @@ const Logs = () => {
   const isMobile = !screens.md;
   const isTablet = Boolean(screens.md && !screens.xl);
   const pollingIntervalMs = 12000;
+  const refreshCooldownMs = 30000; // 30 seconds
   const fetchingRef = useRef(false);
   const backgroundFetchingRef = useRef(false);
   const logsRef = useRef<LogItem[]>([]);
+  const lastSilentFetchTimeRef = useRef<number>(Date.now());
+  const isInitializedRef = useRef(false);
   const [logs, setLogs] = useState<LogItem[]>(() => readLogsCache());
   const [filters, setFilters] = useState({
     name: '',
@@ -158,13 +161,21 @@ const Logs = () => {
     } catch (error) {
       console.error(error);
     } finally {
+      if (isSilent) {
+        lastSilentFetchTimeRef.current = Date.now();
+      }
       fetchingRef.current = false;
     }
   };
 
   useEffect(() => {
-    // initial load (with spinner)
-    fetchLogs(false);
+    if (isInitializedRef.current) return; // Only run once on mount
+    isInitializedRef.current = true;
+
+    // If we have cached data, just do silent background refresh
+    // Otherwise, do initial fetch with loading
+    const hasCache = logs.length > 0;
+    fetchLogs(!hasCache); // false = silent, true = with initial load
 
     // silent background refresh
     const intervalId = window.setInterval(
@@ -172,11 +183,19 @@ const Logs = () => {
       pollingIntervalMs,
     );
 
-    const handleFocus = () => fetchLogs(true);
+    const handleFocus = () => {
+      const timeSinceLastFetch = Date.now() - lastSilentFetchTimeRef.current;
+      if (timeSinceLastFetch >= refreshCooldownMs) {
+        fetchLogs(true);
+      }
+    };
 
     const handleVisibility = () => {
       if (document.visibilityState === 'visible') {
-        fetchLogs(true);
+        const timeSinceLastFetch = Date.now() - lastSilentFetchTimeRef.current;
+        if (timeSinceLastFetch >= refreshCooldownMs) {
+          fetchLogs(true);
+        }
       }
     };
 
