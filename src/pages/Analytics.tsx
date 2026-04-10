@@ -12,7 +12,7 @@ import {
 } from 'antd';
 import Chart from '../components/Chart';
 import { TeamOutlined, LoginOutlined, LogoutOutlined } from '@ant-design/icons';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import dayjs from 'dayjs';
 import {
   getAnalytics,
@@ -62,6 +62,7 @@ const Analytics = () => {
     'day' | 'week' | 'month' | 'quarter' | 'year' | 'custom' | 'all'
   >('day');
   const [singleDate, setSingleDate] = useState<any>(dayjs());
+  const isInitializedRef = useRef(false);
 
   const applyRangeByType = (type: typeof rangeType, payload?: any) => {
     if (type === 'all') {
@@ -123,6 +124,9 @@ const Analytics = () => {
   };
 
   useEffect(() => {
+    if (isInitializedRef.current) return;
+    isInitializedRef.current = true;
+
     applyRangeByType(rangeType, singleDate);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
