@@ -58,6 +58,19 @@ interface LogItem {
   activities: Activity[];
 }
 
+const ATTENDANCE_LOGS_CACHE_KEY = 'attendance_logs_cache_v1';
+
+const readLogsCache = (): LogItem[] => {
+  try {
+    const raw = window.localStorage.getItem(ATTENDANCE_LOGS_CACHE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
+
 /* ================= HELPERS ================= */
 
 const getTimeIn = (log: LogItem) => {
@@ -87,8 +100,7 @@ const Logs = () => {
   const fetchingRef = useRef(false);
   const backgroundFetchingRef = useRef(false);
   const logsRef = useRef<LogItem[]>([]);
-  const [logs, setLogs] = useState<LogItem[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [logs, setLogs] = useState<LogItem[]>(() => readLogsCache());
   const [filters, setFilters] = useState({
     name: '',
     role: undefined as string | undefined,
@@ -97,10 +109,16 @@ const Logs = () => {
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedLog, setSelectedLog] = useState<LogItem | null>(null);
 
-  const [isInitialLoad, setIsInitialLoad] = useState(true);
-
   useEffect(() => {
     logsRef.current = logs;
+  }, [logs]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(ATTENDANCE_LOGS_CACHE_KEY, JSON.stringify(logs));
+    } catch {
+      // Ignore storage quota and availability errors.
+    }
   }, [logs]);
 
   const loadAllLogsInBackground = async () => {
@@ -119,8 +137,6 @@ const Logs = () => {
   const fetchLogs = async (isSilent = false) => {
     if (fetchingRef.current) return;
     fetchingRef.current = true;
-
-    if (!isSilent) setLoading(true);
 
     try {
       const firstPage = await getLogsPage<LogItem>(1, 10);
@@ -142,8 +158,6 @@ const Logs = () => {
     } catch (error) {
       console.error(error);
     } finally {
-      if (!isSilent) setLoading(false); // ✅ prevents flicker
-      setIsInitialLoad(false);
       fetchingRef.current = false;
     }
   };
@@ -362,7 +376,6 @@ const Logs = () => {
           columns={columns}
           dataSource={filteredData}
           rowKey="_id"
-          loading={loading && isInitialLoad}
           pagination={{ pageSize: 10, showSizeChanger: true }}
           scroll={{ x: isMobile ? 800 : 960 }}
           onRow={record => ({
