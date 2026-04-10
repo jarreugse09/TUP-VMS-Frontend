@@ -229,6 +229,7 @@ const Logs = () => {
       },
       {
         title: 'Date',
+        sorter: (a, b) => dayjs(a.date).valueOf() - dayjs(b.date).valueOf(),
         render: (_, record) => dayjs(record.date).format('MMM DD, YYYY'),
         defaultSortOrder: 'descend',
       },
