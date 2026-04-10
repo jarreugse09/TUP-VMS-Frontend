@@ -95,9 +95,12 @@ const Logs = () => {
   const screens = useBreakpoint();
   const isMobile = !screens.md;
   const pollingIntervalMs = 12000;
+  const refreshCooldownMs = 30000; // 30 seconds
   const fetchingRef = useRef(false);
   const backgroundFetchingRef = useRef(false);
   const logsRef = useRef<LogItem[]>([]);
+  const lastSilentFetchTimeRef = useRef<number>(Date.now());
+  const isInitializedRef = useRef(false);
   const [logs, setLogs] = useState<LogItem[]>(() => readLogsCache());
   const [filters, setFilters] = useState({
     name: '',
@@ -165,6 +168,9 @@ const Logs = () => {
         void loadAllLogsInBackground();
       }
     } finally {
+      if (isSilent) {
+        lastSilentFetchTimeRef.current = Date.now();
+      }
       fetchingRef.current = false;
     }
   };
@@ -221,8 +227,11 @@ const Logs = () => {
   };
 
   useEffect(() => {
-    // Initial load (WITH spinner)
-    fetchLogs(false);
+    if (isInitializedRef.current) return;
+    isInitializedRef.current = true;
+
+    const hasCache = logsRef.current.length > 0;
+    fetchLogs(hasCache);
 
     // Background refresh (NO spinner)
     const intervalId = window.setInterval(
@@ -230,11 +239,19 @@ const Logs = () => {
       pollingIntervalMs,
     );
 
-    const handleFocus = () => fetchLogs(true);
+    const handleFocus = () => {
+      const timeSinceLastFetch = Date.now() - lastSilentFetchTimeRef.current;
+      if (timeSinceLastFetch >= refreshCooldownMs) {
+        fetchLogs(true);
+      }
+    };
 
     const handleVisibility = () => {
       if (document.visibilityState === 'visible') {
-        fetchLogs(true);
+        const timeSinceLastFetch = Date.now() - lastSilentFetchTimeRef.current;
+        if (timeSinceLastFetch >= refreshCooldownMs) {
+          fetchLogs(true);
+        }
       }
     };
 

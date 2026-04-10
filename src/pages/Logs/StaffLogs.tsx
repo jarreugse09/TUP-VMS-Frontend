@@ -100,8 +100,11 @@ const StaffLogs = () => {
   const screens = useBreakpoint();
   const isMobile = !screens.md;
   const pollingIntervalMs = 12000;
+  const refreshCooldownMs = 30000; // 30 seconds
   const fetchingRef = useRef(false);
   const logsRef = useRef<LogItem[]>([]);
+  const lastSilentFetchTimeRef = useRef<number>(Date.now());
+  const isInitializedRef = useRef(false);
   const [logs, setLogs] = useState<LogItem[]>(() => readLogsCache());
   const [filters, setFilters] = useState({
     name: '',
@@ -124,26 +127,42 @@ const StaffLogs = () => {
     }
   }, [logs]);
 
-  const fetchLogs = async () => {
+  const fetchLogs = async (isSilent = false) => {
     if (fetchingRef.current) return;
     fetchingRef.current = true;
     try {
       const data = await getStaffLogs();
       setLogs(data);
     } finally {
+      if (isSilent) {
+        lastSilentFetchTimeRef.current = Date.now();
+      }
       fetchingRef.current = false;
     }
   };
 
   useEffect(() => {
-    fetchLogs();
+    if (isInitializedRef.current) return;
+    isInitializedRef.current = true;
 
-    const intervalId = window.setInterval(fetchLogs, pollingIntervalMs);
+    const hasCache = logsRef.current.length > 0;
+    fetchLogs(hasCache);
 
-    const handleFocus = () => fetchLogs();
+    const intervalId = window.setInterval(() => fetchLogs(true), pollingIntervalMs);
+
+    const handleFocus = () => {
+      const timeSinceLastFetch = Date.now() - lastSilentFetchTimeRef.current;
+      if (timeSinceLastFetch >= refreshCooldownMs) {
+        fetchLogs(true);
+      }
+    };
+
     const handleVisibility = () => {
       if (document.visibilityState === 'visible') {
-        fetchLogs();
+        const timeSinceLastFetch = Date.now() - lastSilentFetchTimeRef.current;
+        if (timeSinceLastFetch >= refreshCooldownMs) {
+          fetchLogs(true);
+        }
       }
     };
 
@@ -274,7 +293,7 @@ const StaffLogs = () => {
             </div>
             <Button
               icon={<ReloadOutlined />}
-              onClick={fetchLogs}
+              onClick={() => fetchLogs(false)}
               size={isMobile ? 'small' : 'middle'}
             >
               {isMobile ? null : 'Refresh'}
