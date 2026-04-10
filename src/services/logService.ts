@@ -1,7 +1,27 @@
 import api from "./api";
 
+interface LogsPageMeta {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+  hasMore: boolean;
+}
+
+interface LogsPageResponse<T> {
+  data: T[];
+  meta: LogsPageMeta;
+}
+
 export const getLogs = async () => {
   const response = await api.get("/logs/logs");
+  return response.data;
+};
+
+export const getLogsPage = async <T = any>(page = 1, limit = 10): Promise<LogsPageResponse<T>> => {
+  const response = await api.get("/logs/logs", {
+    params: { page, limit },
+  });
   return response.data;
 };
 

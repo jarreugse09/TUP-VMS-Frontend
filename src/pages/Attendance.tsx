@@ -17,10 +17,11 @@ import {
 } from '@ant-design/icons';
 import { useEffect, useState, useMemo, useRef } from 'react';
 import { Grid } from 'antd';
-import { getLogs } from './../services/logService';
+import { getLogs, getLogsPage } from './../services/logService';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
 import LogDetailsModal from '../components/LogDetailsModal';
+import type { Dayjs } from 'dayjs';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -84,17 +85,36 @@ const Logs = () => {
   const isTablet = Boolean(screens.md && !screens.xl);
   const pollingIntervalMs = 12000;
   const fetchingRef = useRef(false);
+  const backgroundFetchingRef = useRef(false);
+  const logsRef = useRef<LogItem[]>([]);
   const [logs, setLogs] = useState<LogItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [filters, setFilters] = useState({
     name: '',
     role: undefined as string | undefined,
-    dateRange: null as any,
+    dateRange: null as [Dayjs | null, Dayjs | null] | null,
   });
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedLog, setSelectedLog] = useState<LogItem | null>(null);
 
   const [isInitialLoad, setIsInitialLoad] = useState(true);
+
+  useEffect(() => {
+    logsRef.current = logs;
+  }, [logs]);
+
+  const loadAllLogsInBackground = async () => {
+    if (backgroundFetchingRef.current) return;
+
+    backgroundFetchingRef.current = true;
+
+    try {
+      const allLogs = await getLogs();
+      setLogs(allLogs);
+    } finally {
+      backgroundFetchingRef.current = false;
+    }
+  };
 
   const fetchLogs = async (isSilent = false) => {
     if (fetchingRef.current) return;
@@ -103,8 +123,22 @@ const Logs = () => {
     if (!isSilent) setLoading(true);
 
     try {
-      const data = await getLogs();
-      setLogs(data);
+      const firstPage = await getLogsPage<LogItem>(1, 10);
+      const hadExistingData = logsRef.current.length > 0;
+
+      setLogs(prev => {
+        if (!isSilent || prev.length === 0) {
+          return firstPage.data;
+        }
+
+        const firstPageIds = new Set(firstPage.data.map(item => item._id));
+        const remaining = prev.filter(item => !firstPageIds.has(item._id));
+        return [...firstPage.data, ...remaining];
+      });
+
+      if (firstPage.meta.hasMore && (!isSilent || !hadExistingData)) {
+        void loadAllLogsInBackground();
+      }
     } catch (error) {
       console.error(error);
     } finally {
@@ -155,10 +189,12 @@ const Logs = () => {
       let matchesDate = true;
       if (filters.dateRange?.length === 2) {
         const [start, end] = filters.dateRange;
-        const logDate = dayjs(log.date);
-        matchesDate =
-          logDate.isAfter(start.startOf('day')) &&
-          logDate.isBefore(end.endOf('day'));
+        if (start && end) {
+          const logDate = dayjs(log.date);
+          matchesDate =
+            (logDate.isAfter(start.startOf('day')) || logDate.isSame(start.startOf('day'))) &&
+            (logDate.isBefore(end.endOf('day')) || logDate.isSame(end.endOf('day')));
+        }
       }
 
       return matchesName && matchesRole && matchesDate;
