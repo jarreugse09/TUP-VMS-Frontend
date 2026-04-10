@@ -1,6 +1,7 @@
 import React, {
   Suspense,
   lazy,
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -38,6 +39,12 @@ const Chat = lazy(() => import('./pages/Chat'));
 const { Content } = Layout;
 const { Text } = Typography;
 
+type CameraTrackedMediaDevices = MediaDevices & {
+  __cameraGuardPatched?: boolean;
+  __cameraGuardOriginalGetUserMedia?: MediaDevices['getUserMedia'];
+  __cameraGuardActiveStreams?: Set<MediaStream>;
+};
+
 const CAMERA_BLOCKED_PATHS = [
   '/logs',
   '/attendance',
@@ -68,16 +75,64 @@ const RouteFallback = () => (
 const CameraRouteGuard = () => {
   const location = useLocation();
   const isDashboardRoute = location.pathname.includes('/dashboard');
+  const stopActiveCameraStreams = useCallback(() => {
+    const mediaDevices = navigator.mediaDevices as CameraTrackedMediaDevices;
 
-  useEffect(() => {
-    if (isDashboardRoute) return;
+    mediaDevices.__cameraGuardActiveStreams?.forEach(stream => {
+      stream.getTracks().forEach(track => track.stop());
+    });
+    mediaDevices.__cameraGuardActiveStreams?.clear();
 
     document.querySelectorAll('video').forEach(videoEl => {
       const mediaStream = videoEl.srcObject as MediaStream | null;
       mediaStream?.getTracks().forEach(track => track.stop());
       videoEl.srcObject = null;
     });
-  }, [isDashboardRoute, location.pathname]);
+  }, []);
+
+  useEffect(() => {
+    const mediaDevices = navigator.mediaDevices as CameraTrackedMediaDevices;
+    if (!mediaDevices || mediaDevices.__cameraGuardPatched) return;
+
+    const originalGetUserMedia = mediaDevices.getUserMedia.bind(mediaDevices);
+    mediaDevices.__cameraGuardOriginalGetUserMedia = originalGetUserMedia;
+    mediaDevices.__cameraGuardActiveStreams = new Set<MediaStream>();
+
+    mediaDevices.getUserMedia = async (constraints: MediaStreamConstraints) => {
+      const stream = await originalGetUserMedia(constraints);
+      mediaDevices.__cameraGuardActiveStreams?.add(stream);
+
+      const removeStream = () => {
+        mediaDevices.__cameraGuardActiveStreams?.delete(stream);
+      };
+
+      stream.getTracks().forEach(track => {
+        track.addEventListener('ended', removeStream, { once: true });
+      });
+
+      return stream;
+    };
+
+    mediaDevices.__cameraGuardPatched = true;
+  }, []);
+
+  useEffect(() => {
+    if (isDashboardRoute) return;
+
+    stopActiveCameraStreams();
+    const timer = window.setTimeout(stopActiveCameraStreams, 120);
+    return () => window.clearTimeout(timer);
+  }, [isDashboardRoute, location.pathname, stopActiveCameraStreams]);
+
+  useEffect(() => {
+    const currentPath = location.pathname;
+
+    return () => {
+      if (currentPath.includes('/dashboard')) {
+        stopActiveCameraStreams();
+      }
+    };
+  }, [location.pathname, stopActiveCameraStreams]);
 
   return null;
 };
