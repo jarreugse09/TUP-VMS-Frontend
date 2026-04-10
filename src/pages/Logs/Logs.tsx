@@ -133,9 +133,12 @@ const Logs = () => {
   const isMobile = !screens.md;
   const { user } = useAuth();
   const pollingIntervalMs = 12000;
+  const refreshCooldownMs = 30000; // 30 seconds
   const fetchingRef = useRef(false);
   const backgroundFetchingRef = useRef(false);
   const logsRef = useRef<LogItem[]>([]);
+  const lastSilentFetchTimeRef = useRef<number>(Date.now());
+  const isInitializedRef = useRef(false);
   const [logs, setLogs] = useState<LogItem[]>(() => readLogsCache());
   const [transactions, setTransactions] = useState<TransactionLog[]>([]);
   const [filters, setFilters] = useState({
@@ -213,19 +216,38 @@ const Logs = () => {
       setLogs([]);
       setTransactions([]);
     } finally {
+      if (isSilent) {
+        lastSilentFetchTimeRef.current = Date.now();
+      }
       fetchingRef.current = false;
     }
   };
 
   useEffect(() => {
-    fetchLogs(false);
+    if (isInitializedRef.current) return;
+    isInitializedRef.current = true;
+
+    const hasCache = logsRef.current.length > 0;
+    fetchLogs(hasCache);
+
     const intervalId = window.setInterval(
       () => fetchLogs(true),
       pollingIntervalMs,
     );
-    const handleFocus = () => fetchLogs(true);
+    const handleFocus = () => {
+      const timeSinceLastFetch = Date.now() - lastSilentFetchTimeRef.current;
+      if (timeSinceLastFetch >= refreshCooldownMs) {
+        fetchLogs(true);
+      }
+    };
+
     const handleVisible = () => {
-      if (document.visibilityState === 'visible') fetchLogs(true);
+      if (document.visibilityState === 'visible') {
+        const timeSinceLastFetch = Date.now() - lastSilentFetchTimeRef.current;
+        if (timeSinceLastFetch >= refreshCooldownMs) {
+          fetchLogs(true);
+        }
+      }
     };
     window.addEventListener('focus', handleFocus);
     document.addEventListener('visibilitychange', handleVisible);
