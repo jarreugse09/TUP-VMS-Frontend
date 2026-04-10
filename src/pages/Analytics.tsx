@@ -24,6 +24,24 @@ import {
 const { Title, Text } = Typography;
 const { RangePicker } = DatePicker;
 
+const EMPTY_ROLE_SUMMARY = {
+  totalUsers: 0,
+  usersCurrentlyInside: 0,
+  usersCheckedOut: 0,
+  dailyCounts: [],
+};
+
+const EMPTY_ANALYTICS_DATA: AnalyticsResponse = {
+  roles: {
+    Student: { ...EMPTY_ROLE_SUMMARY },
+    Staff: { ...EMPTY_ROLE_SUMMARY },
+    Visitor: { ...EMPTY_ROLE_SUMMARY },
+    TUP: { ...EMPTY_ROLE_SUMMARY },
+  },
+  combinedDaily: [],
+  dateRange: [],
+};
+
 /* ================= COMPONENT ================= */
 const Analytics = () => {
   const { useBreakpoint } = Grid;
@@ -31,7 +49,7 @@ const Analytics = () => {
   const isMobile = !screens.md;
   const isTablet = Boolean(screens.md && !screens.xl);
 
-  const [data, setData] = useState<AnalyticsResponse | null>(null);
+  const [data, setData] = useState<AnalyticsResponse>(EMPTY_ANALYTICS_DATA);
   const [hourlyData, setHourlyData] = useState<HourlyAnalyticsResponse | null>(
     null,
   );
@@ -156,9 +174,6 @@ const Analytics = () => {
     'TUP',
   ];
   const [selectedRoles, setSelectedRoles] = useState<string[]>(DEFAULT_ROLES);
-
-  // Need data for role summary cards regardless of view type
-  if (!data) return null;
 
   const roleColors: Record<string, string> = {
     Student: '#1890ff',
