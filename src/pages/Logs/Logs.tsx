@@ -25,12 +25,14 @@ import { useEffect, useState, useMemo, useRef } from 'react';
 import { Grid } from 'antd';
 import {
   getLogs,
+  getLogsPage,
   getStaffLogs,
   getMyTransactions,
 } from '../../services/logService';
 import { useAuth } from '../../contexts/AuthContext';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
+import type { Dayjs } from 'dayjs';
 
 const { RangePicker } = DatePicker;
 const { Title, Text } = Typography;
@@ -70,6 +72,19 @@ interface LogItem {
   activities: Activity[];
 }
 
+const ALL_LOGS_CACHE_KEY = 'all_logs_cache_v1';
+
+const readLogsCache = (): LogItem[] => {
+  try {
+    const raw = window.localStorage.getItem(ALL_LOGS_CACHE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
+
 // Shape returned by GET /me/transactions
 interface TransactionLog {
   _id: string;
@@ -94,6 +109,8 @@ const normalizeUserLog = (entry: any): LogItem => ({
   userId: entry.userId || entry.user,
 });
 
+const isEqual = (a: any, b: any) => JSON.stringify(a) === JSON.stringify(b);
+
 /* ================= HELPERS ================= */
 
 const getTimeIn = (log: LogItem) => {
@@ -117,13 +134,14 @@ const Logs = () => {
   const { user } = useAuth();
   const pollingIntervalMs = 12000;
   const fetchingRef = useRef(false);
-  const [logs, setLogs] = useState<LogItem[]>([]);
+  const backgroundFetchingRef = useRef(false);
+  const logsRef = useRef<LogItem[]>([]);
+  const [logs, setLogs] = useState<LogItem[]>(() => readLogsCache());
   const [transactions, setTransactions] = useState<TransactionLog[]>([]);
-  const [loading, setLoading] = useState(false);
   const [filters, setFilters] = useState({
     name: '',
     role: undefined as string | undefined,
-    dateRange: null as any,
+    dateRange: null as [Dayjs | null, Dayjs | null] | null,
     direction: undefined as string | undefined,
   });
   const [modalVisible, setModalVisible] = useState(false);
@@ -132,14 +150,57 @@ const Logs = () => {
 
   const isNormalUser = user?.role === 'Student' || user?.role === 'Visitor';
 
-  const fetchLogs = async () => {
+  useEffect(() => {
+    logsRef.current = logs;
+  }, [logs]);
+
+  useEffect(() => {
+    if (user?.role !== 'TUP') return;
+    try {
+      window.localStorage.setItem(ALL_LOGS_CACHE_KEY, JSON.stringify(logs));
+    } catch {
+      // Ignore storage quota and availability errors.
+    }
+  }, [logs, user?.role]);
+
+  const loadAllLogsInBackground = async () => {
+    if (backgroundFetchingRef.current) return;
+    backgroundFetchingRef.current = true;
+    try {
+      const data = await getLogs();
+      const normalized = (data || []).map(normalizeUserLog);
+      setLogs(prev => (isEqual(prev, normalized) ? prev : normalized));
+    } finally {
+      backgroundFetchingRef.current = false;
+    }
+  };
+
+  const fetchLogs = async (isSilent = false) => {
     if (fetchingRef.current) return;
     fetchingRef.current = true;
-    setLoading(true);
+
     try {
       if (user?.role === 'TUP') {
-        const data = await getLogs();
-        setLogs((data || []).map(normalizeUserLog));
+        const firstPage = await getLogsPage<any>(1, 10);
+        const firstPageData = (firstPage.data || []).map(normalizeUserLog);
+        const hadExistingData = logsRef.current.length > 0;
+
+        setLogs(prev => {
+          if (!isSilent || prev.length === 0) {
+            if (isEqual(prev, firstPageData)) return prev;
+            return firstPageData;
+          }
+
+          const firstPageIds = new Set(firstPageData.map(item => item._id));
+          const remaining = prev.filter(item => !firstPageIds.has(item._id));
+          const merged = [...firstPageData, ...remaining];
+          if (isEqual(prev, merged)) return prev;
+          return merged;
+        });
+
+        if (firstPage.meta.hasMore && (!isSilent || !hadExistingData)) {
+          void loadAllLogsInBackground();
+        }
       } else if (user?.role === 'Staff') {
         const data = await getStaffLogs();
         setLogs((data || []).map(normalizeUserLog));
@@ -152,17 +213,19 @@ const Logs = () => {
       setLogs([]);
       setTransactions([]);
     } finally {
-      setLoading(false);
       fetchingRef.current = false;
     }
   };
 
   useEffect(() => {
-    fetchLogs();
-    const intervalId = window.setInterval(fetchLogs, pollingIntervalMs);
-    const handleFocus = () => fetchLogs();
+    fetchLogs(false);
+    const intervalId = window.setInterval(
+      () => fetchLogs(true),
+      pollingIntervalMs,
+    );
+    const handleFocus = () => fetchLogs(true);
     const handleVisible = () => {
-      if (document.visibilityState === 'visible') fetchLogs();
+      if (document.visibilityState === 'visible') fetchLogs(true);
     };
     window.addEventListener('focus', handleFocus);
     document.addEventListener('visibilitychange', handleVisible);
@@ -184,10 +247,14 @@ const Logs = () => {
       let matchesDate = true;
       if (filters.dateRange?.length === 2) {
         const [start, end] = filters.dateRange;
-        const logDate = dayjs(log.date);
-        matchesDate =
-          logDate.isAfter(start.startOf('day')) &&
-          logDate.isBefore(end.endOf('day'));
+        if (start && end) {
+          const logDate = dayjs(log.date);
+          matchesDate =
+            (logDate.isAfter(start.startOf('day')) ||
+              logDate.isSame(start.startOf('day'))) &&
+            (logDate.isBefore(end.endOf('day')) ||
+              logDate.isSame(end.endOf('day')));
+        }
       }
       return matchesName && matchesRole && matchesDate;
     });
@@ -198,9 +265,13 @@ const Logs = () => {
       let matchesDate = true;
       if (filters.dateRange?.length === 2) {
         const [start, end] = filters.dateRange;
-        matchesDate =
-          dayjs(t.date).isAfter(start.startOf('day')) &&
-          dayjs(t.date).isBefore(end.endOf('day'));
+        if (start && end) {
+          matchesDate =
+            (dayjs(t.date).isAfter(start.startOf('day')) ||
+              dayjs(t.date).isSame(start.startOf('day'))) &&
+            (dayjs(t.date).isBefore(end.endOf('day')) ||
+              dayjs(t.date).isSame(end.endOf('day')));
+        }
       }
       const matchesDirection =
         !filters.direction || t.direction === filters.direction;
@@ -242,6 +313,7 @@ const Logs = () => {
     },
     {
       title: 'Date',
+      sorter: (a, b) => dayjs(a.date).valueOf() - dayjs(b.date).valueOf(),
       render: (_, record) => dayjs(record.date).format('MMM DD, YYYY'),
       defaultSortOrder: 'descend',
     },
@@ -377,7 +449,7 @@ const Logs = () => {
             </div>
             <Button
               icon={<ReloadOutlined />}
-              onClick={fetchLogs}
+              onClick={() => fetchLogs(false)}
               size={isMobile ? 'small' : 'middle'}
             >
               {isMobile ? null : 'Refresh'}
@@ -456,7 +528,6 @@ const Logs = () => {
             columns={transactionColumns}
             dataSource={filteredTransactions}
             rowKey="_id"
-            loading={loading}
             pagination={{ pageSize: 10, showSizeChanger: true }}
             onRow={record => ({
               onClick: event => {
@@ -513,7 +584,6 @@ const Logs = () => {
             columns={groupedColumns}
             dataSource={filteredGroupedLogs}
             rowKey="_id"
-            loading={loading}
             pagination={{ pageSize: 10, showSizeChanger: true }}
             onRow={record => ({
               onClick: event => {

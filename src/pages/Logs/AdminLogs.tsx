@@ -14,9 +14,10 @@ import {
 } from '@ant-design/icons';
 import { useEffect, useState, useMemo, useRef } from 'react';
 import { Grid } from 'antd';
-import { getLogs, exportLogs } from '../../services/logService';
+import { getLogs, getLogsPage, exportLogs } from '../../services/logService';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
+import type { Dayjs } from 'dayjs';
 import LogFilterDrawer from '../../components/LogFilterDrawer';
 import ExportModal from '../../components/ExportModal';
 import LogDetailsModal from '../../components/LogDetailsModal';
@@ -56,6 +57,19 @@ interface LogItem {
   activities: Activity[];
 }
 
+const ADMIN_LOGS_CACHE_KEY = 'admin_logs_cache_v1';
+
+const readLogsCache = (): LogItem[] => {
+  try {
+    const raw = window.localStorage.getItem(ADMIN_LOGS_CACHE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
+
 /* ================= HELPERS ================= */
 
 const getTimeIn = (log: LogItem) => {
@@ -82,13 +96,13 @@ const Logs = () => {
   const isMobile = !screens.md;
   const pollingIntervalMs = 12000;
   const fetchingRef = useRef(false);
-  const [logs, setLogs] = useState<LogItem[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const backgroundFetchingRef = useRef(false);
+  const logsRef = useRef<LogItem[]>([]);
+  const [logs, setLogs] = useState<LogItem[]>(() => readLogsCache());
   const [filters, setFilters] = useState({
     name: '',
     role: undefined as string | undefined,
-    dateRange: null as any,
+    dateRange: null as [Dayjs | null, Dayjs | null] | null,
   });
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedLog, setSelectedLog] = useState<LogItem | null>(null);
@@ -103,22 +117,54 @@ const Logs = () => {
   const [exportPassword, setExportPassword] = useState('');
   const [exporting, setExporting] = useState(false);
 
+  useEffect(() => {
+    logsRef.current = logs;
+  }, [logs]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(ADMIN_LOGS_CACHE_KEY, JSON.stringify(logs));
+    } catch {
+      // Ignore storage quota and availability errors.
+    }
+  }, [logs]);
+
+  const loadAllLogsInBackground = async () => {
+    if (backgroundFetchingRef.current) return;
+    backgroundFetchingRef.current = true;
+    try {
+      const data = await getLogs();
+      setLogs(prev => (isEqual(prev, data) ? prev : data));
+    } finally {
+      backgroundFetchingRef.current = false;
+    }
+  };
+
   const fetchLogs = async (isSilent = false) => {
     if (fetchingRef.current) return;
     fetchingRef.current = true;
 
-    if (!isSilent) setLoading(true);
-
     try {
-      const data = await getLogs();
+      const firstPage = await getLogsPage<LogItem>(1, 10);
+      const hadExistingData = logsRef.current.length > 0;
 
       setLogs(prev => {
-        if (isEqual(prev, data)) return prev; // ✅ no re-render
-        return data;
+        if (!isSilent || prev.length === 0) {
+          if (isEqual(prev, firstPage.data)) return prev;
+          return firstPage.data;
+        }
+
+        const firstPageIds = new Set(firstPage.data.map(item => item._id));
+        const remaining = prev.filter(item => !firstPageIds.has(item._id));
+        const merged = [...firstPage.data, ...remaining];
+        if (isEqual(prev, merged)) return prev;
+        return merged;
       });
+
+      if (firstPage.meta.hasMore && (!isSilent || !hadExistingData)) {
+        void loadAllLogsInBackground();
+      }
     } finally {
-      if (!isSilent) setLoading(false); // ✅ prevents flicker
-      setIsInitialLoad(false);
       fetchingRef.current = false;
     }
   };
@@ -215,10 +261,14 @@ const Logs = () => {
       let matchesDate = true;
       if (filters.dateRange?.length === 2) {
         const [start, end] = filters.dateRange;
-        const logDate = dayjs(log.date);
-        matchesDate =
-          logDate.isAfter(start.startOf('day')) &&
-          logDate.isBefore(end.endOf('day'));
+        if (start && end) {
+          const logDate = dayjs(log.date);
+          matchesDate =
+            (logDate.isAfter(start.startOf('day')) ||
+              logDate.isSame(start.startOf('day'))) &&
+            (logDate.isBefore(end.endOf('day')) ||
+              logDate.isSame(end.endOf('day')));
+        }
       }
 
       return matchesName && matchesRole && matchesDate;
@@ -260,6 +310,7 @@ const Logs = () => {
       },
       {
         title: 'Date',
+        sorter: (a, b) => dayjs(a.date).valueOf() - dayjs(b.date).valueOf(),
         render: (_, record) => dayjs(record.date).format('MMM DD, YYYY'),
         defaultSortOrder: 'descend',
       },
@@ -380,7 +431,6 @@ const Logs = () => {
           columns={columns}
           dataSource={filteredData}
           rowKey="_id"
-          loading={loading && isInitialLoad} // ✅ only first load shows spinner
           pagination={{ pageSize: 10, showSizeChanger: true }}
           scroll={{ x: 800 }}
           onRow={record => ({

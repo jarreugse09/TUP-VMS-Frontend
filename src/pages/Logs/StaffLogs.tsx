@@ -24,6 +24,7 @@ import { Grid } from 'antd';
 import { getStaffLogs } from '../../services/logService';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
+import type { Dayjs } from 'dayjs';
 
 const { RangePicker } = DatePicker;
 const { Title, Text } = Typography;
@@ -61,6 +62,19 @@ interface LogItem {
   activities: Activity[];
 }
 
+const STAFF_LOGS_CACHE_KEY = 'staff_logs_cache_v1';
+
+const readLogsCache = (): LogItem[] => {
+  try {
+    const raw = window.localStorage.getItem(STAFF_LOGS_CACHE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
+
 /* ================= HELPERS ================= */
 
 const getTimeIn = (log: LogItem) => {
@@ -87,26 +101,36 @@ const StaffLogs = () => {
   const isMobile = !screens.md;
   const pollingIntervalMs = 12000;
   const fetchingRef = useRef(false);
-  const [logs, setLogs] = useState<LogItem[]>([]);
-  const [loading, setLoading] = useState(false);
+  const logsRef = useRef<LogItem[]>([]);
+  const [logs, setLogs] = useState<LogItem[]>(() => readLogsCache());
   const [filters, setFilters] = useState({
     name: '',
     role: undefined as string | undefined,
-    dateRange: null as any,
+    dateRange: null as [Dayjs | null, Dayjs | null] | null,
   });
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedLog, setSelectedLog] = useState<LogItem | null>(null);
   const [drawerVisible, setDrawerVisible] = useState(false);
 
+  useEffect(() => {
+    logsRef.current = logs;
+  }, [logs]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(STAFF_LOGS_CACHE_KEY, JSON.stringify(logs));
+    } catch {
+      // Ignore storage quota and availability errors.
+    }
+  }, [logs]);
+
   const fetchLogs = async () => {
     if (fetchingRef.current) return;
     fetchingRef.current = true;
-    setLoading(true);
     try {
       const data = await getStaffLogs();
       setLogs(data);
     } finally {
-      setLoading(false);
       fetchingRef.current = false;
     }
   };
@@ -146,10 +170,14 @@ const StaffLogs = () => {
       let matchesDate = true;
       if (filters.dateRange?.length === 2) {
         const [start, end] = filters.dateRange;
-        const logDate = dayjs(log.date);
-        matchesDate =
-          logDate.isAfter(start.startOf('day')) &&
-          logDate.isBefore(end.endOf('day'));
+        if (start && end) {
+          const logDate = dayjs(log.date);
+          matchesDate =
+            (logDate.isAfter(start.startOf('day')) ||
+              logDate.isSame(start.startOf('day'))) &&
+            (logDate.isBefore(end.endOf('day')) ||
+              logDate.isSame(end.endOf('day')));
+        }
       }
 
       return matchesName && matchesRole && matchesDate;
@@ -190,6 +218,7 @@ const StaffLogs = () => {
     },
     {
       title: 'Date',
+      sorter: (a, b) => dayjs(a.date).valueOf() - dayjs(b.date).valueOf(),
       render: (_, record) => dayjs(record.date).format('MMM DD, YYYY'),
       defaultSortOrder: 'descend',
     },
@@ -302,7 +331,6 @@ const StaffLogs = () => {
           columns={columns}
           dataSource={filteredData}
           rowKey="_id"
-          loading={loading}
           pagination={{ pageSize: 10, showSizeChanger: true }}
           onRow={record => ({
             onClick: event => {
