@@ -21,6 +21,8 @@ import { getMyAttendance as fetchMyAttendance } from "../services/logService";
 import dayjs from "dayjs";
 
 const { Title, Text } = Typography;
+const USER_ATTENDANCE_CACHE_KEY = "user_attendance_cache_v1";
+const USER_ATTENDANCE_CACHE_TS_KEY = "user_attendance_cache_ts_v1";
 
 /* ================= TYPES ================= */
 
@@ -55,6 +57,23 @@ interface LogItem {
   activities:  Activity[];
 }
 
+const readAttendanceCache = (): LogItem[] => {
+  try {
+    const raw = window.localStorage.getItem(USER_ATTENDANCE_CACHE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
+
+const readAttendanceCacheTs = (): number => {
+  const raw = window.localStorage.getItem(USER_ATTENDANCE_CACHE_TS_KEY);
+  const ts = raw ? Number(raw) : 0;
+  return Number.isFinite(ts) ? ts : 0;
+};
+
 /* ================= HELPERS ================= */
 
 const getTimeIn = (log: LogItem): string | null => {
@@ -86,36 +105,73 @@ const UserAttendance = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const pollingIntervalMs = 12000;
+  const refreshCooldownMs = 30000; // 30 seconds
   const fetchingRef = useRef(false);
-  const [logs,         setLogs]         = useState<LogItem[]>([]);
+  const isInitializedRef = useRef(false);
+  const lastSilentFetchTimeRef = useRef<number>(readAttendanceCacheTs());
+  const [logs,         setLogs]         = useState<LogItem[]>(() => readAttendanceCache());
   const [loading,      setLoading]      = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedLog,  setSelectedLog]  = useState<LogItem | null>(null);
 
-  const fetchLogs = async () => {
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(USER_ATTENDANCE_CACHE_KEY, JSON.stringify(logs));
+    } catch {
+      // Ignore storage quota and availability errors.
+    }
+  }, [logs]);
+
+  const fetchLogs = async (isSilent = false) => {
     if (fetchingRef.current) return;
     fetchingRef.current = true;
-    setLoading(true);
+
+    if (!isSilent) setLoading(true);
     try {
       const data = await fetchMyAttendance();
       setLogs(Array.isArray(data) ? data : []);
+      if (isSilent) {
+        lastSilentFetchTimeRef.current = Date.now();
+        window.localStorage.setItem(
+          USER_ATTENDANCE_CACHE_TS_KEY,
+          String(lastSilentFetchTimeRef.current),
+        );
+      }
     } catch (err) {
       console.error("Failed to fetch attendance logs", err);
     } finally {
-      setLoading(false);
+      if (!isSilent) setLoading(false);
       fetchingRef.current = false;
     }
   };
 
   useEffect(() => {
+    if (isInitializedRef.current) return;
+    isInitializedRef.current = true;
+
     if (!user) {
       navigate("/login", { replace: true });
       return;
     }
-    fetchLogs();
-    const intervalId    = window.setInterval(fetchLogs, pollingIntervalMs);
-    const handleFocus   = () => fetchLogs();
-    const handleVisible = () => { if (document.visibilityState === "visible") fetchLogs(); };
+
+    const hasCache = logs.length > 0;
+    fetchLogs(hasCache);
+
+    const intervalId    = window.setInterval(() => fetchLogs(true), pollingIntervalMs);
+    const handleFocus   = () => {
+      const timeSinceLastFetch = Date.now() - lastSilentFetchTimeRef.current;
+      if (timeSinceLastFetch >= refreshCooldownMs) {
+        fetchLogs(true);
+      }
+    };
+    const handleVisible = () => {
+      if (document.visibilityState === "visible") {
+        const timeSinceLastFetch = Date.now() - lastSilentFetchTimeRef.current;
+        if (timeSinceLastFetch >= refreshCooldownMs) {
+          fetchLogs(true);
+        }
+      }
+    };
     window.addEventListener("focus", handleFocus);
     document.addEventListener("visibilitychange", handleVisible);
     return () => {

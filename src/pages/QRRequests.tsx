@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { Grid } from 'antd';
 import {
   Table,
@@ -29,6 +29,8 @@ import dayjs from 'dayjs';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
+const QR_REQUESTS_CACHE_KEY = 'qr_requests_cache_v1';
+const QR_REQUESTS_CACHE_TS_KEY = 'qr_requests_cache_ts_v1';
 
 interface QRRequestItem {
   _id: string;
@@ -52,6 +54,23 @@ interface QRRequestItem {
   };
 }
 
+const readQRRequestsCache = (): QRRequestItem[] => {
+  try {
+    const raw = window.localStorage.getItem(QR_REQUESTS_CACHE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
+
+const readQRRequestsCacheTs = (): number => {
+  const raw = window.localStorage.getItem(QR_REQUESTS_CACHE_TS_KEY);
+  const ts = raw ? Number(raw) : 0;
+  return Number.isFinite(ts) ? ts : 0;
+};
+
 const toAssetUrl = (path?: string) => {
   if (!path) return '';
   if (/^https?:\/\//i.test(path)) return path;
@@ -69,7 +88,9 @@ const QRRequests = () => {
   const screens = useBreakpoint();
   const isMobile = !screens.md;
   const isTablet = Boolean(screens.md && !screens.xl);
-  const [data, setData] = useState<QRRequestItem[]>([]);
+  const refreshCooldownMs = 30000; // 30 seconds
+  const lastFetchTimeRef = useRef<number>(readQRRequestsCacheTs());
+  const [data, setData] = useState<QRRequestItem[]>(() => readQRRequestsCache());
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [selectedRequest, setSelectedRequest] = useState<QRRequestItem | null>(
@@ -82,7 +103,21 @@ const QRRequests = () => {
     status: undefined as string | undefined,
   });
 
-  const fetch = async () => {
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(QR_REQUESTS_CACHE_KEY, JSON.stringify(data));
+    } catch {
+      // Ignore storage quota and availability errors.
+    }
+  }, [data]);
+
+  const fetch = async (force = false) => {
+    const hasWarmCache = data.length > 0;
+    const timeSinceLastFetch = Date.now() - lastFetchTimeRef.current;
+    if (!force && hasWarmCache && timeSinceLastFetch < refreshCooldownMs) {
+      return;
+    }
+
     try {
       setLoading(true);
       const res = await getQRRequests();
@@ -104,6 +139,11 @@ const QRRequests = () => {
         : [];
 
       setData(normalized);
+      lastFetchTimeRef.current = Date.now();
+      window.localStorage.setItem(
+        QR_REQUESTS_CACHE_TS_KEY,
+        String(lastFetchTimeRef.current),
+      );
     } catch {
       message.error('Failed to load QR requests');
     } finally {
@@ -112,7 +152,7 @@ const QRRequests = () => {
   };
 
   useEffect(() => {
-    fetch();
+    fetch(false);
   }, []);
 
   const onApprove = async (id: string) => {
@@ -308,7 +348,7 @@ const QRRequests = () => {
           </Space>
           <Button
             icon={<ReloadOutlined />}
-            onClick={fetch}
+            onClick={() => fetch(true)}
             loading={loading}
             size={isMobile ? 'small' : 'middle'}
           >
