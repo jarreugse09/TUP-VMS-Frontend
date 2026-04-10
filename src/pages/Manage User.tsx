@@ -17,7 +17,7 @@ import {
   Avatar,
   Grid,
 } from 'antd';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   UserOutlined,
   MailOutlined,
@@ -28,12 +28,15 @@ import {
   PlusOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
+import type { Dayjs } from 'dayjs';
 import { adminRegisterUser, getAllUsers } from '../services/userService';
 
 const { Option } = Select;
 const { RangePicker } = DatePicker;
 const { Text, Title } = Typography;
 const QR_PATTERN = /^(TUPM|TUPS|TUPV)-\d{2}-\d{4}$/;
+const USERS_CACHE_KEY = 'manage_users_cache_v1';
+const USERS_CACHE_TS_KEY = 'manage_users_cache_ts_v1';
 
 interface IUser {
   _id: string;
@@ -49,26 +52,61 @@ interface IUser {
   createdAt: string;
 }
 
+const readUsersCache = (): IUser[] => {
+  try {
+    const raw = window.localStorage.getItem(USERS_CACHE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
+
+const readUsersCacheTs = (): number => {
+  const raw = window.localStorage.getItem(USERS_CACHE_TS_KEY);
+  const ts = raw ? Number(raw) : 0;
+  return Number.isFinite(ts) ? ts : 0;
+};
+
 const ManageUsers = () => {
   const { useBreakpoint } = Grid;
   const screens = useBreakpoint();
   const isMobile = !screens.md;
   const isTablet = Boolean(screens.md && !screens.xl);
+  const refreshCooldownMs = 30000; // 30 seconds
 
   const [registerForm] = Form.useForm();
   const selectedRole = Form.useWatch('role', registerForm);
-  const [users, setUsers] = useState<IUser[]>([]);
+  const [users, setUsers] = useState<IUser[]>(() => readUsersCache());
   const [loading, setLoading] = useState(false);
   const [registering, setRegistering] = useState(false);
   const [showRegisterForm, setShowRegisterForm] = useState(false);
   const [selectedUser, setSelectedUser] = useState<IUser | null>(null);
+  const lastFetchTimeRef = useRef<number>(readUsersCacheTs());
   const [filters, setFilters] = useState<{
     name?: string;
     role?: string;
-    dateRange?: any;
+    dateRange?: [Dayjs | null, Dayjs | null] | null;
   }>({});
 
-  const fetchUsers = async () => {
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(USERS_CACHE_KEY, JSON.stringify(users));
+    } catch {
+      // Ignore storage quota and availability errors.
+    }
+  }, [users]);
+
+  const fetchUsers = async (force = false) => {
+    const hasNoFilters = !filters.name && !filters.role && !filters.dateRange;
+    const hasWarmCache = users.length > 0;
+    const timeSinceLastFetch = Date.now() - lastFetchTimeRef.current;
+
+    if (!force && hasNoFilters && hasWarmCache && timeSinceLastFetch < refreshCooldownMs) {
+      return;
+    }
+
     setLoading(true);
     try {
       const params: any = {};
@@ -81,13 +119,18 @@ const ManageUsers = () => {
 
       const data = await getAllUsers(params);
       setUsers(data);
+      lastFetchTimeRef.current = Date.now();
+      window.localStorage.setItem(
+        USERS_CACHE_TS_KEY,
+        String(lastFetchTimeRef.current),
+      );
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchUsers();
+    fetchUsers(false);
   }, [filters]);
 
   const handleAdminRegister = async (values: any) => {
@@ -391,7 +434,7 @@ const ManageUsers = () => {
                 </Button>
                 <Button
                   icon={<ReloadOutlined />}
-                  onClick={fetchUsers}
+                  onClick={() => fetchUsers(true)}
                   size={isMobile ? 'small' : 'middle'}
                 >
                   {isMobile ? null : 'Refresh'}
