@@ -474,12 +474,14 @@ const Register = () => {
                 Capture a clear photo for confirmation
               </div>
               <div>
-                <Webcam
-                  audio={false}
-                  ref={webcamRef}
-                  screenshotFormat="image/jpeg"
-                  width={260}
-                />
+                {currentStep === 2 && (
+                  <Webcam
+                    audio={false}
+                    ref={webcamRef}
+                    screenshotFormat="image/jpeg"
+                    width={260}
+                  />
+                )}
               </div>
               <Button onClick={capture} style={{ marginTop: 12 }}>
                 Capture Photo
