@@ -13,6 +13,7 @@ interface User {
   firstName: string;
   surname: string;
   staffType?: string;
+  subRole?: string;
   photoURL?: string;
   mustCapturePhoto?: boolean;
   college?: string;
