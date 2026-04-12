@@ -39,6 +39,41 @@ export interface RoleSummary {
   dailyCounts: RoleDailyCount[];
 }
 
+export interface AttendanceKpiSummary {
+  userCount: number;
+  attendanceRecords: number;
+  usersCurrentlyInside: number;
+  usersCheckedOut: number;
+  attendanceRate: number;
+  completionRate: number;
+  averageHoursRendered: number;
+  averageCheckInMinutes: number | null;
+}
+
+export interface ManagedAttendanceGroup {
+  key: string;
+  label: string;
+  summary: AttendanceKpiSummary;
+}
+
+export interface AnalyticsView {
+  viewer: {
+    effectiveRole: string;
+    subRole: string;
+    college?: string | null;
+    department?: string | null;
+  };
+  selfAttendance: AttendanceKpiSummary & {
+    punctualityScore?: number;
+    avgServiceTimeMinutes?: number;
+  };
+  managedAttendance: {
+    label: string;
+    summary: AttendanceKpiSummary;
+    groups: ManagedAttendanceGroup[];
+  } | null;
+}
+
 export interface AnalyticsResponse {
   roles: Record<"Student" | "Staff" | "Visitor" | "TUP", RoleSummary>;
   combinedDaily: Array<{
@@ -49,6 +84,8 @@ export interface AnalyticsResponse {
     TUP: number;
   }>;
   dateRange: string[];
+  analyticsView: AnalyticsView;
+  heatmap?: Array<{ day: number; hour: number; count: number }>;
 }
 
 export interface HourlyAnalyticsResponse {

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   getMessages,
   getUnreadCount,
@@ -6,6 +6,7 @@ import {
 } from '../services/chatService';
 import { getWebSocketUrl } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
+import { useWebSocket } from './useWebSocket';
 
 interface ChatNotificationMessage {
   _id: string;
@@ -29,7 +30,6 @@ export const useChatNotifications = (enabled: boolean = true) => {
   const [messages, setMessages] = useState<ChatNotificationMessage[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
-  const wsRef = useRef<WebSocket | null>(null);
 
   const fetchMessages = useCallback(async () => {
     if (!enabled || !user) return;
@@ -74,41 +74,26 @@ export const useChatNotifications = (enabled: boolean = true) => {
     [],
   );
 
-  useEffect(() => {
-    if (!enabled || !user) return;
+  const token = enabled ? localStorage.getItem('token') : null;
+  const wsUrl = enabled && user && token ? getWebSocketUrl(token) : null;
 
-    const token = localStorage.getItem('token');
-    if (!token) return;
-
-    const ws = new WebSocket(getWebSocketUrl(token));
-    wsRef.current = ws;
-
-    ws.onmessage = event => {
-      try {
-        const data = JSON.parse(event.data);
-        if (data.type !== 'NEW_CHAT_MESSAGE') return;
-
-        setMessages(prev => {
-          const next = [...prev, data.message];
-          return next.slice(-30);
-        });
-
-        if (isUnreadForUser(data.message, user._id)) {
-          setUnreadCount(prev => prev + 1);
-        }
-      } catch (error) {
-        console.error('Failed to parse chat notification websocket message:', error);
-      }
+  useWebSocket(wsUrl, data => {
+    const event = data as {
+      type?: string;
+      message?: ChatNotificationMessage;
     };
 
-    ws.onerror = error => {
-      console.error('Chat notification websocket error:', error);
-    };
+    if (event.type !== 'NEW_CHAT_MESSAGE' || !event.message) return;
 
-    return () => {
-      ws.close();
-    };
-  }, [enabled, user]);
+    setMessages(prev => {
+      const next = [...prev, event.message as ChatNotificationMessage];
+      return next.slice(-30);
+    });
+
+    if (isUnreadForUser(event.message as ChatNotificationMessage, user?._id)) {
+      setUnreadCount(prev => prev + 1);
+    }
+  });
 
   useEffect(() => {
     if (!enabled) {

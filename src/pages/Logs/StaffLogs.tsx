@@ -303,6 +303,7 @@ const StaffLogs = () => {
           dataSource={filteredData}
           rowKey="_id"
           loading={loading}
+          scroll={{ x: isMobile ? 800 : 1100 }}
           pagination={{ pageSize: 10, showSizeChanger: true }}
           onRow={record => ({
             onClick: event => {

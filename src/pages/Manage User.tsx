@@ -29,6 +29,7 @@ import {
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { adminRegisterUser, getAllUsers } from '../services/userService';
+import { useAuth } from '../contexts/AuthContext';
 
 const { Option } = Select;
 const { RangePicker } = DatePicker;
@@ -54,6 +55,10 @@ const ManageUsers = () => {
   const screens = useBreakpoint();
   const isMobile = !screens.md;
   const isTablet = Boolean(screens.md && !screens.xl);
+  const { user } = useAuth();
+  const canRegister = ['superadmin', 'hr_head', 'hr_staff'].includes(
+    user?.subRole || '',
+  );
 
   const [registerForm] = Form.useForm();
   const selectedRole = Form.useWatch('role', registerForm);
@@ -381,14 +386,20 @@ const ManageUsers = () => {
                 Users
               </Title>
               <Space size={isMobile ? 8 : 'middle'}>
-                <Button
-                  type="primary"
-                  icon={<PlusOutlined />}
-                  onClick={() => setShowRegisterForm(true)}
-                  size={isMobile ? 'small' : 'middle'}
-                >
-                  {isMobile ? null : isTablet ? 'Register User' : 'Register New Student/Staff'}
-                </Button>
+                {canRegister && (
+                  <Button
+                    type="primary"
+                    icon={<PlusOutlined />}
+                    onClick={() => setShowRegisterForm(true)}
+                    size={isMobile ? 'small' : 'middle'}
+                  >
+                    {isMobile
+                      ? null
+                      : isTablet
+                        ? 'Register User'
+                        : 'Register New User'}
+                  </Button>
+                )}
                 <Button
                   icon={<ReloadOutlined />}
                   onClick={fetchUsers}
@@ -432,7 +443,9 @@ const ManageUsers = () => {
             <Select
               placeholder="Role"
               allowClear
-              style={{ width: isMobile ? 'calc(50% - 4px)' : isTablet ? 160 : 120 }}
+              style={{
+                width: isMobile ? 'calc(50% - 4px)' : isTablet ? 160 : 120,
+              }}
               onChange={value => setFilters({ ...filters, role: value })}
               value={filters.role}
               size={isMobile ? 'middle' : 'middle'}

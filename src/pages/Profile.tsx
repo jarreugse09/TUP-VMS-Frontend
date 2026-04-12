@@ -32,8 +32,11 @@ import {
   getProfile,
   requestQRChange,
   requestProfilePhotoChange,
+  directUpdateProfilePhoto,
 } from "../services/userService";
+import api from "../services/api";
 import html2canvas from "html2canvas";
+import { DpaNotice } from "../components/DpaNotice";
 
 const { Title, Text } = Typography;
 
@@ -50,6 +53,7 @@ const Profile = () => {
   const [loading, setLoading] = useState(true);
   const [requesting, setRequesting] = useState(false);
   const [showRequestModal, setShowRequestModal] = useState(false);
+  const [pendingPhotoRequest, setPendingPhotoRequest] = useState<any>(null);
   const [showPhotoRequestModal, setShowPhotoRequestModal] = useState(false);
   const [uploadingFile, setUploadingFile] = useState<File | null>(null);
   const [photoRequestFile, setPhotoRequestFile] = useState<File | null>(null);
@@ -75,6 +79,13 @@ const Profile = () => {
       setLoading(true);
       const data = await getProfile();
       setProfile(data);
+      if (data?.user?.role === "Student" || data?.user?.role === "Visitor") {
+        try {
+          const reqRes = await api.get('/photo-requests/my');
+          const pending = reqRes.data?.data?.find((r: any) => r.status === 'pending');
+          setPendingPhotoRequest(pending || null);
+        } catch { /* ignore errs */ }
+      }
     } catch {
       message.error("Failed to load profile");
     } finally {
@@ -203,21 +214,38 @@ const Profile = () => {
         return;
       }
       setPhotoRequesting(true);
-      await requestProfilePhotoChange({
-        reason: values.reason,
-        newPhotoImage: photoRequestFile,
-      });
-      message.success("Profile photo update request submitted for approval");
+
+      const role = profile?.user?.role;
+      const isStudentOrVisitor = role === "Student" || role === "Visitor";
+      
+      if (isStudentOrVisitor) {
+        await requestProfilePhotoChange({
+          reason: values.reason,
+          newPhotoImage: photoRequestFile,
+        });
+        message.success("Profile photo update request submitted for approval");
+        setPendingPhotoRequest({ status: 'pending' });
+      } else {
+        const data = await directUpdateProfilePhoto(photoRequestFile);
+        message.success("Profile photo updated successfully");
+        setProfile((prev: any) => ({
+          ...prev,
+          user: { ...prev.user, photoURL: data.photoURL }
+        }));
+      }
+
       setShowPhotoRequestModal(false);
       photoForm.resetFields();
       setPhotoRequestFile(null);
     } catch (error: any) {
       if (!error?.errorFields)
-        message.error("Failed to submit profile photo request");
+        message.error("Failed to submit profile photo update");
     } finally {
       setPhotoRequesting(false);
     }
   };
+
+  const isStudentOrVisitor = profile?.user?.role === "Student" || profile?.user?.role === "Visitor";
 
   if (loading) {
     return (
@@ -421,6 +449,22 @@ const Profile = () => {
                     outline: `3px solid ${MAROON_LIGHT}`,
                   }}
                 />
+                {pendingPhotoRequest && (
+                  <Tag
+                    color="orange"
+                    style={{
+                      position: "absolute",
+                      bottom: -10,
+                      left: "50%",
+                      transform: "translateX(-50%)",
+                      zIndex: 10,
+                      borderRadius: 10,
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    Pending Approval
+                  </Tag>
+                )}
                 {/* Edit overlay button */}
                 <button
                   onClick={() => setShowPhotoRequestModal(true)}
@@ -523,7 +567,7 @@ const Profile = () => {
                   fontSize: 13,
                 }}
               >
-                Request Profile Photo Update
+                {isStudentOrVisitor ? "Request Profile Photo Update" : "Update Profile Photo"}
               </Button>
               {isMobile && (
                 <Button
@@ -551,6 +595,8 @@ const Profile = () => {
           {renderQRCard()}
         </Col>
       </Row>
+
+      <DpaNotice />
 
       {/* ── REQUEST QR CHANGE MODAL ── */}
       <Modal
@@ -611,7 +657,7 @@ const Profile = () => {
         title={
           <Space>
             <UserOutlined style={{ color: MAROON }} />
-            <span>Request Profile Photo Change</span>
+            <span>{isStudentOrVisitor ? "Request Profile Photo Change" : "Update Profile Photo"}</span>
           </Space>
         }
         open={showPhotoRequestModal}
@@ -624,7 +670,7 @@ const Profile = () => {
           setPhotoInputMode("upload");
         }}
         onOk={handleSubmitPhotoRequest}
-        okText="Submit Request"
+        okText={isStudentOrVisitor ? "Submit Request" : "Update Photo"}
         okButtonProps={{
           style: { background: MAROON, borderColor: MAROON, borderRadius: 6 },
         }}
@@ -636,17 +682,19 @@ const Profile = () => {
         }}
       >
         <Form form={photoForm} layout="vertical" style={{ marginTop: 16 }}>
-          <Form.Item
-            name="reason"
-            label="Reason for request"
-            rules={[{ required: true, message: "Reason is required" }]}
-          >
-            <Input.TextArea
-              rows={3}
-              placeholder="Briefly describe why you need to update your photo..."
-              style={{ borderRadius: 8 }}
-            />
-          </Form.Item>
+          {isStudentOrVisitor && (
+            <Form.Item
+              name="reason"
+              label="Reason for request"
+              rules={[{ required: true, message: "Reason is required" }]}
+            >
+              <Input.TextArea
+                rows={3}
+                placeholder="Briefly describe why you need to update your photo..."
+                style={{ borderRadius: 8 }}
+              />
+            </Form.Item>
+          )}
 
           <Form.Item label="Photo source" required>
             <Radio.Group
@@ -678,7 +726,7 @@ const Profile = () => {
             <Form.Item
               label="Upload new profile photo"
               required
-              tooltip="This request requires admin approval before your profile photo is updated."
+              tooltip={isStudentOrVisitor ? "This request requires admin approval before your profile photo is updated." : undefined}
             >
               <Upload
                 beforeUpload={(file) => {
@@ -696,7 +744,7 @@ const Profile = () => {
             <Form.Item
               label="Take new profile photo"
               required
-              tooltip="This request requires admin approval before your profile photo is updated."
+              tooltip={isStudentOrVisitor ? "This request requires admin approval before your profile photo is updated." : undefined}
             >
               <div
                 style={{
