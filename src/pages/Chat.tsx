@@ -1,1096 +1,518 @@
-import { useState, useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Input,
-  Button,
-  List,
-  Avatar,
-  Typography,
-  Space,
   Badge,
+  Button,
+  Card,
   Empty,
-  Spin,
+  Input,
+  List,
+  Space,
   Tag,
-  Tooltip,
-  Segmented,
+  Typography,
+  message,
 } from 'antd';
 import {
-  SendOutlined,
-  UserOutlined,
-  SecurityScanOutlined,
-  TeamOutlined,
-  MessageOutlined,
-  SearchOutlined,
-  CheckCircleOutlined,
   ArrowLeftOutlined,
+  MessageOutlined,
+  ReloadOutlined,
+  SendOutlined,
 } from '@ant-design/icons';
-import { useChat } from '../hooks/useChat';
-import { useAuth } from '../contexts/AuthContext';
-import { getUsersByRole } from '../services/chatService';
 import dayjs from 'dayjs';
+import timezone from 'dayjs/plugin/timezone';
+import utc from 'dayjs/plugin/utc';
+import RoleGuard from '../components/RoleGuard';
+import { useAuth } from '../contexts/AuthContext';
+import { useChat } from '../hooks/useChat';
+import api from '../services/api';
+import {
+  ChatMessage,
+  deleteMessage,
+  getMessages,
+  markMessageAsUnread,
+} from '../services/chatService';
+
+dayjs.extend(utc);
+dayjs.extend(timezone);
 
 const { Text, Title } = Typography;
-const { Search } = Input;
+const SECURITY_SUBROLES = ['security_staff', 'security_head', 'superadmin', 'top_management'];
+const MNL = 'Asia/Manila';
 
-interface ChatUser {
+interface AuthUser {
+  _id?: string;
+  firstName?: string;
+  surname?: string;
+  subRole?: string;
+}
+
+interface Participant {
   _id: string;
   firstName: string;
   surname: string;
-  role: string;
-  email: string;
+  subRole?: string;
+}
+
+interface ContextMenuState {
+  message: ChatMessage;
+  x: number;
+  y: number;
 }
 
 const Chat = () => {
   const { user } = useAuth();
-  const { messages, onlineUsers, loading, unreadCount, sendMessage, markAsRead } =
-    useChat();
-  const [newMessage, setNewMessage] = useState('');
-  const [selectedUser, setSelectedUser] = useState<ChatUser | null>(null);
-  const [chatUsers, setChatUsers] = useState<ChatUser[]>([]);
-  const [loadingUsers, setLoadingUsers] = useState(false);
-  const [searchText, setSearchText] = useState('');
-  const [isMobileView, setIsMobileView] = useState(window.innerWidth < 768);
-  const [activeChannel, setActiveChannel] = useState<'direct' | 'system'>(
-    'direct',
+  const currentUser = user as AuthUser | null;
+  const { messages, loading, unreadCount, sendMessage, markAsRead, refresh } = useChat();
+  const [draft, setDraft] = useState('');
+  const [participants, setParticipants] = useState<Participant[]>([]);
+  const [participantsLoading, setParticipantsLoading] = useState(false);
+  const [activeThread, setActiveThread] = useState<ChatMessage | null>(null);
+  const [threadMessages, setThreadMessages] = useState<ChatMessage[]>([]);
+  const [threadLoading, setThreadLoading] = useState(false);
+  const [replyTarget, setReplyTarget] = useState<ChatMessage | null>(null);
+  const [selectedMentionIds, setSelectedMentionIds] = useState<string[]>([]);
+  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
+  const [visible, setVisible] = useState(!document.hidden);
+  const longPressRef = useRef<number | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const threadEndRef = useRef<HTMLDivElement | null>(null);
+  const lastNotifiedMessageId = useRef<string | null>(null);
+
+  const rootMessages = useMemo(
+    () => messages.filter((entry) => !entry.threadId),
+    [messages],
   );
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const isSecurityUser =
-    user?.role === 'Security' ||
-    (user?.role === 'Staff' && user?.staffType === 'Security');
 
-  const systemMessages = messages.filter((msg: any) => msg.senderRole === 'System');
-  const humanMessages = messages.filter((msg: any) => msg.senderRole !== 'System');
-  const systemUnreadCount = systemMessages.filter((msg: any) => !msg.isRead).length;
-  const directUnreadCount = Math.max(0, unreadCount - systemUnreadCount);
+  const mentionQuery = useMemo(() => {
+    const match = draft.match(/@([a-zA-Z\s]*)$/);
+    return match ? match[1].trim().toLowerCase() : null;
+  }, [draft]);
 
-  const scrollToBottom = () => {
+  const mentionOptions = useMemo(() => {
+    if (mentionQuery === null) {
+      return [];
+    }
+
+    return participants.filter((entry) => {
+      const fullName = `${entry.firstName} ${entry.surname}`.toLowerCase();
+      return fullName.includes(mentionQuery);
+    });
+  }, [mentionQuery, participants]);
+
+  const scrollMessagesToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+  const scrollThreadToBottom = () => {
+    threadEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  const fetchParticipants = async () => {
+    setParticipantsLoading(true);
+    try {
+      const response = await api.get('/users');
+      const raw = Array.isArray(response.data) ? response.data : [];
+      const filtered = raw.filter((entry: Participant) => SECURITY_SUBROLES.includes(entry.subRole || ''));
+      setParticipants(filtered);
+    } catch {
+      setParticipants([]);
+      message.error('Unable to load chat participants.');
+    } finally {
+      setParticipantsLoading(false);
+    }
+  };
+
+  const fetchThreadMessages = async (rootId: string) => {
+    setThreadLoading(true);
+    try {
+      const data = await getMessages({ threadId: rootId });
+      setThreadMessages(data);
+    } catch {
+      setThreadMessages([]);
+      message.error('Unable to load thread messages.');
+    } finally {
+      setThreadLoading(false);
+    }
+  };
 
   useEffect(() => {
-    fetchChatUsers();
+    void fetchParticipants();
+    void markAsRead();
+    if (Notification.permission === 'default') {
+      void Notification.requestPermission();
+    }
   }, []);
 
   useEffect(() => {
-    if (!user?._id || activeChannel !== 'system') return;
-
-    const unreadSystemMessageIds = systemMessages
-      .filter((msg: any) => !msg.isRead)
-      .map((msg: any) => msg._id);
-
-    if (unreadSystemMessageIds.length) {
-      markAsRead(unreadSystemMessageIds);
-    }
-  }, [activeChannel, markAsRead, systemMessages, user?._id]);
+    scrollMessagesToBottom();
+  }, [rootMessages.length]);
 
   useEffect(() => {
-    if (!selectedUser || !user?._id || activeChannel !== 'direct') return;
+    scrollThreadToBottom();
+  }, [threadMessages.length]);
 
-    const unreadMessageIds = messages
-      .filter((msg: any) => {
-        if (msg.isRead) return false;
-        if (msg.senderId === user._id) return false;
-        if (msg.senderRole === 'System') return false;
-        return (
-          (msg.senderId === selectedUser._id && msg.recipientId === user._id) ||
-          (msg.senderId === selectedUser._id && !msg.recipientId)
-        );
-      })
-      .map((msg: any) => msg._id);
-
-    if (unreadMessageIds.length) {
-      markAsRead(unreadMessageIds);
+  useEffect(() => {
+    if (activeThread) {
+      void fetchThreadMessages(activeThread._id);
     }
-  }, [messages, markAsRead, selectedUser, user?._id]);
+  }, [activeThread?._id]);
 
   useEffect(() => {
     const handleResize = () => {
-      setIsMobileView(window.innerWidth < 768);
+      setIsMobile(window.innerWidth < 1024);
     };
+    const handleVisibility = () => {
+      setVisible(!document.hidden);
+      if (!document.hidden) {
+        void markAsRead();
+      }
+    };
+    const handleClickAway = () => setContextMenu(null);
+
     window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
+    document.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('click', handleClickAway);
 
-  const fetchChatUsers = async () => {
-    setLoadingUsers(true);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('click', handleClickAway);
+    };
+  }, [markAsRead]);
+
+  useEffect(() => {
+    const latest = rootMessages[rootMessages.length - 1];
+    if (!latest || latest.senderId === currentUser?._id || visible) {
+      return;
+    }
+    if (lastNotifiedMessageId.current === latest._id) {
+      return;
+    }
+
+    lastNotifiedMessageId.current = latest._id;
+    const body = `${latest.senderName}: ${(latest.content || latest.message).slice(0, 80)}`;
+
+    if (Notification.permission === 'granted') {
+      new Notification('VMS Security Chat', {
+        body,
+        icon: '/favicon.ico',
+      });
+    } else {
+      message.info(body);
+    }
+  }, [currentUser?._id, rootMessages, visible]);
+
+  const openContextMenu = (chatMessage: ChatMessage, x: number, y: number) => {
+    setContextMenu({ message: chatMessage, x, y });
+  };
+
+  const handleLongPressStart = (chatMessage: ChatMessage) => {
+    if (!isMobile) {
+      return;
+    }
+
+    longPressRef.current = window.setTimeout(() => {
+      openContextMenu(chatMessage, window.innerWidth / 2 - 90, window.innerHeight / 2 - 80);
+    }, 450);
+  };
+
+  const clearLongPress = () => {
+    if (longPressRef.current) {
+      window.clearTimeout(longPressRef.current);
+      longPressRef.current = null;
+    }
+  };
+
+  const handleSend = async () => {
+    const content = draft.trim();
+    if (!content) {
+      return;
+    }
+
+    await sendMessage({
+      content,
+      replyTo: replyTarget?._id,
+      threadId: activeThread?._id,
+      mentions: selectedMentionIds,
+    });
+
+    setDraft('');
+    setReplyTarget(null);
+    setSelectedMentionIds([]);
+    if (activeThread) {
+      await fetchThreadMessages(activeThread._id);
+    }
+  };
+
+  const handleSelectMention = (participant: Participant) => {
+    const fullName = `${participant.firstName} ${participant.surname}`;
+    setDraft((previous) => previous.replace(/@([a-zA-Z\s]*)$/, `@${fullName} `));
+    setSelectedMentionIds((previous) => (
+      previous.includes(participant._id) ? previous : [...previous, participant._id]
+    ));
+  };
+
+  const handleDeleteMessage = async (messageId: string) => {
     try {
-      const users = await getUsersByRole(['TUP', 'Security']);
-      setChatUsers(users);
-    } catch (error) {
-      console.error('Failed to fetch chat users:', error);
-    } finally {
-      setLoadingUsers(false);
+      await deleteMessage(messageId);
+      setContextMenu(null);
+      await refresh();
+      if (activeThread) {
+        await fetchThreadMessages(activeThread._id);
+      }
+      message.success('Message deleted.');
+    } catch {
+      message.error('Unable to delete message.');
     }
   };
 
-  const handleSend = () => {
-    if (!newMessage.trim() || !selectedUser) return;
-    sendMessage(newMessage, selectedUser._id);
-    setNewMessage('');
-  };
-
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
+  const handleMarkUnread = async (messageId: string) => {
+    try {
+      await markMessageAsUnread(messageId);
+      setContextMenu(null);
+      message.success('Message marked as unread.');
+    } catch {
+      message.error('Unable to mark message as unread.');
     }
   };
 
-  const getRoleIcon = (role: string) => {
-    if (role === 'TUP') {
-      return <UserOutlined style={{ color: '#1890ff' }} />;
-    }
-    if (role === 'System') {
-      return <MessageOutlined style={{ color: '#722ed1' }} />;
-    }
-    return <SecurityScanOutlined style={{ color: '#52c41a' }} />;
+  const openThread = async (chatMessage: ChatMessage) => {
+    setActiveThread(chatMessage);
+    setContextMenu(null);
+    await fetchThreadMessages(chatMessage._id);
   };
 
-  const getRoleColor = (role: string) => {
-    if (role === 'TUP') return '#1890ff';
-    if (role === 'System') return '#722ed1';
-    return '#52c41a';
-  };
+  const renderMessage = (chatMessage: ChatMessage) => {
+    const isOwn = chatMessage.senderId === currentUser?._id;
+    const isMentioned = chatMessage.mentions.includes(String(currentUser?._id || ''));
+    const isDeleted = Boolean(chatMessage.deletedAt);
+    const bubbleClass = chatMessage.isSystemMessage
+      ? 'w-full rounded-xl border border-red-200 bg-red-50 p-4 text-red-900'
+      : isOwn
+        ? 'rounded-2xl rounded-br-md bg-teal-600 p-3 text-white'
+        : 'rounded-2xl rounded-bl-md bg-gray-100 p-3 text-gray-900';
 
-  const getRoleTag = (role: string) => {
-    if (role === 'TUP') {
-      return <Tag color="blue">Admin</Tag>;
-    }
-    if (role === 'System') {
-      return <Tag color="purple">System</Tag>;
-    }
-    return <Tag color="green">Security</Tag>;
-  };
-
-  const isUserOnline = (userId: string) => {
-    return onlineUsers.some((u: any) => u._id === userId);
-  };
-
-  const filteredUsers = chatUsers.filter((chatUser: ChatUser) => {
-    if (!searchText) return true;
-    const search = searchText.toLowerCase();
     return (
-      chatUser.firstName.toLowerCase().includes(search) ||
-      chatUser.surname.toLowerCase().includes(search) ||
-      chatUser.email.toLowerCase().includes(search) ||
-      chatUser.role.toLowerCase().includes(search)
-    );
-  });
-
-  const filteredMessages = activeChannel === 'system'
-    ? systemMessages
-    : selectedUser
-    ? messages.filter(
-        (msg: any) =>
-          msg.senderId === selectedUser._id ||
-          msg.recipientId === selectedUser._id,
-      )
-    : humanMessages;
-
-  const getLastMessage = (userId: string) => {
-    const userMessages = messages.filter(
-      (msg: any) =>
-        msg.senderRole !== 'System' &&
-        (msg.senderId === userId || msg.recipientId === userId),
-    );
-    if (userMessages.length === 0) return null;
-    return userMessages[userMessages.length - 1];
-  };
-
-  const getUnreadCount = (userId: string) => {
-    return messages.filter(
-      (msg: any) =>
-        !msg.isRead &&
-        msg.senderRole !== 'System' &&
-        msg.senderId === userId &&
-        (msg.recipientId === user?._id || !msg.recipientId),
-    ).length;
-  };
-
-  const channelSelector = isSecurityUser ? (
-    <Segmented
-      value={activeChannel}
-      onChange={value => {
-        setActiveChannel(value as 'direct' | 'system');
-        if (value === 'system') {
-          setSelectedUser(null);
-        }
-      }}
-      options={[
-        {
-          label: `Messages${directUnreadCount ? ` (${directUnreadCount})` : ''}`,
-          value: 'direct',
-        },
-        {
-          label: `System Feed${systemUnreadCount ? ` (${systemUnreadCount})` : ''}`,
-          value: 'system',
-        },
-      ]}
-      block={isMobileView}
-    />
-  ) : null;
-
-  // Mobile view: show either contact list or chat
-  if (isMobileView) {
-    if (selectedUser && activeChannel === 'direct') {
-      // Show chat view on mobile
-      return (
-        <div
-          style={{
-            height: 'calc(100vh - 100px)',
-            display: 'flex',
-            flexDirection: 'column',
-            background: '#fff',
-            borderRadius: 12,
-            boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-            overflow: 'hidden',
-          }}
-        >
-          {/* Mobile Chat Header */}
-          <div
-            style={{
-              padding: '12px 16px',
-              borderBottom: '1px solid #f0f0f0',
-              background: '#fafafa',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 12,
-              flexShrink: 0,
-            }}
-          >
-            <Button
-              type="text"
-              icon={<ArrowLeftOutlined />}
-              onClick={() => setSelectedUser(null)}
-              style={{ padding: '4px 8px' }}
-            />
-            <Avatar
-              size={36}
-              icon={getRoleIcon(selectedUser.role)}
-              style={{ backgroundColor: getRoleColor(selectedUser.role) }}
-            />
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <Text strong style={{ fontSize: 14, display: 'block' }}>
-                {selectedUser.firstName} {selectedUser.surname}
-              </Text>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                {getRoleTag(selectedUser.role)}
-                <Text type="secondary" style={{ fontSize: 11 }}>
-                  {isUserOnline(selectedUser._id) ? 'Online' : 'Offline'}
-                </Text>
-              </div>
-            </div>
+      <div
+        key={chatMessage._id}
+        className={`flex ${chatMessage.isSystemMessage ? 'justify-stretch' : isOwn ? 'justify-end' : 'justify-start'}`}
+        onContextMenu={(event) => {
+          event.preventDefault();
+          openContextMenu(chatMessage, event.clientX, event.clientY);
+        }}
+        onTouchStart={() => handleLongPressStart(chatMessage)}
+        onTouchEnd={clearLongPress}
+      >
+        <div className={`max-w-3xl ${chatMessage.isSystemMessage ? 'w-full' : 'max-w-[85%]'}`}>
+          <div className={`mb-1 flex items-center gap-2 text-xs ${isOwn ? 'justify-end' : 'justify-start'}`}>
+            <Text strong>{chatMessage.isSystemMessage ? '🚨 HAWKEYE ALERT' : chatMessage.senderName}</Text>
+            <Text type="secondary">{dayjs(chatMessage.createdAt).tz(MNL).format('MMM D, YYYY hh:mm A')}</Text>
+            <Text type="secondary">Read by {Math.max(chatMessage.readBy.length - 1, 0)}</Text>
+            {isMentioned && <Tag color="gold">Mentioned you</Tag>}
           </div>
-
-          {/* Messages */}
-          <div
-            style={{
-              flex: 1,
-              overflow: 'auto',
-              padding: 16,
-              background: '#f5f5f5',
-            }}
-          >
-            {loading ? (
-              <div style={{ textAlign: 'center', padding: 24 }}>
-                <Spin />
+          <div className={bubbleClass}>
+            {chatMessage.replyTo && (
+              <div className="mb-2 rounded-lg border-l-4 border-gray-300 bg-white/70 p-2 text-xs text-gray-700">
+                <div className="font-semibold">{chatMessage.replyTo.senderName}</div>
+                <div className="truncate">{chatMessage.replyTo.message}</div>
               </div>
-            ) : filteredMessages.length === 0 ? (
-              <Empty
-                description={`No messages with ${selectedUser.firstName} yet`}
-                image={Empty.PRESENTED_IMAGE_SIMPLE}
-              />
-            ) : (
-              filteredMessages.map((msg: any) => {
-                const isOwnMessage = msg.senderId === user?._id;
-                return (
-                  <div
-                    key={msg._id}
-                    style={{
-                      display: 'flex',
-                      justifyContent: isOwnMessage ? 'flex-end' : 'flex-start',
-                      marginBottom: 12,
-                    }}
-                  >
-                    <div
-                      style={{
-                        maxWidth: '80%',
-                        display: 'flex',
-                        flexDirection: isOwnMessage ? 'row-reverse' : 'row',
-                        gap: 8,
-                      }}
-                    >
-                      <Avatar
-                        size={32}
-                        icon={getRoleIcon(msg.senderRole)}
-                        style={{
-                          backgroundColor: getRoleColor(msg.senderRole),
-                          flexShrink: 0,
-                        }}
-                      />
-                      <div>
-                        <div
-                          style={{
-                            display: 'flex',
-                            gap: 6,
-                            alignItems: 'center',
-                            marginBottom: 4,
-                            justifyContent: isOwnMessage
-                              ? 'flex-end'
-                              : 'flex-start',
-                          }}
-                        >
-                          <Text strong style={{ fontSize: 12 }}>
-                            {msg.senderName}
-                          </Text>
-                          <Tooltip
-                            title={dayjs(msg.createdAt).format(
-                              'MMMM DD, YYYY HH:mm:ss',
-                            )}
-                          >
-                            <Text type="secondary" style={{ fontSize: 10 }}>
-                              {dayjs(msg.createdAt).format('HH:mm')}
-                            </Text>
-                          </Tooltip>
-                          {isOwnMessage && (
-                            <CheckCircleOutlined
-                              style={{
-                                fontSize: 10,
-                                color: msg.isRead ? '#52c41a' : '#8c8c8c',
-                              }}
-                            />
-                          )}
-                        </div>
-                        <div
-                          style={{
-                            background: isOwnMessage ? '#1890ff' : '#fff',
-                            color: isOwnMessage ? '#fff' : '#000',
-                            padding: '8px 12px',
-                            borderRadius: isOwnMessage
-                              ? '16px 16px 4px 16px'
-                              : '16px 16px 16px 4px',
-                            boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
-                            wordBreak: 'break-word',
-                          }}
-                        >
-                          {msg.message}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })
             )}
-            <div ref={messagesEndRef} />
-          </div>
-
-          {/* Input */}
-          <div
-            style={{
-              padding: '12px 16px',
-              borderTop: '1px solid #f0f0f0',
-              background: '#fff',
-              flexShrink: 0,
-            }}
-          >
-            <Space.Compact style={{ width: '100%' }}>
-              <Input
-                value={newMessage}
-                onChange={e => setNewMessage(e.target.value)}
-                onKeyPress={handleKeyPress}
-                placeholder={`Message ${selectedUser.firstName}...`}
-                style={{ flex: 1, borderRadius: '20px 0 0 20px' }}
-              />
-              <Button
-                type="primary"
-                icon={<SendOutlined />}
-                onClick={handleSend}
-                disabled={!newMessage.trim()}
-                style={{ borderRadius: '0 20px 20px 0' }}
-              />
-            </Space.Compact>
-          </div>
-        </div>
-      );
-    }
-
-    // Show contact list on mobile
-    return (
-      <div
-        style={{
-          height: 'calc(100vh - 100px)',
-          display: 'flex',
-          flexDirection: 'column',
-          background: '#fff',
-          borderRadius: 12,
-          boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-          overflow: 'hidden',
-        }}
-      >
-        {/* Header */}
-        <div
-          style={{
-            padding: '16px',
-            borderBottom: '1px solid #f0f0f0',
-            background: '#fafafa',
-            flexShrink: 0,
-          }}
-        >
-          <Space direction="vertical" style={{ width: '100%' }} size={12}>
-            <Space>
-              <MessageOutlined style={{ fontSize: 20, color: '#1890ff' }} />
-              <Title level={5} style={{ margin: 0 }}>
-                Messages
-              </Title>
-              {unreadCount > 0 && (
-                <Badge
-                  count={unreadCount}
-                  style={{ backgroundColor: '#b1122b' }}
-                />
-              )}
-            </Space>
-            <Search
-              placeholder="Search contacts..."
-              value={searchText}
-              onChange={e => setSearchText(e.target.value)}
-              prefix={<SearchOutlined />}
-              allowClear
-            />
-            {channelSelector}
-          </Space>
-        </div>
-
-        {/* Contact List */}
-        <div style={{ flex: 1, overflow: 'auto' }}>
-          {activeChannel === 'system' ? (
-            loading ? (
-              <div style={{ textAlign: 'center', padding: 24 }}>
-                <Spin />
-              </div>
-            ) : systemMessages.length === 0 ? (
-              <Empty
-                description="No system alerts yet"
-                image={Empty.PRESENTED_IMAGE_SIMPLE}
-                style={{ padding: 24 }}
-              />
+            {isDeleted ? (
+              <Text italic type="secondary">This message was deleted.</Text>
             ) : (
-              <List
-                dataSource={systemMessages}
-                renderItem={(msg: any) => (
-                  <List.Item style={{ padding: '12px 16px' }}>
-                    <List.Item.Meta
-                      avatar={
-                        <Avatar
-                          size={44}
-                          icon={getRoleIcon('System')}
-                          style={{ backgroundColor: getRoleColor('System') }}
-                        />
-                      }
-                      title={
-                        <Space>
-                          <Text strong>{msg.senderName}</Text>
-                          {!msg.isRead && <Badge status="processing" />}
-                        </Space>
-                      }
-                      description={
-                        <Text type="secondary" style={{ whiteSpace: 'pre-line' }}>
-                          {msg.message}
-                        </Text>
-                      }
-                    />
-                  </List.Item>
-                )}
-              />
-            )
-          ) : loadingUsers ? (
-            <div style={{ textAlign: 'center', padding: 24 }}>
-              <Spin />
-            </div>
-          ) : filteredUsers.length === 0 ? (
-            <Empty
-              description={
-                searchText ? 'No contacts found' : 'No contacts available'
-              }
-              image={Empty.PRESENTED_IMAGE_SIMPLE}
-              style={{ padding: 24 }}
-            />
-          ) : (
-            <List
-              dataSource={filteredUsers}
-              renderItem={(chatUser: ChatUser) => {
-                const isOnline = isUserOnline(chatUser._id);
-                const lastMessage = getLastMessage(chatUser._id);
-                const unreadCount = getUnreadCount(chatUser._id);
-                return (
-                  <List.Item
-                    onClick={() => setSelectedUser(chatUser)}
-                    style={{
-                      padding: '12px 16px',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s',
-                      background: 'transparent',
-                    }}
-                  >
-                    <div
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 12,
-                        width: '100%',
-                      }}
-                    >
-                      <div style={{ position: 'relative', flexShrink: 0 }}>
-                        <Avatar
-                          size={44}
-                          icon={getRoleIcon(chatUser.role)}
-                          style={{
-                            backgroundColor: getRoleColor(chatUser.role),
-                          }}
-                        />
-                        {isOnline && (
-                          <div
-                            style={{
-                              position: 'absolute',
-                              bottom: 2,
-                              right: 2,
-                              width: 10,
-                              height: 10,
-                              borderRadius: '50%',
-                              background: '#52c41a',
-                              border: '2px solid #fff',
-                            }}
-                          />
-                        )}
-                      </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div
-                          style={{
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                            marginBottom: 4,
-                          }}
-                        >
-                          <Text
-                            strong
-                            style={{
-                              fontSize: 13,
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              whiteSpace: 'nowrap',
-                            }}
-                          >
-                            {chatUser.firstName} {chatUser.surname}
-                          </Text>
-                          {unreadCount > 0 && (
-                            <Badge count={unreadCount} size="small" />
-                          )}
-                        </div>
-                        <div
-                          style={{
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                            gap: 8,
-                          }}
-                        >
-                          <Text
-                            type="secondary"
-                            style={{
-                              fontSize: 11,
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              whiteSpace: 'nowrap',
-                              flex: 1,
-                            }}
-                          >
-                            {lastMessage
-                              ? lastMessage.message
-                              : isOnline
-                                ? 'Online'
-                                : 'Offline'}
-                          </Text>
-                          {getRoleTag(chatUser.role)}
-                        </div>
-                      </div>
-                    </div>
-                  </List.Item>
-                );
-              }}
-            />
+              <div className="whitespace-pre-wrap break-words">{chatMessage.content || chatMessage.message}</div>
+            )}
+          </div>
+          {chatMessage.replyCount > 0 && !chatMessage.threadId && (
+            <button
+              type="button"
+              className="mt-1 text-xs text-sky-700"
+              onClick={() => void openThread(chatMessage)}
+            >
+              {chatMessage.replyCount} repl{chatMessage.replyCount === 1 ? 'y' : 'ies'}
+            </button>
           )}
-        </div>
-
-        {/* Online Count */}
-        <div
-          style={{
-            padding: '12px 16px',
-            borderTop: '1px solid #f0f0f0',
-            background: '#fafafa',
-            flexShrink: 0,
-          }}
-        >
-          <Space>
-            <Badge status="success" />
-            <Text type="secondary" style={{ fontSize: 12 }}>
-              {onlineUsers.length} user{onlineUsers.length !== 1 ? 's' : ''}{' '}
-              online
-            </Text>
-          </Space>
         </div>
       </div>
     );
-  }
+  };
 
-  // Desktop view: show both contact list and chat
-  return (
-    <div
-      style={{
-        height: 'calc(100vh - 100px)',
-        display: 'flex',
-        gap: 0,
-        background: '#fff',
-        borderRadius: 12,
-        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-        overflow: 'hidden',
-      }}
-    >
-      {/* Contact List Sidebar */}
-      <div
-        style={{
-          width: 320,
-          borderRight: '1px solid #f0f0f0',
-          display: 'flex',
-          flexDirection: 'column',
-          flexShrink: 0,
-        }}
-      >
-        {/* Header */}
-        <div
-          style={{
-            padding: '16px 20px',
-            borderBottom: '1px solid #f0f0f0',
-            background: '#fafafa',
-            flexShrink: 0,
-          }}
-        >
-          <Space direction="vertical" style={{ width: '100%' }} size={12}>
-            <Space>
-              <MessageOutlined style={{ fontSize: 20, color: '#1890ff' }} />
-              <Title level={5} style={{ margin: 0 }}>
-                Messages
-              </Title>
-              {directUnreadCount > 0 && activeChannel === 'direct' && (
-                <Badge
-                  count={directUnreadCount}
-                  style={{ backgroundColor: '#b1122b' }}
-                />
-              )}
-              {systemUnreadCount > 0 && activeChannel === 'system' && (
-                <Badge
-                  count={systemUnreadCount}
-                  style={{ backgroundColor: '#722ed1' }}
-                />
-              )}
-            </Space>
-            {channelSelector}
-            <Search
-              placeholder="Search contacts..."
-              value={searchText}
-              onChange={e => setSearchText(e.target.value)}
-              prefix={<SearchOutlined />}
-              allowClear
-            />
-          </Space>
+  const threadPanel = activeThread && (
+    <div className={`${isMobile ? 'fixed inset-0 z-50 bg-white' : 'w-80 border-l border-gray-200 bg-white'} flex flex-col`}>
+      <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
+        <div>
+          <Text strong>Thread</Text>
+          <div className="text-xs text-gray-500">{activeThread.senderName}</div>
         </div>
-
-        {/* Contact List */}
-        <div style={{ flex: 1, overflow: 'auto' }}>
-          {activeChannel === 'system' ? (
-            <div style={{ padding: 18 }}>
-              <div
-                style={{
-                  padding: 16,
-                  borderRadius: 14,
-                  background: 'linear-gradient(135deg, #f5f3ff 0%, #eef2ff 100%)',
-                  border: '1px solid #ddd6fe',
-                }}
-              >
-                <Text strong style={{ display: 'block', marginBottom: 6 }}>
-                  Hawkeye Incident Feed
-                </Text>
-                <Text type="secondary">
-                  System-generated weapon and suspicious alerts appear here for
-                  security monitoring. This channel is read-only.
-                </Text>
-              </div>
-            </div>
-          ) : loadingUsers ? (
-            <div style={{ textAlign: 'center', padding: 24 }}>
-              <Spin />
-            </div>
-          ) : filteredUsers.length === 0 ? (
-            <Empty
-              description={
-                searchText ? 'No contacts found' : 'No contacts available'
-              }
-              image={Empty.PRESENTED_IMAGE_SIMPLE}
-              style={{ padding: 24 }}
-            />
-          ) : (
-            <List
-              dataSource={filteredUsers}
-              renderItem={(chatUser: ChatUser) => {
-                const isSelected = selectedUser?._id === chatUser._id;
-                const isOnline = isUserOnline(chatUser._id);
-                const lastMessage = getLastMessage(chatUser._id);
-                const unreadCount = getUnreadCount(chatUser._id);
-                return (
-                  <List.Item
-                    onClick={() => setSelectedUser(chatUser)}
-                    style={{
-                      padding: '12px 20px',
-                      cursor: 'pointer',
-                      background: isSelected ? '#e6f7ff' : 'transparent',
-                      borderLeft: isSelected
-                        ? '3px solid #1890ff'
-                        : '3px solid transparent',
-                      transition: 'all 0.2s',
-                    }}
-                    onMouseEnter={e => {
-                      if (!isSelected) {
-                        e.currentTarget.style.background = '#f5f5f5';
-                      }
-                    }}
-                    onMouseLeave={e => {
-                      if (!isSelected) {
-                        e.currentTarget.style.background = 'transparent';
-                      }
-                    }}
-                  >
-                    <div
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 12,
-                        width: '100%',
-                      }}
-                    >
-                      <div style={{ position: 'relative', flexShrink: 0 }}>
-                        <Avatar
-                          size={48}
-                          icon={getRoleIcon(chatUser.role)}
-                          style={{
-                            backgroundColor: getRoleColor(chatUser.role),
-                          }}
-                        />
-                        {isOnline && (
-                          <div
-                            style={{
-                              position: 'absolute',
-                              bottom: 2,
-                              right: 2,
-                              width: 12,
-                              height: 12,
-                              borderRadius: '50%',
-                              background: '#52c41a',
-                              border: '2px solid #fff',
-                            }}
-                          />
-                        )}
-                      </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div
-                          style={{
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                            marginBottom: 4,
-                          }}
-                        >
-                          <Text strong style={{ fontSize: 14 }}>
-                            {chatUser.firstName} {chatUser.surname}
-                          </Text>
-                          {unreadCount > 0 && (
-                            <Badge count={unreadCount} size="small" />
-                          )}
-                        </div>
-                        <div
-                          style={{
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                            gap: 8,
-                          }}
-                        >
-                          <Text
-                            type="secondary"
-                            style={{
-                              fontSize: 12,
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              whiteSpace: 'nowrap',
-                              flex: 1,
-                            }}
-                          >
-                            {lastMessage
-                              ? lastMessage.message
-                              : isOnline
-                                ? 'Online'
-                                : 'Offline'}
-                          </Text>
-                          {getRoleTag(chatUser.role)}
-                        </div>
-                      </div>
-                    </div>
-                  </List.Item>
-                );
-              }}
-            />
-          )}
-        </div>
-
-        {/* Online Count */}
-        <div
-          style={{
-            padding: '12px 20px',
-            borderTop: '1px solid #f0f0f0',
-            background: '#fafafa',
-            flexShrink: 0,
-          }}
-        >
-          <Space>
-            <Badge status="success" />
-            <Text type="secondary" style={{ fontSize: 12 }}>
-              {onlineUsers.length} user{onlineUsers.length !== 1 ? 's' : ''}{' '}
-              online
-            </Text>
-          </Space>
-        </div>
+        <Button
+          type="text"
+          icon={<ArrowLeftOutlined />}
+          onClick={() => setActiveThread(null)}
+        />
       </div>
-
-      {/* Chat Area */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-        {/* Chat Header */}
-        <div
-          style={{
-            padding: '16px 20px',
-            borderBottom: '1px solid #f0f0f0',
-            background: '#fafafa',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            flexShrink: 0,
-          }}
-        >
-          {activeChannel === 'system' ? (
-            <Space>
-              <Avatar
-                size={40}
-                icon={getRoleIcon('System')}
-                style={{ backgroundColor: getRoleColor('System') }}
-              />
-              <div>
-                <Text strong style={{ fontSize: 15, display: 'block' }}>
-                  System Feed
-                </Text>
-                <Text type="secondary" style={{ fontSize: 12 }}>
-                  Hawkeye incident alerts for security monitoring
-                </Text>
-              </div>
-            </Space>
-          ) : selectedUser ? (
-            <Space>
-              <Avatar
-                size={40}
-                icon={getRoleIcon(selectedUser.role)}
-                style={{ backgroundColor: getRoleColor(selectedUser.role) }}
-              />
-              <div>
-                <Text strong style={{ fontSize: 15, display: 'block' }}>
-                  {selectedUser.firstName} {selectedUser.surname}
-                </Text>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  {getRoleTag(selectedUser.role)}
-                  <Text type="secondary" style={{ fontSize: 12 }}>
-                    {isUserOnline(selectedUser._id) ? 'Online' : 'Offline'}
-                  </Text>
-                </div>
-              </div>
-            </Space>
-          ) : (
-            <Space>
-              <TeamOutlined style={{ fontSize: 20, color: '#8c8c8c' }} />
-              <Text type="secondary">Select a contact to start chatting</Text>
-            </Space>
-          )}
-          <Badge count={onlineUsers.length} showZero color="green" />
+      <div className="flex-1 overflow-y-auto bg-gray-50 p-4">
+        <div className="mb-4 rounded-xl border border-gray-200 bg-white p-3">
+          <div className="mb-1 text-xs text-gray-500">{activeThread.senderName}</div>
+          <div className="whitespace-pre-wrap break-words">{activeThread.content || activeThread.message}</div>
         </div>
+        {threadLoading ? (
+          <Card loading />
+        ) : threadMessages.length === 0 ? (
+          <Empty description="No replies yet" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+        ) : (
+          <div className="space-y-3">
+            {threadMessages.map(renderMessage)}
+          </div>
+        )}
+        <div ref={threadEndRef} />
+      </div>
+    </div>
+  );
 
-        {/* Messages */}
-        <div
-          style={{
-            flex: 1,
-            overflow: 'auto',
-            padding: 20,
-            background: '#f5f5f5',
-          }}
-        >
-          {loading ? (
-            <div style={{ textAlign: 'center', padding: 24 }}>
-              <Spin />
+  return (
+    <RoleGuard allowedRoles={[]} allowedSubRoles={SECURITY_SUBROLES}>
+      <div className="p-3 sm:p-4 md:p-6 lg:p-8">
+        <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+          <div className="flex items-center justify-between border-b border-gray-200 px-4 py-4">
+            <div className="flex items-center gap-3">
+              <MessageOutlined className="text-lg text-red-600" />
+              <div>
+                <Title level={4} style={{ margin: 0 }}>Security General</Title>
+                <Text type="secondary">Group chat for security operations and Hawkeye alerts</Text>
+              </div>
             </div>
-          ) : filteredMessages.length === 0 ? (
-            <Empty
-              description={
-                activeChannel === 'system'
-                  ? 'No system alerts yet'
-                  : selectedUser
-                  ? `No messages with ${selectedUser.firstName} yet`
-                  : 'No messages yet'
-              }
-              image={Empty.PRESENTED_IMAGE_SIMPLE}
-            />
-          ) : (
-            filteredMessages.map((msg: any) => {
-              const isOwnMessage = msg.senderId === user?._id;
-              return (
-                <div
-                  key={msg._id}
-                  style={{
-                    display: 'flex',
-                    justifyContent: isOwnMessage ? 'flex-end' : 'flex-start',
-                    marginBottom: 16,
-                  }}
-                >
-                  <div
-                    style={{
-                      maxWidth: '70%',
-                      display: 'flex',
-                      flexDirection: isOwnMessage ? 'row-reverse' : 'row',
-                      gap: 10,
-                    }}
-                  >
-                    <Avatar
-                      size={36}
-                      icon={getRoleIcon(msg.senderRole)}
-                      style={{
-                        backgroundColor: getRoleColor(msg.senderRole),
-                        flexShrink: 0,
-                      }}
-                    />
+            <Space>
+              <Badge count={participantsLoading ? 0 : participants.length} color="blue" />
+              <Badge count={unreadCount} />
+              <Button icon={<ReloadOutlined />} onClick={() => void refresh()}>Refresh</Button>
+            </Space>
+          </div>
+
+          <div className="flex min-h-[70vh]">
+            <div className="flex flex-1 flex-col">
+              <div className="flex-1 overflow-y-auto bg-stone-50 p-4">
+                {loading ? (
+                  <Card loading />
+                ) : rootMessages.length === 0 ? (
+                  <Empty description="No chat messages yet" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+                ) : (
+                  <List
+                    dataSource={rootMessages}
+                    renderItem={(entry) => (
+                      <List.Item className="!border-none !px-0">
+                        {renderMessage(entry)}
+                      </List.Item>
+                    )}
+                  />
+                )}
+                <div ref={messagesEndRef} />
+              </div>
+
+              <div className="border-t border-gray-200 bg-white p-4">
+                {replyTarget && (
+                  <div className="mb-3 flex items-center justify-between rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm">
                     <div>
-                      <div
-                        style={{
-                          display: 'flex',
-                          gap: 8,
-                          alignItems: 'center',
-                          marginBottom: 6,
-                          justifyContent: isOwnMessage
-                            ? 'flex-end'
-                            : 'flex-start',
-                        }}
-                      >
-                        <Text strong style={{ fontSize: 13 }}>
-                          {msg.senderName}
-                        </Text>
-                        <Tooltip
-                          title={dayjs(msg.createdAt).format(
-                            'MMMM DD, YYYY HH:mm:ss',
-                          )}
-                        >
-                          <Text type="secondary" style={{ fontSize: 11 }}>
-                            {dayjs(msg.createdAt).format('HH:mm')}
-                          </Text>
-                        </Tooltip>
-                        {isOwnMessage && (
-                          <CheckCircleOutlined
-                            style={{
-                              fontSize: 12,
-                              color: msg.isRead ? '#52c41a' : '#8c8c8c',
-                            }}
-                          />
-                        )}
-                      </div>
-                      <div
-                        style={{
-                          background: isOwnMessage ? '#1890ff' : '#fff',
-                          color: isOwnMessage ? '#fff' : '#000',
-                          padding: '10px 14px',
-                          borderRadius: isOwnMessage
-                            ? '18px 18px 4px 18px'
-                            : '18px 18px 18px 4px',
-                          boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
-                          wordBreak: 'break-word',
-                        }}
-                      >
-                        {msg.message}
-                      </div>
+                      Replying to @{replyTarget.senderName}: {(replyTarget.content || replyTarget.message).slice(0, 60)}
                     </div>
+                    <Button type="text" onClick={() => setReplyTarget(null)}>X</Button>
+                  </div>
+                )}
+
+                {mentionOptions.length > 0 && (
+                  <div className="mb-3 max-h-48 overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-sm">
+                    {mentionOptions.map((participant) => (
+                      <button
+                        type="button"
+                        key={participant._id}
+                        className="flex w-full items-center justify-between px-3 py-2 text-left hover:bg-gray-50"
+                        onClick={() => handleSelectMention(participant)}
+                      >
+                        <span>{participant.firstName} {participant.surname}</span>
+                        <Tag>{participant.subRole}</Tag>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                <div className="flex flex-col gap-3">
+                  <Input.TextArea
+                    value={draft}
+                    onChange={(event) => setDraft(event.target.value)}
+                    rows={3}
+                    placeholder="Message security_general. Type @ to mention someone."
+                    onFocus={() => void markAsRead()}
+                    onPressEnter={(event) => {
+                      if (!event.shiftKey) {
+                        event.preventDefault();
+                        void handleSend();
+                      }
+                    }}
+                  />
+                  <div className="flex items-center justify-between gap-3">
+                    <Text type="secondary">
+                      {activeThread ? `Posting in thread for ${activeThread.senderName}` : 'Posting in security_general'}
+                    </Text>
+                    <Button
+                      type="primary"
+                      icon={<SendOutlined />}
+                      disabled={!draft.trim()}
+                      onClick={() => void handleSend()}
+                    >
+                      Send
+                    </Button>
                   </div>
                 </div>
-              );
-            })
-          )}
-          <div ref={messagesEndRef} />
+              </div>
+            </div>
+
+            {!isMobile && threadPanel}
+          </div>
         </div>
 
-        {/* Input */}
-        {activeChannel === 'system' ? (
+        {isMobile && threadPanel}
+
+        {contextMenu && (
           <div
-            style={{
-              padding: '16px 20px',
-              borderTop: '1px solid #f0f0f0',
-              background: '#fafafa',
-              flexShrink: 0,
-            }}
+            className="fixed z-[1000] w-44 rounded-xl border border-gray-200 bg-white p-2 shadow-lg"
+            style={{ left: contextMenu.x, top: contextMenu.y }}
           >
-            <Text type="secondary">
-              This channel is reserved for Hawkeye incident alerts and is
-              read-only for security personnel.
-            </Text>
-          </div>
-        ) : (
-          <div
-            style={{
-              padding: '16px 20px',
-              borderTop: '1px solid #f0f0f0',
-              background: '#fff',
-              flexShrink: 0,
-            }}
-          >
-            <Space.Compact style={{ width: '100%' }}>
-              <Input
-                value={newMessage}
-                onChange={e => setNewMessage(e.target.value)}
-                onKeyPress={handleKeyPress}
-                placeholder={
-                  selectedUser
-                    ? `Message ${selectedUser.firstName}...`
-                    : 'Type a message...'
-                }
-                style={{ flex: 1, borderRadius: '20px 0 0 20px' }}
-                size="large"
-                disabled={!selectedUser}
-              />
-              <Button
-                type="primary"
-                icon={<SendOutlined />}
-                onClick={handleSend}
-                disabled={!newMessage.trim() || !selectedUser}
-                size="large"
-                style={{ borderRadius: '0 20px 20px 0' }}
+            <button
+              type="button"
+              className="w-full rounded-lg px-3 py-2 text-left hover:bg-gray-50"
+              onClick={() => {
+                setReplyTarget(contextMenu.message);
+                setContextMenu(null);
+              }}
+            >
+              Reply
+            </button>
+            <button
+              type="button"
+              className="w-full rounded-lg px-3 py-2 text-left hover:bg-gray-50"
+              onClick={() => void openThread(contextMenu.message)}
+            >
+              Create Thread
+            </button>
+            <button
+              type="button"
+              className="w-full rounded-lg px-3 py-2 text-left hover:bg-gray-50"
+              onClick={() => void handleMarkUnread(contextMenu.message._id)}
+            >
+              Mark Unread
+            </button>
+            {!contextMenu.message.isSystemMessage && contextMenu.message.senderId === currentUser?._id && (
+              <button
+                type="button"
+                className="w-full rounded-lg px-3 py-2 text-left text-red-600 hover:bg-red-50"
+                onClick={() => void handleDeleteMessage(contextMenu.message._id)}
               >
-                Send
-              </Button>
-            </Space.Compact>
+                Delete
+              </button>
+            )}
           </div>
         )}
       </div>
-    </div>
+    </RoleGuard>
   );
 };
 

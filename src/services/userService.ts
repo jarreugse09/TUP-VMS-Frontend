@@ -41,6 +41,17 @@ export const requestProfilePhotoChange = async (payload: {
   return response.data;
 };
 
+export const directUpdateProfilePhoto = async (photoFile: File) => {
+  const form = new FormData();
+  form.append("photo", photoFile);
+
+  const response = await api.put("/users/me/photo", form, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+
+  return response.data;
+};
+
 export const getUser = async (id: string) => {
   const response = await api.get(`/users/${id}`);
   return response.data;

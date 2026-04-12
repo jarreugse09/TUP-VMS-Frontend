@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { DatePicker, Grid } from 'antd';
 import {
   Card,
@@ -13,10 +13,12 @@ import {
   Image,
   message,
   Popconfirm,
+  Alert as AntAlert,
   Empty,
   Row,
   Col,
 } from 'antd';
+import type { ColumnsType } from 'antd/es/table';
 import {
   WarningOutlined,
   BellOutlined,
@@ -27,16 +29,37 @@ import {
   ClockCircleOutlined,
   ScanOutlined,
   CheckCircleOutlined,
-  SyncOutlined,
   AuditOutlined,
 } from '@ant-design/icons';
+import { useAuth } from '../contexts/AuthContext';
+import RoleGuard from '../components/RoleGuard';
 import { useAlerts } from '../hooks/useAlerts';
 import { deleteAlert } from '../services/alertService';
-import dayjs from 'dayjs';
+import dayjs, { type Dayjs } from 'dayjs';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
 const { RangePicker } = DatePicker;
+
+type IncidentStatus = 'new' | 'acknowledged' | 'in_progress' | 'resolved';
+
+interface AlertRecord {
+  _id: string;
+  title: string;
+  message: string;
+  type: string;
+  severity: string;
+  isRead: boolean;
+  incidentStatus: IncidentStatus;
+  cameraSource: string;
+  detectionLabel: string;
+  detectedObjects?: string[];
+  confidence: number;
+  createdAt: string;
+  acknowledgedAt?: string;
+  resolvedAt?: string;
+  imageUrl?: string;
+}
 
 const Alerts = () => {
   const { useBreakpoint } = Grid;
@@ -51,11 +74,21 @@ const Alerts = () => {
   const [filterCameraSource, setFilterCameraSource] = useState<string>('all');
   const [filterDetectionLabel, setFilterDetectionLabel] = useState<string>('all');
   const [filterDetectedObject, setFilterDetectedObject] = useState<string>('all');
-  const [filterDateRange, setFilterDateRange] = useState<any>(null);
+  const [filterDateRange, setFilterDateRange] = useState<[Dayjs | null, Dayjs | null] | null>(null);
   const [searchText, setSearchText] = useState('');
-  const [selectedAlert, setSelectedAlert] = useState<any>(null);
+  const [selectedAlert, setSelectedAlert] = useState<AlertRecord | null>(null);
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [statusUpdating, setStatusUpdating] = useState<string | null>(null);
+  const [windowWidth, setWindowWidth] = useState(window.innerWidth);
+  const { user } = useAuth();
+  
+  const canRespond = user?.subRole === "security_head" || user?.subRole === "superadmin";
+
+  useEffect(() => {
+    const handleResize = () => setWindowWidth(window.innerWidth);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const getSeverityColor = (severity: string) => {
     switch (severity) {
@@ -76,10 +109,12 @@ const Alerts = () => {
     switch (type) {
       case 'weapon':
         return 'red';
-      case 'suspicious':
+      case 'intrusion':
+        return 'magenta';
+      case 'loitering':
         return 'orange';
-      case 'system':
-        return 'blue';
+      case 'unattended':
+        return 'gold';
       default:
         return 'default';
     }
@@ -99,18 +134,18 @@ const Alerts = () => {
   };
 
   const cameraOptions = useMemo(
-    () => Array.from(new Set(alerts.map((alert: any) => alert.cameraSource))).sort(),
+    () => Array.from(new Set((alerts as AlertRecord[]).map(alert => alert.cameraSource))).sort(),
     [alerts],
   );
   const detectionOptions = useMemo(
-    () => Array.from(new Set(alerts.map((alert: any) => alert.detectionLabel))).sort(),
+    () => Array.from(new Set((alerts as AlertRecord[]).map(alert => alert.detectionLabel))).sort(),
     [alerts],
   );
   const detectedObjectOptions = useMemo(
     () =>
       Array.from(
         new Set(
-          alerts.flatMap((alert: any) =>
+          (alerts as AlertRecord[]).flatMap(alert =>
             Array.isArray(alert.detectedObjects) ? alert.detectedObjects : [],
           ),
         ),
@@ -118,7 +153,7 @@ const Alerts = () => {
     [alerts],
   );
 
-  const filteredAlerts = alerts.filter((alert: any) => {
+  const filteredAlerts = (alerts as AlertRecord[]).filter(alert => {
     if (filterType !== 'all' && alert.type !== filterType) return false;
     if (filterSeverity !== 'all' && alert.severity !== filterSeverity)
       return false;
@@ -144,6 +179,9 @@ const Alerts = () => {
     if (filterDateRange?.length === 2) {
       const createdAt = dayjs(alert.createdAt);
       const [start, end] = filterDateRange;
+      if (!start || !end) {
+        return true;
+      }
       if (
         createdAt.isBefore(start.startOf('day')) ||
         createdAt.isAfter(end.endOf('day'))
@@ -166,13 +204,13 @@ const Alerts = () => {
     return true;
   });
 
-  const handleIncidentStatusUpdate = async (incidentStatus: string) => {
+  const handleIncidentStatusUpdate = async (incidentStatus: IncidentStatus) => {
     if (!selectedAlert?._id) return;
     try {
       setStatusUpdating(incidentStatus);
       const updated = await updateIncidentStatus(
         selectedAlert._id,
-        incidentStatus as any,
+        incidentStatus,
       );
       setSelectedAlert(updated);
       message.success(`Alert marked as ${incidentStatus.replace('_', ' ')}`);
@@ -183,7 +221,7 @@ const Alerts = () => {
     }
   };
 
-  const handleViewDetail = (alert: any) => {
+  const handleViewDetail = (alert: AlertRecord) => {
     setSelectedAlert(alert);
     setDetailModalOpen(true);
     if (!alert.isRead) {
@@ -201,7 +239,7 @@ const Alerts = () => {
     }
   };
 
-  const columns = [
+  const columns: ColumnsType<AlertRecord> = [
     {
       title: 'Status',
       dataIndex: 'isRead',
@@ -246,7 +284,7 @@ const Alerts = () => {
       title: 'Title',
       dataIndex: 'title',
       key: 'title',
-      render: (title: string, record: any) => (
+      render: (title: string, record: AlertRecord) => (
         <Space>
           {record.severity === 'critical' || record.severity === 'high' ? (
             <WarningOutlined
@@ -264,7 +302,7 @@ const Alerts = () => {
       dataIndex: 'cameraSource',
       key: 'cameraSource',
       width: 150,
-      responsive: ['md'] as any,
+      responsive: ['md'],
     },
     {
       title: 'Confidence',
@@ -272,21 +310,21 @@ const Alerts = () => {
       key: 'confidence',
       width: 100,
       render: (confidence: number) => `${(confidence * 100).toFixed(1)}%`,
-      responsive: ['lg'] as any,
+      responsive: ['lg'],
     },
     {
       title: 'Time',
       dataIndex: 'createdAt',
       key: 'createdAt',
       width: 180,
-      render: (date: string) => dayjs(date).format('MMM DD, YYYY HH:mm'),
-      responsive: ['md'] as any,
+      render: (date: string) => dayjs(date).tz('Asia/Manila').format('MMM DD, YYYY HH:mm'),
+      responsive: ['md'],
     },
     {
       title: 'Actions',
       key: 'actions',
       width: 120,
-      render: (_: any, record: any) => (
+      render: (_value: unknown, record: AlertRecord) => (
         <Space>
           <Button
             type="link"
@@ -317,8 +355,41 @@ const Alerts = () => {
     },
   ];
 
+  const criticalUnacknowledged = useMemo(() => {
+    return (alerts as AlertRecord[]).find(a => 
+      (a.type === 'weapon' || a.type === 'intrusion') && 
+      (a.incidentStatus === 'new')
+    );
+  }, [alerts]);
+
   return (
-    <div style={{ padding: isMobile ? 12 : 24 }}>
+    <RoleGuard
+      allowedRoles={[]}
+      allowedSubRoles={['superadmin', 'security_head', 'security_staff']}
+    >
+      <div className="p-3 sm:p-4 md:p-6 lg:p-8">
+      {criticalUnacknowledged && (
+        <div className="pb-4">
+          <AntAlert
+            message={`CRITICAL ALERT: ${criticalUnacknowledged.title}`}
+            description={criticalUnacknowledged.message}
+            type="error"
+            showIcon
+            action={
+              <Button
+                size="small"
+                danger
+                onClick={() => {
+                  setSelectedAlert(criticalUnacknowledged);
+                  setDetailModalOpen(true);
+                }}
+              >
+                Respond
+              </Button>
+            }
+          />
+        </div>
+      )}
       <Card
         styles={{
           header: {
@@ -330,20 +401,12 @@ const Alerts = () => {
           },
         }}
       >
-        <div
-          style={{
-            display: 'flex',
-            flexDirection: isMobile ? 'column' : 'row',
-            justifyContent: 'space-between',
-            alignItems: isMobile ? 'flex-start' : 'center',
-            marginBottom: 16,
-            gap: isMobile ? 12 : 0,
-          }}
-        >
-          <Title level={4} style={{ margin: 0 }}>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+          <Title level={4} className="!text-xl sm:!text-2xl !font-bold !text-gray-800 !mb-4">
             <BellOutlined /> Alerts
           </Title>
           <Button
+            className="w-full sm:w-auto"
             icon={<ReloadOutlined />}
             onClick={refresh}
             loading={loading}
@@ -353,36 +416,33 @@ const Alerts = () => {
           </Button>
         </div>
 
-        <div
-          style={{
-            marginBottom: 16,
-            display: 'flex',
-            gap: 8,
-            flexWrap: 'wrap',
-            alignItems: 'center',
-          }}
-        >
+        <div className="flex flex-col sm:flex-row flex-wrap items-start sm:items-center gap-3 mb-4">
           <Input.Search
             placeholder="Search alerts..."
             value={searchText}
             onChange={e => setSearchText(e.target.value)}
-            style={{ flex: 1, minWidth: isMobile ? '100%' : 200 }}
+            className="w-full sm:w-auto"
+            style={{ flex: isMobile ? undefined : 1, minWidth: isMobile ? undefined : 200 }}
             allowClear
           />
           <Select
             value={filterType}
             onChange={setFilterType}
-            style={{ width: isMobile ? 'calc(50% - 4px)' : 120 }}
+            className="w-full sm:w-auto"
+            style={{ width: isMobile ? '100%' : 120 }}
           >
             <Option value="all">All Types</Option>
             <Option value="weapon">Weapon</Option>
-            <Option value="suspicious">Suspicious</Option>
-            <Option value="system">System</Option>
+            <Option value="intrusion">Intrusion</Option>
+            <Option value="loitering">Loitering</Option>
+            <Option value="unattended">Unattended</Option>
+            <Option value="other">Other</Option>
           </Select>
           <Select
             value={filterSeverity}
             onChange={setFilterSeverity}
-            style={{ width: isMobile ? 'calc(50% - 4px)' : 120 }}
+            className="w-full sm:w-auto"
+            style={{ width: isMobile ? '100%' : 120 }}
           >
             <Option value="all">All Severity</Option>
             <Option value="critical">Critical</Option>
@@ -393,7 +453,8 @@ const Alerts = () => {
           <Select
             value={filterRead}
             onChange={setFilterRead}
-            style={{ width: isMobile ? 'calc(50% - 4px)' : 120 }}
+            className="w-full sm:w-auto"
+            style={{ width: isMobile ? '100%' : 120 }}
           >
             <Option value="all">All Status</Option>
             <Option value="read">Read</Option>
@@ -402,7 +463,8 @@ const Alerts = () => {
           <Select
             value={filterIncidentStatus}
             onChange={setFilterIncidentStatus}
-            style={{ width: isMobile ? 'calc(50% - 4px)' : 160 }}
+            className="w-full sm:w-auto"
+            style={{ width: isMobile ? '100%' : 160 }}
           >
             <Option value="all">All Incidents</Option>
             <Option value="new">New</Option>
@@ -413,7 +475,8 @@ const Alerts = () => {
           <Select
             value={filterCameraSource}
             onChange={setFilterCameraSource}
-            style={{ width: isMobile ? 'calc(50% - 4px)' : 170 }}
+            className="w-full sm:w-auto"
+            style={{ width: isMobile ? '100%' : 170 }}
             showSearch
           >
             <Option value="all">All Cameras</Option>
@@ -426,7 +489,8 @@ const Alerts = () => {
           <Select
             value={filterDetectionLabel}
             onChange={setFilterDetectionLabel}
-            style={{ width: isMobile ? 'calc(50% - 4px)' : 170 }}
+            className="w-full sm:w-auto"
+            style={{ width: isMobile ? '100%' : 170 }}
             showSearch
           >
             <Option value="all">All Labels</Option>
@@ -439,7 +503,8 @@ const Alerts = () => {
           <Select
             value={filterDetectedObject}
             onChange={setFilterDetectedObject}
-            style={{ width: isMobile ? 'calc(50% - 4px)' : 190 }}
+            className="w-full sm:w-auto"
+            style={{ width: isMobile ? '100%' : 190 }}
             showSearch
           >
             <Option value="all">All Objects</Option>
@@ -452,31 +517,34 @@ const Alerts = () => {
           <RangePicker
             value={filterDateRange}
             onChange={setFilterDateRange}
+            className="w-full sm:w-auto"
             style={{ width: isMobile ? '100%' : 280 }}
           />
         </div>
 
-        <Table
-          columns={columns}
-          dataSource={filteredAlerts}
-          rowKey="_id"
-          loading={loading}
-          pagination={{ pageSize: 10, responsive: true }}
-          rowClassName={record => (record.isRead ? '' : 'unread-alert')}
-          onRow={record => ({
-            onClick: () => handleViewDetail(record),
-            style: { cursor: 'pointer' },
-          })}
-          scroll={{ x: 800 }}
-          locale={{
-            emptyText: (
-              <Empty
-                description="No alerts found"
-                image={Empty.PRESENTED_IMAGE_SIMPLE}
-              />
-            ),
-          }}
-        />
+        <div className="overflow-x-auto w-full">
+          <Table
+            columns={columns}
+            dataSource={filteredAlerts}
+            rowKey="_id"
+            loading={loading}
+            pagination={{ pageSize: 10, responsive: true }}
+            rowClassName={record => (record.isRead ? '' : 'unread-alert')}
+            onRow={record => ({
+              onClick: () => handleViewDetail(record),
+              style: { cursor: 'pointer' },
+            })}
+            scroll={{ x: 800 }}
+            locale={{
+              emptyText: (
+                <Empty
+                  description="No alerts found"
+                  image={Empty.PRESENTED_IMAGE_SIMPLE}
+                />
+              ),
+            }}
+          />
+        </div>
       </Card>
 
       <Modal
@@ -484,36 +552,33 @@ const Alerts = () => {
         open={detailModalOpen}
         onCancel={() => setDetailModalOpen(false)}
         footer={[
-          <Button
-            key="ack"
-            icon={<AuditOutlined />}
-            loading={statusUpdating === 'acknowledged'}
-            onClick={() => handleIncidentStatusUpdate('acknowledged')}
-          >
-            Acknowledge
-          </Button>,
-          <Button
-            key="progress"
-            icon={<SyncOutlined />}
-            loading={statusUpdating === 'in_progress'}
-            onClick={() => handleIncidentStatusUpdate('in_progress')}
-          >
-            In Progress
-          </Button>,
-          <Button
-            key="resolve"
-            type="primary"
-            icon={<CheckCircleOutlined />}
-            loading={statusUpdating === 'resolved'}
-            onClick={() => handleIncidentStatusUpdate('resolved')}
-          >
-            Resolve
-          </Button>,
+          canRespond && (
+            <Button
+              key="ack"
+              icon={<AuditOutlined />}
+              danger
+              loading={statusUpdating === 'acknowledged'}
+              onClick={() => handleIncidentStatusUpdate('acknowledged')}
+            >
+              Mark as Responded
+            </Button>
+          ),
+          canRespond && (
+            <Button
+              key="resolve"
+              type="primary"
+              icon={<CheckCircleOutlined />}
+              loading={statusUpdating === 'resolved'}
+              onClick={() => handleIncidentStatusUpdate('resolved')}
+            >
+              Mark as False Alarm
+            </Button>
+          ),
           <Button key="close" onClick={() => setDetailModalOpen(false)}>
             Close
           </Button>,
-        ]}
-        width={isMobile ? '96%' : !screens.xl ? 680 : 720}
+        ].filter(Boolean)}
+        width={Math.min(600, windowWidth - 32)}
       >
         {selectedAlert && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
@@ -618,7 +683,7 @@ const Alerts = () => {
               <div className="alert-detail-meta-row">
                 <Text type="secondary">Triggered</Text>
                 <Text strong>
-                  {dayjs(selectedAlert.createdAt).format(
+                  {dayjs(selectedAlert.createdAt).tz('Asia/Manila').format(
                     'MMMM DD, YYYY HH:mm:ss',
                   )}
                 </Text>
@@ -627,7 +692,7 @@ const Alerts = () => {
                 <div className="alert-detail-meta-row">
                   <Text type="secondary">Acknowledged</Text>
                   <Text strong>
-                    {dayjs(selectedAlert.acknowledgedAt).format(
+                    {dayjs(selectedAlert.acknowledgedAt).tz('Asia/Manila').format(
                       'MMMM DD, YYYY HH:mm:ss',
                     )}
                   </Text>
@@ -637,7 +702,7 @@ const Alerts = () => {
                 <div className="alert-detail-meta-row">
                   <Text type="secondary">Resolved</Text>
                   <Text strong>
-                    {dayjs(selectedAlert.resolvedAt).format(
+                    {dayjs(selectedAlert.resolvedAt).tz('Asia/Manila').format(
                       'MMMM DD, YYYY HH:mm:ss',
                     )}
                   </Text>
@@ -733,7 +798,8 @@ const Alerts = () => {
           }
         }
       `}</style>
-    </div>
+      </div>
+    </RoleGuard>
   );
 };
 

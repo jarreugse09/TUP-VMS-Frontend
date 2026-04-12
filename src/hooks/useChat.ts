@@ -1,163 +1,177 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
-    getMessages,
-    sendMessage as sendMessageApi,
-    getOnlineUsers,
-    getUnreadCount,
-    markMessagesAsRead,
+  ChatMessage,
+  getMessages,
+  getOnlineUsers,
+  getUnreadCount,
+  markMessagesAsRead,
+  sendMessage as sendMessageApi,
 } from "../services/chatService";
 import { getWebSocketUrl } from "../services/api";
 import { useAuth } from "../contexts/AuthContext";
-
-interface Message {
-    _id: string;
-    senderId: string | null;
-    senderName: string;
-    senderRole: string;
-    recipientId?: string | null;
-    message: string;
-    isRead?: boolean;
-    createdAt: string;
-}
+import { useWebSocket } from "./useWebSocket";
 
 interface OnlineUser {
-    _id: string;
-    name: string;
-    role: string;
+  _id: string;
+  name: string;
+  role: string;
 }
 
-export const useChat = () => {
-    const { user } = useAuth();
-    const [messages, setMessages] = useState<Message[]>([]);
-    const [onlineUsers, setOnlineUsers] = useState<OnlineUser[]>([]);
-    const [loading, setLoading] = useState(false);
-    const [unreadCount, setUnreadCount] = useState(0);
-    const wsRef = useRef<WebSocket | null>(null);
+interface WebSocketEvent {
+  type?: string;
+  event?: string;
+  message?: ChatMessage;
+  user?: OnlineUser;
+  userId?: string;
+}
 
-    const fetchMessages = useCallback(async () => {
-        if (!user) return;
-        try {
-            setLoading(true);
-            const data = await getMessages();
-            setMessages(data);
-        } catch (error) {
-            console.error("Failed to fetch messages:", error);
-        } finally {
-            setLoading(false);
+interface UseChatOptions {
+  enabled?: boolean;
+}
+
+export const useChat = (options: UseChatOptions = {}) => {
+  const enabled = options.enabled ?? true;
+  const { user } = useAuth();
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [onlineUsers, setOnlineUsers] = useState<OnlineUser[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  const fetchMessages = useCallback(async () => {
+    if (!enabled || !user) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const data = await getMessages();
+      setMessages(data);
+    } catch (error) {
+      console.error("Failed to fetch chat messages:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, [enabled, user]);
+
+  const fetchOnlineUsers = useCallback(async () => {
+    if (!enabled || !user) {
+      return;
+    }
+
+    try {
+      const data = await getOnlineUsers();
+      setOnlineUsers(data);
+    } catch (error) {
+      console.error("Failed to fetch online users:", error);
+    }
+  }, [enabled, user]);
+
+  const fetchUnreadCount = useCallback(async () => {
+    if (!enabled || !user) {
+      return;
+    }
+
+    try {
+      const count = await getUnreadCount();
+      setUnreadCount(count);
+    } catch (error) {
+      console.error("Failed to fetch unread chat count:", error);
+    }
+  }, [enabled, user]);
+
+  const sendMessage = useCallback(
+    async (payload: { content: string; replyTo?: string; threadId?: string; mentions?: string[] }) => {
+      if (!enabled || !user) {
+        return;
+      }
+
+      try {
+        await sendMessageApi(payload);
+      } catch (error) {
+        console.error("Failed to send chat message:", error);
+      }
+    },
+    [enabled, user],
+  );
+
+  const markAsRead = useCallback(
+    async (messageIds?: string[]) => {
+      if (!enabled || !user) {
+        return;
+      }
+
+      try {
+        await markMessagesAsRead(messageIds);
+        setMessages((previous) =>
+          previous.map((entry) =>
+            !messageIds || messageIds.length === 0 || messageIds.includes(entry._id)
+              ? {
+                ...entry,
+                isRead: true,
+                readBy: entry.readBy.includes(String(user._id))
+                  ? entry.readBy
+                  : [...entry.readBy, String(user._id)],
+              }
+              : entry,
+          ),
+        );
+        setUnreadCount(0);
+      } catch (error) {
+        console.error("Failed to mark chat messages as read:", error);
+      }
+    },
+    [enabled, user],
+  );
+
+  useEffect(() => {
+    if (!enabled || !user) {
+      setMessages([]);
+      setOnlineUsers([]);
+      setUnreadCount(0);
+      return;
+    }
+
+    void fetchMessages();
+    void fetchOnlineUsers();
+    void fetchUnreadCount();
+  }, [enabled, fetchMessages, fetchOnlineUsers, fetchUnreadCount, user]);
+
+  const token = enabled ? localStorage.getItem("token") : null;
+  const wsUrl = enabled && user && token ? getWebSocketUrl(token) : null;
+
+  useWebSocket(wsUrl, (payload) => {
+    const event = payload as WebSocketEvent;
+    const eventType = event.event ?? event.type;
+
+    if (eventType === "NEW_CHAT_MESSAGE" && event.message) {
+      setMessages((previous) => {
+        const exists = previous.some((entry) => entry._id === event.message?._id);
+        if (exists) {
+          return previous;
         }
-    }, [user]);
+        return event.message ? [...previous, event.message] : previous;
+      });
 
-    const fetchOnlineUsers = useCallback(async () => {
-        if (!user) return;
-        try {
-            const data = await getOnlineUsers();
-            setOnlineUsers(data);
-        } catch (error) {
-            console.error("Failed to fetch online users:", error);
-        }
-    }, [user]);
+      if (event.message.senderId !== user?._id) {
+        setUnreadCount((previous) => previous + 1);
+      }
+    } else if (eventType === "USER_ONLINE" && event.user) {
+      setOnlineUsers((previous) => {
+        const exists = previous.some((entry) => entry._id === event.user?._id);
+        return event.user && !exists ? [...previous, event.user] : previous;
+      });
+    } else if (eventType === "USER_OFFLINE" && event.userId) {
+      setOnlineUsers((previous) => previous.filter((entry) => entry._id !== event.userId));
+    }
+  });
 
-    const fetchUnreadCount = useCallback(async () => {
-        if (!user) return;
-        try {
-            const count = await getUnreadCount();
-            setUnreadCount(count);
-        } catch (error) {
-            console.error("Failed to fetch unread chat count:", error);
-        }
-    }, [user]);
-
-    const sendMessage = useCallback(async (message: string, recipientId?: string | null) => {
-        if (!user) return;
-        try {
-            await sendMessageApi(message, recipientId);
-            // Message will be added via WebSocket
-        } catch (error) {
-            console.error("Failed to send message:", error);
-        }
-    }, [user]);
-
-    const markAsRead = useCallback(async (messageIds: string[]) => {
-        if (!messageIds.length) return;
-        try {
-            await markMessagesAsRead(messageIds);
-            setMessages((prev) =>
-                prev.map((message) =>
-                    messageIds.includes(message._id)
-                        ? { ...message, isRead: true }
-                        : message
-                )
-            );
-            setUnreadCount((prev) => Math.max(0, prev - messageIds.length));
-        } catch (error) {
-            console.error("Failed to mark messages as read:", error);
-        }
-    }, []);
-
-    // WebSocket connection for real-time updates
-    useEffect(() => {
-        if (!user) return;
-
-        const token = localStorage.getItem("token");
-        if (!token) return;
-
-        const wsUrl = getWebSocketUrl(token);
-        const ws = new WebSocket(wsUrl);
-        wsRef.current = ws;
-
-        ws.onopen = () => {
-            console.log("WebSocket connected for chat");
-        };
-
-        ws.onmessage = (event) => {
-            try {
-                const data = JSON.parse(event.data);
-                if (data.type === "NEW_CHAT_MESSAGE" || data.type === "NEW_MESSAGE") {
-                    setMessages((prev) => [...prev, data.message]);
-                    if (data.message?.senderId !== user._id && !data.message?.isRead) {
-                        setUnreadCount((prev) => prev + 1);
-                    }
-                } else if (data.type === "USER_ONLINE") {
-                    setOnlineUsers((prev) => {
-                        const exists = prev.find((u) => u._id === data.user._id);
-                        if (exists) return prev;
-                        return [...prev, data.user];
-                    });
-                } else if (data.type === "USER_OFFLINE") {
-                    setOnlineUsers((prev) => prev.filter((u) => u._id !== data.userId));
-                }
-            } catch (error) {
-                console.error("Failed to parse WebSocket message:", error);
-            }
-        };
-
-        ws.onerror = (error) => {
-            console.error("WebSocket error:", error);
-        };
-
-        ws.onclose = () => {
-            console.log("WebSocket disconnected");
-        };
-
-        return () => {
-            ws.close();
-        };
-    }, [user]);
-
-    // Initial fetch
-    useEffect(() => {
-        fetchMessages();
-        fetchOnlineUsers();
-        fetchUnreadCount();
-    }, [fetchMessages, fetchOnlineUsers, fetchUnreadCount]);
-
-    return {
-        messages,
-        onlineUsers,
-        loading,
-        unreadCount,
-        sendMessage,
-        markAsRead,
-        refresh: fetchMessages,
-    };
+  return {
+    messages,
+    onlineUsers,
+    loading,
+    unreadCount,
+    sendMessage,
+    markAsRead,
+    refresh: fetchMessages,
+  };
 };

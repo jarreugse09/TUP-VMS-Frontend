@@ -18,9 +18,11 @@ import {
 import { useEffect, useState, useMemo, useRef } from 'react';
 import { Grid } from 'antd';
 import { getLogs } from './../services/logService';
+import api from '../services/api';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
-import LogDetailsModal from '../components/LogDetailsModal';
+import { ClickableRowModal, TimelineEvent } from '../components/ClickableRowModal';
+import { useAuth } from '../contexts/AuthContext';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -82,6 +84,11 @@ const Logs = () => {
   const screens = useBreakpoint();
   const isMobile = !screens.md;
   const isTablet = Boolean(screens.md && !screens.xl);
+  const { user } = useAuth();
+  
+  // Non-academic, maintenance, faculty, security_staff only see their own records, so hide name/role filters
+  const isOwnOnly = user?.subRole === 'non_academic' || user?.subRole === 'maintenance' || user?.subRole === 'faculty' || user?.subRole === 'security_staff';
+
   const pollingIntervalMs = 12000;
   const fetchingRef = useRef(false);
   const [logs, setLogs] = useState<LogItem[]>([]);
@@ -259,13 +266,41 @@ const Logs = () => {
               </Button>
               <Button
                 icon={<DownloadOutlined />}
-                onClick={() => {
-                  // TODO: Implement download functionality
-                  message.info('Download feature coming soon');
+                onClick={async () => {
+                  setLoading(true);
+                  try {
+                    const res = await api.get('/attendance/my-dtr');
+                    const logs = res.data.data;
+                    if (!logs || logs.length === 0) {
+                      message.warning('No DTR logs found for your account.');
+                      return;
+                    }
+                    
+                    const headers = 'Date,Time In,Time Out,Total Hours,Status\n';
+                    const csvContent = logs.map((l: any) => 
+                      `${l.date},${l.timeIn},${l.timeOut},${l.totalHours},${l.status}`
+                    ).join('\n');
+                    
+                    const blob = new Blob([headers + csvContent], { type: 'text/csv' });
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.setAttribute('hidden', '');
+                    a.setAttribute('href', url);
+                    a.setAttribute('download', `DTR_${dayjs().format('YYYY-MM-DD')}.csv`);
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    message.success('DTR downloaded successfully');
+                  } catch (err) {
+                    message.error('Failed to generate DTR');
+                  } finally {
+                    setLoading(false);
+                  }
                 }}
                 size={isMobile ? 'small' : 'middle'}
+                loading={loading}
               >
-                {isMobile ? null : 'Download'}
+                {isMobile ? null : 'Download My DTR'}
               </Button>
             </Space>
           </div>
@@ -290,28 +325,32 @@ const Logs = () => {
             alignItems: 'center',
           }}
         >
-          <Input
-            placeholder="Search name..."
-            prefix={<SearchOutlined />}
-            allowClear
-            style={{ flex: 1, minWidth: isMobile ? '100%' : 200 }}
-            onChange={e => setFilters({ ...filters, name: e.target.value })}
-            value={filters.name}
-            size={isMobile ? 'middle' : 'middle'}
-          />
+          {!isOwnOnly && (
+            <>
+              <Input
+                placeholder="Search name..."
+                prefix={<SearchOutlined />}
+                allowClear
+                style={{ flex: 1, minWidth: isMobile ? '100%' : 200 }}
+                onChange={e => setFilters({ ...filters, name: e.target.value })}
+                value={filters.name}
+                size={isMobile ? 'middle' : 'middle'}
+              />
 
-          <Select
-            placeholder="Role"
-            allowClear
-            style={{ width: isMobile ? '100%' : isTablet ? 160 : 120 }}
-            onChange={value => setFilters({ ...filters, role: value })}
-            value={filters.role}
-            size={isMobile ? 'middle' : 'middle'}
-          >
-            <Option value="Staff">Staff</Option>
-            <Option value="Student">Student</Option>
-            <Option value="Visitor">Visitor</Option>
-          </Select>
+              <Select
+                placeholder="Role"
+                allowClear
+                style={{ width: isMobile ? '100%' : isTablet ? 160 : 120 }}
+                onChange={value => setFilters({ ...filters, role: value })}
+                value={filters.role}
+                size={isMobile ? 'middle' : 'middle'}
+              >
+                <Option value="Staff">Staff</Option>
+                <Option value="Student">Student</Option>
+                <Option value="Visitor">Visitor</Option>
+              </Select>
+            </>
+          )}
 
           <DatePicker.RangePicker
             style={{ width: isMobile ? '100%' : isTablet ? 260 : undefined }}
@@ -346,12 +385,22 @@ const Logs = () => {
       </Card>
 
       {/* DETAILS MODAL */}
-      <LogDetailsModal
-        open={modalVisible}
+      <ClickableRowModal
+        visible={modalVisible}
         onClose={() => setModalVisible(false)}
-        log={selectedLog}
-        getTimeIn={getTimeIn}
-        getTimeOut={getTimeOut}
+        title={selectedLog ? `Timeline for ${selectedLog.user.firstName} ${selectedLog.user.surname}` : "Timeline"}
+        subtitle={selectedLog ? dayjs(selectedLog.date).format('MMMM DD, YYYY') : ""}
+        primaryColor="#1890ff"
+        events={selectedLog ? [
+          ...(selectedLog.attendance?.timeIn ? [{ time: selectedLog.attendance.timeIn, label: "Time In", color: "green" }] : []),
+          ...(selectedLog.activities || []).map(a => ({
+            time: a.timeIn || a.timeOut,
+            label: a.reason.charAt(0).toUpperCase() + a.reason.slice(1),
+            status: a.status,
+            color: a.timeOut ? "volcano" : "blue"
+          })),
+          ...(selectedLog.attendance?.timeOut ? [{ time: selectedLog.attendance.timeOut, label: "Time Out", color: "red" }] : [])
+        ] as Array<TimelineEvent> : []}
       />
     </>
   );

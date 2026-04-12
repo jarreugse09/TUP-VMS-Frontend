@@ -8,6 +8,7 @@ import {
 } from "../services/alertService";
 import { getWebSocketUrl } from "../services/api";
 import { useAuth } from "../contexts/AuthContext";
+import { useWebSocket } from "./useWebSocket";
 
 interface Alert {
     _id: string;
@@ -41,7 +42,6 @@ export const useAlerts = (options: boolean | UseAlertsOptions = true) => {
     const [alerts, setAlerts] = useState<Alert[]>([]);
     const [unreadCount, setUnreadCount] = useState(0);
     const [loading, setLoading] = useState(false);
-    const wsRef = useRef<WebSocket | null>(null);
     const audioRef = useRef<HTMLAudioElement | null>(null);
 
     const playAlertCue = useCallback((alert: Alert) => {
@@ -138,73 +138,47 @@ export const useAlerts = (options: boolean | UseAlertsOptions = true) => {
         }
     }, []);
 
-    // WebSocket connection for real-time updates
-    useEffect(() => {
-        if (!enabled || !user) return;
+    const token = enabled ? localStorage.getItem("token") : null;
+    const wsUrl = enabled && user && token ? getWebSocketUrl(token) : null;
 
-        const token = localStorage.getItem("token");
-        if (!token) return;
-
-        const wsUrl = getWebSocketUrl(token);
-        const ws = new WebSocket(wsUrl);
-        wsRef.current = ws;
-
-        ws.onopen = () => {
-            console.log("WebSocket connected for alerts");
+    useWebSocket(wsUrl, data => {
+        const event = data as {
+            type?: string;
+            alert?: Alert;
+            alertId?: string;
         };
 
-        ws.onmessage = (event) => {
-            try {
-                const data = JSON.parse(event.data);
-                if (data.type === "NEW_ALERT") {
-                    setAlerts((prev) => [data.alert, ...prev]);
-                    setUnreadCount((prev) => prev + 1);
-                    playAlertCue(data.alert);
-                } else if (data.type === "ALERT_READ") {
-                    let unreadWasPresent = false;
-                    setAlerts((prev) =>
-                        prev.map((alert) => {
-                            if (alert._id !== data.alertId) {
-                                return alert;
-                            }
-                            if (!alert.isRead) {
-                                unreadWasPresent = true;
-                            }
-                            return { ...alert, isRead: true };
-                        })
-                    );
-                    if (unreadWasPresent) {
-                        setUnreadCount((prev) => Math.max(0, prev - 1));
+        if (event.type === "NEW_ALERT" && event.alert) {
+            setAlerts(prev => [event.alert as Alert, ...prev]);
+            setUnreadCount(prev => prev + 1);
+            playAlertCue(event.alert as Alert);
+        } else if (event.type === "ALERT_READ" && event.alertId) {
+            let unreadWasPresent = false;
+            setAlerts(prev =>
+                prev.map(alert => {
+                    if (alert._id !== event.alertId) {
+                        return alert;
                     }
-                } else if (data.type === "ALL_ALERTS_READ") {
-                    setAlerts((prev) =>
-                        prev.map((alert) => ({ ...alert, isRead: true }))
-                    );
-                    setUnreadCount(0);
-                } else if (data.type === "ALERT_UPDATED") {
-                    setAlerts((prev) =>
-                        prev.map((alert) =>
-                            alert._id === data.alert._id ? data.alert : alert
-                        )
-                    );
-                }
-            } catch (error) {
-                console.error("Failed to parse WebSocket message:", error);
+                    if (!alert.isRead) {
+                        unreadWasPresent = true;
+                    }
+                    return { ...alert, isRead: true };
+                }),
+            );
+            if (unreadWasPresent) {
+                setUnreadCount(prev => Math.max(0, prev - 1));
             }
-        };
-
-        ws.onerror = (error) => {
-            console.error("WebSocket error:", error);
-        };
-
-        ws.onclose = () => {
-            console.log("WebSocket disconnected");
-        };
-
-        return () => {
-            ws.close();
-        };
-    }, [enabled, playAlertCue, user]);
+        } else if (event.type === "ALL_ALERTS_READ") {
+            setAlerts(prev => prev.map(alert => ({ ...alert, isRead: true })));
+            setUnreadCount(0);
+        } else if (event.type === "ALERT_UPDATED" && event.alert) {
+            setAlerts(prev =>
+                prev.map(alert =>
+                    alert._id === event.alert!._id ? (event.alert as Alert) : alert,
+                ),
+            );
+        }
+    });
 
     // Initial fetch
     useEffect(() => {

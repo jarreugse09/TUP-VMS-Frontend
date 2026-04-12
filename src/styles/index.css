@@ -140,26 +140,24 @@ body {
   display: none;
   position: fixed;
   inset: 0;
-  background-color: rgba(0, 0, 0, 0.5);
-  z-index: 999;
-  backdrop-filter: blur(4px);
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 30;
 }
 
-/* Sidebar Base Styles - Always fixed positioning */
 .sidebar-container {
   position: fixed;
   left: 0;
   top: 0;
   bottom: 0;
   height: 100vh;
-  width: 220px;
+  width: 256px;
   background: linear-gradient(180deg, #b1122b 0%, #8c0d22 100%);
   box-shadow: 4px 0 16px rgba(0, 0, 0, 0.15);
-  transition: transform 0.3s ease;
+  transition: transform 0.25s ease, width 0.25s ease;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  z-index: 1000;
+  z-index: 40;
 }
 
 /* Sidebar Logo */
@@ -230,41 +228,75 @@ body {
   padding: 0 8px;
   overflow-y: auto;
 }
-
-
-/* Sidebar Logout Container */
 .sidebar-logout-container {
   padding: 0 8px 20px;
 }
 
-/* Ant Design Menu Overrides */
-.ant-menu-item {
-  color: rgba(255, 255, 255, 0.85) !important;
-  border-radius: 10px !important;
-  margin: 6px 0 !important;
+.sidebar-desktop-item,
+.sidebar-tablet-item {
+  width: 100%;
+  border: none;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
 }
 
-.ant-menu-item .anticon {
-  color: rgba(255, 255, 255, 0.85) !important;
+.sidebar-desktop-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 6px 0;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.9);
+  text-align: left;
 }
 
-.ant-menu-item:hover {
-  background: rgba(255, 255, 255, 0.18) !important;
-  color: #fff !important;
+.sidebar-desktop-item:hover {
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
 }
 
-.ant-menu-item:hover .anticon {
-  color: #fff !important;
-}
-
-.ant-menu-item-selected {
-  background: #fff !important;
-  color: #8c0d22 !important;
+.sidebar-desktop-item.is-active {
+  background: #fff;
+  color: #8c0d22;
   font-weight: 600;
 }
 
-.ant-menu-item-selected .anticon {
-  color: #8c0d22 !important;
+.sidebar-tablet-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  margin: 6px auto;
+  border-radius: 10px;
+  background: transparent;
+  color: rgba(140, 13, 34, 0.7);
+}
+
+.sidebar-tablet-item:hover {
+  background: rgba(140, 13, 34, 0.08);
+  color: #8c0d22;
+}
+
+.sidebar-tablet-item.is-active {
+  background: rgba(177, 18, 43, 0.14);
+  color: #8c0d22;
+  box-shadow: inset 3px 0 0 #b1122b;
+}
+
+.sidebar-item-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+}
+
+.sidebar-item-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .ant-table-wrapper {
@@ -307,7 +339,7 @@ body .ant-modal-open .sidebar-burger-btn {
   }
 
   .sidebar-container {
-    width: min(82vw, 320px);
+    width: 256px;
     transform: translateX(-100%);
   }
 
@@ -338,33 +370,49 @@ body .ant-modal-open .sidebar-burger-btn {
 }
 
 /* Tablet Styles */
-@media (min-width: 768px) and (max-width: 1199px) {
+@media (min-width: 768px) and (max-width: 1023px) {
   .sidebar-burger-btn {
-    display: flex;
-    top: 20px;
-    left: 20px;
-  }
-
-  .sidebar-overlay.visible {
-    display: block;
+    display: none;
   }
 
   .sidebar-container {
-    width: 280px;
-    transform: translateX(-100%);
-  }
-
-  .sidebar-container.visible {
+    width: 64px;
     transform: translateX(0);
+    background: #fff;
+    box-shadow: none;
+    border-right: 1px solid #ececec;
   }
 
-  .app-shell-inner {
-    max-width: 100%;
+  .sidebar-close-btn {
+    display: none;
+  }
+
+  .sidebar-logo {
+    margin: 12px 8px 16px;
+    padding: 12px 8px;
+    min-height: 56px;
+    justify-content: center;
+    background: rgba(177, 18, 43, 0.08);
+    color: #8c0d22;
+  }
+
+  .sidebar-logo-copy {
+    align-items: center;
+  }
+
+  .sidebar-logo-copy span {
+    font-size: 14px;
+  }
+
+  .sidebar-menu-container,
+  .sidebar-logout-container {
+    padding-left: 0;
+    padding-right: 0;
   }
 }
 
 /* Desktop Styles */
-@media (min-width: 1200px) {
+@media (min-width: 1024px) {
   .sidebar-burger-btn {
     display: none;
   }
@@ -374,10 +422,59 @@ body .ant-modal-open .sidebar-burger-btn {
   }
 
   .sidebar-container {
+    width: 256px;
     transform: translateX(0);
   }
 
   .sidebar-close-btn {
     display: none;
+  }
+}
+
+/* ================= UTILITY: RESPONSIVE TABLES & CHARTS ================= */
+
+/* Enforce horizontal scrolling for all Ant Design Tables on mobile */
+@media (max-width: 767px) {
+  .ant-table-wrapper {
+    overflow-x: auto;
+  }
+  
+  .ant-table {
+    min-width: 600px; /* Force scrollable area */
+  }
+
+  /* Card View Helper for Mobile */
+  .mobile-card-stack .ant-list-item {
+    padding: 16px;
+    background: #fff;
+    border-radius: 12px;
+    margin-bottom: 12px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.04);
+    border: 1px solid #f0f0f0;
+  }
+
+  .dashboard-stats-row {
+    margin-top: 48px; /* Give space for burger button */
+  }
+}
+
+/* Chart Container constraints to prevent ultra-wide stretching */
+.chart-container-inner {
+  max-width: 1600px;
+  margin: 0 auto;
+}
+
+.recharts-responsive-container {
+  min-height: 250px;
+}
+
+/* Fix for overlapping burger menu in cards */
+.ant-card-head {
+  padding-left: 16px !important;
+}
+
+@media (max-width: 767px) {
+  .ant-card-head-title {
+    padding-left: 48px; /* Leave room for burger menu */
   }
 }

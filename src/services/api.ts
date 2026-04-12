@@ -1,9 +1,14 @@
 import axios from "axios";
 
-const API_BASE_URL = import.meta.env.VITE_API_URL;
+const rawApiBaseUrl = import.meta.env.VITE_API_URL?.trim();
+const isLocalHost =
+  typeof window !== "undefined" &&
+  ["localhost", "127.0.0.1"].includes(window.location.hostname);
+
+const API_BASE_URL = rawApiBaseUrl || (isLocalHost ? "http://localhost:5000/api" : "/api");
 
 const api = axios.create({
-  baseURL: API_BASE_URL, // should include /api
+  baseURL: API_BASE_URL,
   withCredentials: true,
 });
 
@@ -18,7 +23,10 @@ api.interceptors.request.use((config) => {
 
 export const getWebSocketUrl = (token: string) => {
   const normalizedBase = String(API_BASE_URL || "").replace(/\/$/, "");
-  const origin = normalizedBase.replace(/\/api$/, "");
+  const origin =
+    normalizedBase.startsWith("http://") || normalizedBase.startsWith("https://")
+      ? normalizedBase.replace(/\/api$/, "")
+      : window.location.origin;
   const wsOrigin = origin.replace(/^http:/i, "ws:").replace(/^https:/i, "wss:");
   return `${wsOrigin}/ws?token=${encodeURIComponent(token)}`;
 };

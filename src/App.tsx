@@ -13,7 +13,7 @@ import {
   Navigate,
   useLocation,
 } from 'react-router-dom';
-import { Layout, Modal, Button, Typography, message, Spin, Grid } from 'antd';
+import { Layout, Modal, Button, Typography, message, Spin } from 'antd';
 import Sidebar from './components/Sidebar';
 import { useAuth } from './contexts/AuthContext';
 import { submitFirstPhotoCapture } from './services/userService';
@@ -24,19 +24,56 @@ const Profile = lazy(() => import('./pages/Profile'));
 const Dashboard = lazy(() => import('./pages/Dashboard/Dashboard'));
 const AdminDashboard = lazy(() => import('./pages/Dashboard/AdminDashboard'));
 const StaffDashboard = lazy(() => import('./pages/Dashboard/StaffDashboard'));
-const AdminLogs = lazy(() => import('./pages/Logs/AdminLogs'));
-const Logs = lazy(() => import('./pages/Logs/Logs'));
-const StaffLogs = lazy(() => import('./pages/Logs/StaffLogs'));
 const Attendance = lazy(() => import('./pages/Attendance'));
-const QRRequests = lazy(() => import('./pages/QRRequests'));
 const Analytics = lazy(() => import('./pages/Analytics'));
-const ManageUsers = lazy(() => import('./pages/Manage User'));
 const MyAttendance = lazy(() => import('./pages/UserAttendance'));
 const Alerts = lazy(() => import('./pages/Alerts'));
 const Chat = lazy(() => import('./pages/Chat'));
+const SpecialSchedules = lazy(() => import('./pages/SpecialSchedules'));
+// Canonical v2 pages — full implementations in Logs/ (capital L)
+const VisitLogs = lazy(() => import('./pages/Logs/VisitLogs'));
+const TransactionLogs = lazy(() => import('./pages/Logs/TransactionLogs'));
+const ActionLogs = lazy(() => import('./pages/Logs/ActionLogs'));
+const AttendanceLogs = lazy(() => import('./pages/attendance/AttendanceLogs'));
+const QRRequestLogs = lazy(() => import('./pages/qr/QRRequestLogs'));
+const UserManagement = lazy(() => import('./pages/admin/UserManagement'));
+const WorkSchedulesMgmt = lazy(() => import('./pages/admin/WorkSchedules'));
+const QRScannerV2 = lazy(() => import('./pages/scanner/QRScanner'));
+const ConsentRequired = lazy(() => import('./pages/ConsentRequired'));
+const Unauthorized = lazy(() => import('./pages/Unauthorized'));
+const PhotoRequestsPage = lazy(() => import('./pages/admin/PhotoRequestsPage'));
+const BackupRestorePage = lazy(() => import('./pages/admin/BackupRestorePage'));
+const CsvUploadPage = lazy(() => import('./pages/admin/CsvUploadPage'));
+const Archive = lazy(() => import('./pages/admin/Archive'));
+// Role-specific registration pages
+const RegisterStudentVisitor = lazy(
+  () => import('./pages/auth/RegisterStudentVisitor'),
+);
+const RegisterFaculty = lazy(() => import('./pages/auth/RegisterFaculty'));
+const RegisterDepartmentHead = lazy(
+  () => import('./pages/auth/RegisterDepartmentHead'),
+);
+const RegisterDean = lazy(() => import('./pages/auth/RegisterDean'));
+const RegisterTopManagement = lazy(
+  () => import('./pages/auth/RegisterTopManagement'),
+);
+const RegisterNonAcademic = lazy(
+  () => import('./pages/auth/RegisterNonAcademic'),
+);
+const RegisterSuperadmin = lazy(
+  () => import('./pages/auth/RegisterSuperadmin'),
+);
+const RegisterHR = lazy(() => import('./pages/auth/RegisterHR'));
+const RegisterSecurity = lazy(() => import('./pages/auth/RegisterSecurity'));
+const PrivacyNotice = lazy(() => import('./pages/auth/PrivacyNotice'));
+
+import { DpaConsentGate } from './components/DpaConsentGate';
 
 const { Content } = Layout;
 const { Text } = Typography;
+
+// Push toasts below the fixed mobile burger button (top: 16px + 48px height + 8px gap)
+message.config({ top: 76, duration: 3 });
 
 const CAMERA_BLOCKED_PATHS = [
   '/logs',
@@ -50,7 +87,20 @@ const CAMERA_BLOCKED_PATHS = [
   '/user/attendance',
 ];
 
-const PUBLIC_PATHS = ['/login', '/register'];
+const PUBLIC_PATHS = [
+  '/login',
+  '/register',
+  '/auth/register/student-visitor',
+  '/auth/register/faculty',
+  '/auth/register/department-head',
+  '/auth/register/dean',
+  '/auth/register/top-management',
+  '/auth/register/non-academic',
+  '/auth/register/superadmin',
+  '/auth/register/hr',
+  '/auth/register/security',
+  '/privacy',
+];
 
 const RouteFallback = () => (
   <div
@@ -84,32 +134,47 @@ const CameraRouteGuard = () => {
 
 function AppContent() {
   const location = useLocation();
-  const { useBreakpoint } = Grid;
-  const screens = useBreakpoint();
   const { token, user, updateUser } = useAuth();
+  const [windowWidth, setWindowWidth] = useState(window.innerWidth);
   const [captureOpen, setCaptureOpen] = useState(false);
   const [capturedPhoto, setCapturedPhoto] = useState<string | null>(null);
   const [submittingPhoto, setSubmittingPhoto] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
-  const isMobile = !screens.md;
-  const isTablet = Boolean(screens.md && !screens.xl);
-  const isDesktop = Boolean(screens.xl);
+  useEffect(() => {
+    const handler = () => setWindowWidth(window.innerWidth);
+    window.addEventListener('resize', handler);
+    return () => window.removeEventListener('resize', handler);
+  }, []);
+
+  const isMobile = windowWidth < 768;
+  const isTablet = windowWidth >= 768 && windowWidth < 1024;
+  const isDesktop = windowWidth >= 1024;
 
   const mustCapturePhoto = useMemo(
     () => Boolean(user?.mustCapturePhoto),
     [user?.mustCapturePhoto],
   );
-  const isAuthenticated = Boolean(token && user);
   const isPublicRoute = PUBLIC_PATHS.includes(location.pathname);
+  const isAuthenticated = Boolean(token && user);
   const shouldShowShell = isAuthenticated && !isPublicRoute;
-  const effectiveRole =
-    user?.role === 'Staff' && user?.staffType === 'Security'
-      ? 'Security'
-      : user?.role || 'Visitor';
+  const effectiveRole = getEffectiveRole(user);
+  const scannerMode: 'full' | 'client-only' = [
+    'security_head',
+    'security_staff',
+    'superadmin',
+  ].includes(user?.subRole ?? user?.role ?? '')
+    ? 'full'
+    : 'client-only';
 
-  const contentMargin = shouldShowShell && isDesktop ? 220 : 0;
+  const contentMargin = shouldShowShell
+    ? isDesktop
+      ? 256
+      : isTablet
+        ? 64
+        : 0
+    : 0;
   const contentPadding = shouldShowShell
     ? isMobile
       ? 12
@@ -120,9 +185,11 @@ function AppContent() {
   const contentTopPadding = shouldShowShell
     ? isDesktop
       ? contentPadding
-      : isMobile
-        ? 76
-        : 86
+      : isTablet
+        ? contentPadding
+        : isMobile
+          ? 76
+          : contentPadding
     : 0;
   const innerContainerStyle: React.CSSProperties = shouldShowShell
     ? {
@@ -261,6 +328,104 @@ function AppContent() {
     }
   };
 
+  const MyQRCode = lazy(() => import('./pages/qr/MyQRCode'));
+
+  const commonExtraRoutes = [
+    {
+      pageId: 'attendance' as AppPageId,
+      path: '/attendance',
+      element: <Attendance />,
+    },
+    {
+      pageId: 'attendance' as AppPageId,
+      path: '/staff/attendance',
+      element: <MyAttendance />,
+    },
+    {
+      pageId: 'attendance' as AppPageId,
+      path: '/user/attendance',
+      element: <MyAttendance />,
+    },
+    {
+      pageId: 'attendance' as AppPageId,
+      path: '/attendance/logs',
+      element: <AttendanceLogs />,
+    },
+    { pageId: 'my_qr' as AppPageId, path: '/my-qr', element: <MyQRCode /> },
+    {
+      pageId: 'qr_requests' as AppPageId,
+      path: '/qr-requests',
+      element: <QRRequestLogs />,
+    },
+    {
+      pageId: 'analytics' as AppPageId,
+      path: '/admin/analytics',
+      element: <Analytics />,
+    },
+    {
+      pageId: 'manage_users' as AppPageId,
+      path: '/admin/manage-users',
+      element: <UserManagement />,
+    },
+    { pageId: 'alerts' as AppPageId, path: '/alerts', element: <Alerts /> },
+    { pageId: 'chat' as AppPageId, path: '/chat', element: <Chat /> },
+    {
+      pageId: 'visit_logs' as AppPageId,
+      path: '/logs/visitors',
+      element: <VisitLogs />,
+    },
+    {
+      pageId: 'transaction_logs' as AppPageId,
+      path: '/logs/transactions',
+      element: <TransactionLogs />,
+    },
+    {
+      pageId: 'action_logs' as AppPageId,
+      path: '/logs/actions',
+      element: <ActionLogs />,
+    },
+    {
+      pageId: 'work_schedules' as AppPageId,
+      path: '/admin/work-schedules',
+      element: <WorkSchedulesMgmt />,
+    },
+    {
+      pageId: 'special_schedules' as AppPageId,
+      path: '/admin/special-schedules',
+      element: <SpecialSchedules />,
+    },
+    {
+      pageId: 'qr_scanner' as AppPageId,
+      path: '/scanner',
+      element: <QRScannerV2 mode={scannerMode} />,
+    },
+    {
+      pageId: 'qr_scanner' as AppPageId,
+      path: '/security/scanner',
+      element: <Navigate to="/scanner" replace />,
+    },
+    {
+      pageId: 'photo_requests' as AppPageId,
+      path: '/admin/photo-requests',
+      element: <PhotoRequestsPage />,
+    },
+    {
+      pageId: 'backup' as AppPageId,
+      path: '/admin/backup',
+      element: <BackupRestorePage />,
+    },
+    {
+      pageId: 'csv_upload' as AppPageId,
+      path: '/admin/csv-upload',
+      element: <CsvUploadPage />,
+    },
+    {
+      pageId: 'archive' as AppPageId,
+      path: '/admin/archive',
+      element: <Archive />,
+    },
+  ];
+
   const roleRoutes: Record<
     string,
     {
@@ -272,74 +437,27 @@ function AppContent() {
     TUP: {
       dashboardPath: '/dashboard',
       dashboardElement: <AdminDashboard />,
-      extraRoutes: [
-        <Route key="logs" path="/logs" element={<AdminLogs />} />,
-        <Route key="attendance" path="/attendance" element={<Attendance />} />,
-        <Route
-          key="qr-requests"
-          path="/qr-requests"
-          element={<QRRequests />}
-        />,
-        <Route
-          key="admin-analytics"
-          path="/admin/analytics"
-          element={<Analytics />}
-        />,
-        <Route
-          key="admin-manage-users"
-          path="/admin/manage-users"
-          element={<ManageUsers />}
-        />,
-        <Route key="alerts" path="/alerts" element={<Alerts />} />,
-        <Route key="chat" path="/chat" element={<Chat />} />,
-      ],
+      extraRoutes: commonExtraRoutes,
     },
     Staff: {
       dashboardPath: '/staff/dashboard',
       dashboardElement: <StaffDashboard />,
-      extraRoutes: [
-        <Route key="logs" path="/staff/logs" element={<StaffLogs />} />,
-        <Route key="attendance" path="/attendance" element={<Attendance />} />,
-        <Route
-          key="my-attendance"
-          path="/staff/attendance"
-          element={<MyAttendance />}
-        />,
-      ],
+      extraRoutes: commonExtraRoutes,
     },
     Security: {
       dashboardPath: '/security/dashboard',
       dashboardElement: <AdminDashboard />,
-      extraRoutes: [
-        <Route key="logs" path="/logs" element={<AdminLogs />} />,
-        <Route key="attendance" path="/attendance" element={<Attendance />} />,
-        <Route key="alerts" path="/alerts" element={<Alerts />} />,
-        <Route key="chat" path="/chat" element={<Chat />} />,
-      ],
+      extraRoutes: commonExtraRoutes,
     },
     Visitor: {
       dashboardPath: '/user/dashboard',
       dashboardElement: <Dashboard />,
-      extraRoutes: [
-        <Route key="logs" path="/user/logs" element={<Logs />} />,
-        <Route
-          key="attendance"
-          path="/user/attendance"
-          element={<MyAttendance />}
-        />,
-      ],
+      extraRoutes: commonExtraRoutes,
     },
     Student: {
       dashboardPath: '/user/dashboard',
       dashboardElement: <Dashboard />,
-      extraRoutes: [
-        <Route key="logs" path="/user/logs" element={<Logs />} />,
-        <Route
-          key="attendance"
-          path="/user/attendance"
-          element={<MyAttendance />}
-        />,
-      ],
+      extraRoutes: commonExtraRoutes,
     },
   };
 
@@ -392,51 +510,115 @@ function AppContent() {
                       )
                     }
                   />
+                  {/* DPA 2012 — Consent gate */}
                   <Route
-                    path="/profile"
+                    path="/consent-required"
                     element={
                       isAuthenticated ? (
-                        <Profile />
+                        <ConsentRequired />
                       ) : (
                         <Navigate to="/login" replace />
                       )
                     }
                   />
+                  <Route path="/unauthorized" element={<Unauthorized />} />
+                  {/* Role-specific registration routes — public, no auth required */}
                   <Route
-                    path={roleConfig.dashboardPath}
-                    element={
-                      isAuthenticated ? (
-                        roleConfig.dashboardElement
-                      ) : (
-                        <Navigate to="/login" replace />
-                      )
-                    }
+                    path="/auth/register/student-visitor"
+                    element={<RegisterStudentVisitor />}
                   />
-                  {roleConfig.extraRoutes?.map(route =>
-                    isAuthenticated
-                      ? route
-                      : React.cloneElement(route, {
-                          element: <Navigate to="/login" replace />,
-                        }),
-                  )}
                   <Route
-                    path="/"
-                    element={
-                      <Navigate
-                        to={isAuthenticated ? defaultAuthedPath : '/login'}
-                        replace
+                    path="/auth/register/faculty"
+                    element={<RegisterFaculty />}
+                  />
+                  <Route
+                    path="/auth/register/department-head"
+                    element={<RegisterDepartmentHead />}
+                  />
+                  <Route
+                    path="/auth/register/dean"
+                    element={<RegisterDean />}
+                  />
+                  <Route
+                    path="/auth/register/top-management"
+                    element={<RegisterTopManagement />}
+                  />
+                  <Route
+                    path="/auth/register/non-academic"
+                    element={<RegisterNonAcademic />}
+                  />
+                  <Route
+                    path="/auth/register/superadmin"
+                    element={<RegisterSuperadmin />}
+                  />
+                  <Route path="/auth/register/hr" element={<RegisterHR />} />
+                  <Route
+                    path="/auth/register/security"
+                    element={<RegisterSecurity />}
+                  />
+                  <Route path="/privacy" element={<PrivacyNotice />} />
+
+                  <Route element={<DpaConsentGate />}>
+                    <Route
+                      path="/profile"
+                      element={
+                        isAuthenticated && canAccessPage(user, 'profile') ? (
+                          <Profile />
+                        ) : (
+                          <Navigate
+                            to={isAuthenticated ? defaultAuthedPath : '/login'}
+                            replace
+                          />
+                        )
+                      }
+                    />
+                    {canAccessPage(user, roleConfig.dashboardPageId) && (
+                      <Route
+                        path={roleConfig.dashboardPath}
+                        element={
+                          isAuthenticated ? (
+                            roleConfig.dashboardElement
+                          ) : (
+                            <Navigate to="/login" replace />
+                          )
+                        }
                       />
-                    }
-                  />
-                  <Route
-                    path="*"
-                    element={
-                      <Navigate
-                        to={isAuthenticated ? defaultAuthedPath : '/login'}
-                        replace
-                      />
-                    }
-                  />
+                    )}
+                    {roleConfig.extraRoutes
+                      ?.filter(route => canAccessPage(user, route.pageId))
+                      .map(route => (
+                        <Route
+                          key={`${route.pageId}-${route.path}`}
+                          path={route.path}
+                          element={
+                            isAuthenticated ? (
+                              route.element
+                            ) : (
+                              <Navigate to="/login" replace />
+                            )
+                          }
+                        />
+                      ))}
+
+                    <Route
+                      path="/"
+                      element={
+                        <Navigate
+                          to={isAuthenticated ? defaultAuthedPath : '/login'}
+                          replace
+                        />
+                      }
+                    />
+                    <Route
+                      path="*"
+                      element={
+                        <Navigate
+                          to={isAuthenticated ? defaultAuthedPath : '/login'}
+                          replace
+                        />
+                      }
+                    />
+                  </Route>
                 </Routes>
               </Suspense>
             </div>
@@ -510,7 +692,11 @@ function AppContent() {
                     Retake
                   </Button>
                 ) : (
-                  <Button type="primary" onClick={handleCapture} block={isMobile}>
+                  <Button
+                    type="primary"
+                    onClick={handleCapture}
+                    block={isMobile}
+                  >
                     Capture
                   </Button>
                 )}

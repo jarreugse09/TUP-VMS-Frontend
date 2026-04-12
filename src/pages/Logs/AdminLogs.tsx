@@ -436,9 +436,7 @@ const Logs = () => {
       <LogDetailsModal
         open={modalVisible}
         onClose={() => setModalVisible(false)}
-        log={selectedLog}
-        getTimeIn={getTimeIn}
-        getTimeOut={getTimeOut}
+        record={selectedLog}
       />
     </>
   );
