@@ -68,6 +68,8 @@ const RegisterSecurity = lazy(() => import('./pages/auth/RegisterSecurity'));
 const PrivacyNotice = lazy(() => import('./pages/auth/PrivacyNotice'));
 
 import { DpaConsentGate } from './components/DpaConsentGate';
+import { getEffectiveRole } from '@/utils/rbac';
+import { canAccessPage, type AppPageId } from '@/config/rolePages';
 
 const { Content } = Layout;
 const { Text } = Typography;
@@ -431,32 +433,42 @@ function AppContent() {
     {
       dashboardPath: string;
       dashboardElement: React.ReactElement;
-      extraRoutes?: React.ReactElement[];
+      dashboardPageId: AppPageId;
+      extraRoutes: {
+        pageId: AppPageId;
+        path: string;
+        element: React.ReactElement;
+      }[];
     }
   > = {
     TUP: {
       dashboardPath: '/dashboard',
       dashboardElement: <AdminDashboard />,
+      dashboardPageId: 'dashboard' as AppPageId,
       extraRoutes: commonExtraRoutes,
     },
     Staff: {
       dashboardPath: '/staff/dashboard',
       dashboardElement: <StaffDashboard />,
+      dashboardPageId: 'staff_dashboard' as AppPageId,
       extraRoutes: commonExtraRoutes,
     },
     Security: {
       dashboardPath: '/security/dashboard',
       dashboardElement: <AdminDashboard />,
+      dashboardPageId: 'security_dashboard' as AppPageId,
       extraRoutes: commonExtraRoutes,
     },
     Visitor: {
       dashboardPath: '/user/dashboard',
       dashboardElement: <Dashboard />,
+      dashboardPageId: 'dashboard' as AppPageId,
       extraRoutes: commonExtraRoutes,
     },
     Student: {
       dashboardPath: '/user/dashboard',
       dashboardElement: <Dashboard />,
+      dashboardPageId: 'dashboard' as AppPageId,
       extraRoutes: commonExtraRoutes,
     },
   };
