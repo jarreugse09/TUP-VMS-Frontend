@@ -17,6 +17,7 @@ import { Layout, Modal, Button, Typography, message, Spin } from 'antd';
 import Sidebar from './components/Sidebar';
 import { useAuth } from './contexts/AuthContext';
 import { submitFirstPhotoCapture } from './services/userService';
+import { getEffectiveRole } from './utils/rbac';
 
 const Login = lazy(() => import('./pages/Login'));
 const Register = lazy(() => import('./pages/Register'));
@@ -68,6 +69,7 @@ const RegisterSecurity = lazy(() => import('./pages/auth/RegisterSecurity'));
 const PrivacyNotice = lazy(() => import('./pages/auth/PrivacyNotice'));
 
 import { DpaConsentGate } from './components/DpaConsentGate';
+import { canAccessPage, type AppPageId } from '@/config/rolePages';
 
 const { Content } = Layout;
 const { Text } = Typography;
@@ -442,26 +444,31 @@ function AppContent() {
     TUP: {
       dashboardPath: '/dashboard',
       dashboardElement: <AdminDashboard />,
+      dashboardPageId: 'dashboard' as AppPageId,
       extraRoutes: commonExtraRoutes,
     },
     Staff: {
       dashboardPath: '/staff/dashboard',
       dashboardElement: <StaffDashboard />,
+      dashboardPageId: 'dashboard' as AppPageId,
       extraRoutes: commonExtraRoutes,
     },
     Security: {
       dashboardPath: '/security/dashboard',
       dashboardElement: <AdminDashboard />,
+      dashboardPageId: 'dashboard' as AppPageId,
       extraRoutes: commonExtraRoutes,
     },
     Visitor: {
       dashboardPath: '/user/dashboard',
       dashboardElement: <Dashboard />,
+      dashboardPageId: 'dashboard' as AppPageId,
       extraRoutes: commonExtraRoutes,
     },
     Student: {
       dashboardPath: '/user/dashboard',
       dashboardElement: <Dashboard />,
+      dashboardPageId: 'dashboard' as AppPageId,
       extraRoutes: commonExtraRoutes,
     },
   };
