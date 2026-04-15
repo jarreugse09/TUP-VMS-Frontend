@@ -1,14 +1,16 @@
-import { Form, Input, Button, message } from "antd";
-import { useNavigate } from "react-router-dom";
-import styled from "styled-components";
+import { Form, Input, Button, message, Typography } from 'antd';
+import { useNavigate } from 'react-router-dom';
+import styled from 'styled-components';
 import {
   MailOutlined,
   LockOutlined,
   ArrowRightOutlined,
-} from "@ant-design/icons";
-import { login as apiLogin } from "../services/authService";
-import { useAuth } from "../contexts/AuthContext";
-import { getDefaultRouteForUser } from "../config/rolePages";
+} from '@ant-design/icons';
+import { login as apiLogin } from '../../services/authService';
+import { useAuth } from '../../contexts/AuthContext';
+import { getDefaultRouteForUser } from '../../config/rolePages';
+
+const { Text } = Typography;
 
 const Container = styled.div`
   min-height: 100vh;
@@ -48,8 +50,21 @@ const Header = styled.div`
   margin-bottom: 28px;
   color: white;
 
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 48px;
+    height: 48px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.16);
+    border: 1px solid rgba(255, 255, 255, 0.24);
+    margin-bottom: 14px;
+    font-size: 22px;
+  }
+
   .logo-text {
-    font-size: clamp(32px, 6vw, 42px);
+    font-size: clamp(28px, 5vw, 40px);
     font-weight: 800;
     margin-bottom: 8px;
     letter-spacing: -1px;
@@ -57,7 +72,7 @@ const Header = styled.div`
 
   .subtitle {
     font-size: 15px;
-    opacity: 0.8;
+    opacity: 0.86;
   }
 `;
 
@@ -89,9 +104,11 @@ const StyledForm = styled(Form)`
       font-size: 15px;
       color: white;
       background: transparent !important;
+
       &::placeholder {
         color: rgba(255, 255, 255, 0.5);
       }
+
       caret-color: white;
     }
 
@@ -106,7 +123,6 @@ const StyledForm = styled(Form)`
     }
   }
 
-  /* Prevent white background on focus/autofill */
   .ant-input,
   .ant-input-password {
     background: transparent !important;
@@ -176,18 +192,26 @@ const Footer = styled.div`
   }
 `;
 
-const Login = () => {
+type LoginBaseProps = {
+  badge: string;
+  title: string;
+  subtitle: string;
+  registerPath: string;
+};
+
+const LoginBase = ({ badge, title, subtitle, registerPath }: LoginBaseProps) => {
   const navigate = useNavigate();
   const { login } = useAuth();
 
-  const onFinish = async (values: any) => {
+  const onFinish = async (rawValues: unknown) => {
+    const values = rawValues as { email: string; password: string };
     try {
       const response = await apiLogin(values.email, values.password);
       login(response.token, response.user);
-      message.success("Welcome back!");
+      message.success('Welcome back!');
       navigate(getDefaultRouteForUser(response.user));
     } catch {
-      message.error("Invalid email or password");
+      message.error('Invalid email or password');
     }
   };
 
@@ -195,8 +219,9 @@ const Login = () => {
     <Container>
       <FormContainer>
         <Header>
-          <div className="logo-text">TUP VMS</div>
-          <div className="subtitle">Sign in to access the portal</div>
+          <div className="badge">{badge}</div>
+          <div className="logo-text">{title}</div>
+          <div className="subtitle">{subtitle}</div>
         </Header>
 
         <StyledForm layout="vertical" onFinish={onFinish}>
@@ -204,8 +229,8 @@ const Login = () => {
             label="Email Address"
             name="email"
             rules={[
-              { required: true, message: "Please enter your email" },
-              { type: "email", message: "Please enter a valid email" },
+              { required: true, message: 'Please enter your email' },
+              { type: 'email', message: 'Please enter a valid email' },
             ]}
           >
             <Input
@@ -218,7 +243,7 @@ const Login = () => {
           <Form.Item
             label="Password"
             name="password"
-            rules={[{ required: true, message: "Please enter your password" }]}
+            rules={[{ required: true, message: 'Please enter your password' }]}
           >
             <Input.Password
               prefix={<LockOutlined />}
@@ -235,12 +260,14 @@ const Login = () => {
         </StyledForm>
 
         <Footer>
-          Don't have an account?{" "}
-          <a onClick={() => navigate("/register")}>Register here</a>
+          <Text style={{ color: 'rgba(255, 255, 255, 0.7)' }}>
+            Don&apos;t have an account?{' '}
+          </Text>
+          <a onClick={() => navigate(registerPath)}>Register here</a>
         </Footer>
       </FormContainer>
     </Container>
   );
 };
 
-export default Login;
+export default LoginBase;

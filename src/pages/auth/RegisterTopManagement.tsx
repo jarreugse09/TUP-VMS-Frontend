@@ -14,6 +14,7 @@ import {
   ConsentCheckbox,
   StatusAlerts,
   AdminOnlyBanner,
+  toIsoBirthdate,
 } from './RegisterBase';
 import { Typography } from 'antd';
 
@@ -35,7 +36,9 @@ const RegisterTopManagement: React.FC = () => {
     setError(null);
     try {
       await api.post('/auth/register/top-management', {
-        name: values.name,
+        firstName: values.firstName,
+        surname: values.surname,
+        birthdate: toIsoBirthdate(values.birthdate),
         email: values.email,
         password: values.password,
         consentGiven: values.consentGiven,
@@ -66,11 +69,11 @@ const RegisterTopManagement: React.FC = () => {
           <StatusAlerts success={success} error={error} />
 
           {success ? (
-            <Button type="primary" block onClick={() => navigate('/login')}>
+            <Button type="primary" block onClick={() => navigate('/auth/top-management/login')}>
               Go to Login
             </Button>
           ) : !isAdmin ? (
-            <Button type="primary" block onClick={() => navigate('/login')}>
+            <Button type="primary" block onClick={() => navigate('/auth/top-management/login')}>
               Go to Login
             </Button>
           ) : (
@@ -92,7 +95,7 @@ const RegisterTopManagement: React.FC = () => {
               </Form.Item>
 
               <FooterLink>
-                <a onClick={() => navigate('/login')}>← Back to Login</a>
+                <a onClick={() => navigate('/auth/top-management/login')}>← Back to Login</a>
               </FooterLink>
             </>
           )}

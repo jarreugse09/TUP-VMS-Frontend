@@ -14,6 +14,7 @@ import {
   ConsentCheckbox,
   StatusAlerts,
   AdminOnlyBanner,
+  toIsoBirthdate,
 } from './RegisterBase';
 import { Typography } from 'antd';
 
@@ -39,7 +40,9 @@ const RegisterSecurity: React.FC = () => {
     setError(null);
     try {
       await api.post('/auth/register/security', {
-        name: values.name,
+        firstName: values.firstName,
+        surname: values.surname,
+        birthdate: toIsoBirthdate(values.birthdate),
         email: values.email,
         password: values.password,
         consentGiven: values.consentGiven,
@@ -71,11 +74,11 @@ const RegisterSecurity: React.FC = () => {
           <StatusAlerts success={success} error={error} />
 
           {success ? (
-            <Button type="primary" block onClick={() => navigate('/login')}>
+            <Button type="primary" block onClick={() => navigate('/auth/security/login')}>
               Go to Login
             </Button>
           ) : !isAdmin ? (
-            <Button type="primary" block onClick={() => navigate('/login')}>
+            <Button type="primary" block onClick={() => navigate('/auth/security/login')}>
               Go to Login
             </Button>
           ) : (
@@ -115,7 +118,7 @@ const RegisterSecurity: React.FC = () => {
               </Form.Item>
 
               <FooterLink>
-                <a onClick={() => navigate('/login')}>← Back to Login</a>
+                <a onClick={() => navigate('/auth/security/login')}>← Back to Login</a>
               </FooterLink>
             </>
           )}

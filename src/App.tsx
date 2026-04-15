@@ -19,8 +19,6 @@ import { useAuth } from './contexts/AuthContext';
 import { submitFirstPhotoCapture } from './services/userService';
 import { getEffectiveRole } from './utils/rbac';
 
-const Login = lazy(() => import('./pages/Login'));
-const Register = lazy(() => import('./pages/Register'));
 const Profile = lazy(() => import('./pages/Profile'));
 const Dashboard = lazy(() => import('./pages/Dashboard/Dashboard'));
 const AdminDashboard = lazy(() => import('./pages/Dashboard/AdminDashboard'));
@@ -67,9 +65,24 @@ const RegisterSuperadmin = lazy(
 const RegisterHR = lazy(() => import('./pages/auth/RegisterHR'));
 const RegisterSecurity = lazy(() => import('./pages/auth/RegisterSecurity'));
 const PrivacyNotice = lazy(() => import('./pages/auth/PrivacyNotice'));
+const LoginStudentVisitor = lazy(
+  () => import('./pages/auth/LoginStudentVisitor'),
+);
+const LoginFaculty = lazy(() => import('./pages/auth/LoginFaculty'));
+const LoginDepartmentHead = lazy(
+  () => import('./pages/auth/LoginDepartmentHead'),
+);
+const LoginDean = lazy(() => import('./pages/auth/LoginDean'));
+const LoginTopManagement = lazy(
+  () => import('./pages/auth/LoginTopManagement'),
+);
+const LoginNonAcademic = lazy(() => import('./pages/auth/LoginNonAcademic'));
+const LoginHR = lazy(() => import('./pages/auth/LoginHR'));
+const LoginSecurity = lazy(() => import('./pages/auth/LoginSecurity'));
+const LoginSuperadmin = lazy(() => import('./pages/auth/LoginSuperadmin'));
 
 import { DpaConsentGate } from './components/DpaConsentGate';
-import { canAccessPage, type AppPageId } from '@/config/rolePages';
+import { canAccessPage, getDefaultRouteForUser, type AppPageId } from '@/config/rolePages';
 
 const { Content } = Layout;
 const { Text } = Typography;
@@ -92,6 +105,24 @@ const CAMERA_BLOCKED_PATHS = [
 const PUBLIC_PATHS = [
   '/login',
   '/register',
+  '/auth/student/login',
+  '/auth/student/register',
+  '/auth/faculty/login',
+  '/auth/faculty/register',
+  '/auth/department-head/login',
+  '/auth/department-head/register',
+  '/auth/dean/login',
+  '/auth/dean/register',
+  '/auth/top-management/login',
+  '/auth/top-management/register',
+  '/auth/non-academic/login',
+  '/auth/non-academic/register',
+  '/auth/hr/login',
+  '/auth/hr/register',
+  '/auth/security/login',
+  '/auth/security/register',
+  '/auth/superadmin/login',
+  '/auth/superadmin/register',
   '/auth/register/student-visitor',
   '/auth/register/faculty',
   '/auth/register/department-head',
@@ -474,7 +505,7 @@ function AppContent() {
   };
 
   const roleConfig = roleRoutes[effectiveRole] || roleRoutes.Visitor;
-  const defaultAuthedPath = roleConfig.dashboardPath;
+  const defaultAuthedPath = user ? getDefaultRouteForUser(user) : roleConfig.dashboardPath;
 
   return (
     <>
@@ -508,7 +539,7 @@ function AppContent() {
                       isAuthenticated ? (
                         <Navigate to={defaultAuthedPath} replace />
                       ) : (
-                        <Login />
+                        <Navigate to="/auth/student/login" replace />
                       )
                     }
                   />
@@ -518,9 +549,48 @@ function AppContent() {
                       isAuthenticated ? (
                         <Navigate to={defaultAuthedPath} replace />
                       ) : (
-                        <Register />
+                        <Navigate to="/auth/student/register" replace />
                       )
                     }
+                  />
+                  <Route path="/auth/student/login" element={<LoginStudentVisitor />} />
+                  <Route path="/auth/faculty/login" element={<LoginFaculty />} />
+                  <Route path="/auth/department-head/login" element={<LoginDepartmentHead />} />
+                  <Route path="/auth/dean/login" element={<LoginDean />} />
+                  <Route path="/auth/top-management/login" element={<LoginTopManagement />} />
+                  <Route path="/auth/non-academic/login" element={<LoginNonAcademic />} />
+                  <Route path="/auth/hr/login" element={<LoginHR />} />
+                  <Route path="/auth/security/login" element={<LoginSecurity />} />
+                  <Route path="/auth/superadmin/login" element={<LoginSuperadmin />} />
+                  <Route
+                    path="/auth/student/register"
+                    element={<RegisterStudentVisitor />}
+                  />
+                  <Route
+                    path="/auth/faculty/register"
+                    element={<RegisterFaculty />}
+                  />
+                  <Route
+                    path="/auth/department-head/register"
+                    element={<RegisterDepartmentHead />}
+                  />
+                  <Route path="/auth/dean/register" element={<RegisterDean />} />
+                  <Route
+                    path="/auth/top-management/register"
+                    element={<RegisterTopManagement />}
+                  />
+                  <Route
+                    path="/auth/non-academic/register"
+                    element={<RegisterNonAcademic />}
+                  />
+                  <Route path="/auth/hr/register" element={<RegisterHR />} />
+                  <Route
+                    path="/auth/security/register"
+                    element={<RegisterSecurity />}
+                  />
+                  <Route
+                    path="/auth/superadmin/register"
+                    element={<RegisterSuperadmin />}
                   />
                   {/* DPA 2012 — Consent gate */}
                   <Route

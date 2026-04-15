@@ -12,6 +12,7 @@ import {
   BaseNameFields,
   ConsentCheckbox,
   StatusAlerts,
+  toIsoBirthdate,
 } from './RegisterBase';
 import { Typography } from 'antd';
 
@@ -60,7 +61,9 @@ const RegisterFaculty: React.FC = () => {
     setError(null);
     try {
       await api.post('/auth/register/faculty', {
-        name: values.name,
+        firstName: values.firstName,
+        surname: values.surname,
+        birthdate: toIsoBirthdate(values.birthdate),
         email: values.email,
         password: values.password,
         consentGiven: values.consentGiven,
@@ -92,7 +95,7 @@ const RegisterFaculty: React.FC = () => {
           <StatusAlerts success={success} error={error} />
 
           {success ? (
-            <Button type="primary" block onClick={() => navigate('/login')}>
+            <Button type="primary" block onClick={() => navigate('/auth/faculty/login')}>
               Go to Login
             </Button>
           ) : (
@@ -147,7 +150,7 @@ const RegisterFaculty: React.FC = () => {
               </Form.Item>
 
               <FooterLink>
-                <a onClick={() => navigate('/login')}>
+                <a onClick={() => navigate('/auth/faculty/login')}>
                   Already have an account? Sign in
                 </a>
               </FooterLink>

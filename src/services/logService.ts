@@ -135,6 +135,75 @@ export const staffScanQR = async (
   return response.data;
 };
 
+export const securityScanQR = async (
+  qrString: string,
+  action:
+    | 'time_in'
+    | 'time_out'
+    | 'break_start'
+    | 'break_end'
+    | 'go_out'
+    | 'go_in'
+    | 'transaction_start'
+    | 'transaction_end',
+  data?: {
+    approvedBy?: string;
+    platesNumber?: string;
+    transactionType?: string;
+    notes?: string;
+  },
+) => {
+  if (action === 'transaction_start') {
+    const response = await api.post('/transactions/start', {
+      providerQrCode: qrString,
+      transactionType: data?.transactionType,
+      notes: data?.notes,
+    });
+    return response.data;
+  }
+
+  if (action === 'transaction_end') {
+    const response = await api.post('/transactions/end', {
+      providerQrCode: qrString,
+      notes: data?.notes,
+    });
+    return response.data;
+  }
+
+  const response = await api.post('/scan/manual', {
+    qrCode: qrString,
+    action,
+    approvedBy: data?.approvedBy,
+    platesNumber: data?.platesNumber,
+    notes: data?.notes,
+  });
+  return response.data;
+};
+
+export const clientScanQR = async (
+  qrString: string,
+  mode: 'checkin' | 'checkout',
+  data?: {
+    transactionType?: string;
+    notes?: string;
+  },
+) => {
+  if (mode === 'checkin') {
+    const response = await api.post('/transactions/start', {
+      providerQrCode: qrString,
+      transactionType: data?.transactionType,
+      notes: data?.notes,
+    });
+    return response.data;
+  }
+
+  const response = await api.post('/transactions/end', {
+    providerQrCode: qrString,
+    notes: data?.notes,
+  });
+  return response.data;
+};
+
 export const createLog = async (logData: any) => {
   const response = await api.post("/scan/manual", logData);
   return response.data;

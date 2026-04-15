@@ -59,7 +59,9 @@ export const getEffectiveRole = (user?: RbacUserLike | null) => {
 };
 
 export const isAlertAudience = (user?: RbacUserLike | null) => {
-  return isTupSuperAdmin(user) || isSecurityUser(user);
+  // Bug 9 fix — mirror backend isAlertAudience which also includes top_management
+  return isTupSuperAdmin(user) || isSecurityUser(user) ||
+    getNormalizedSubRole(user) === 'top_management';
 };
 
 export const getNormalizedSubRole = (user?: RbacUserLike | null) =>

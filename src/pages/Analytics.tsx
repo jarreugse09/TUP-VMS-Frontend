@@ -129,7 +129,7 @@ const Analytics = () => {
         const month = dayjs(startDate).format('M');
         const year = dayjs(startDate).format('YYYY');
         const dtrRes = await api.get(
-          `/analytics/dtr?userId=me&month=${month}&year=${year}&format=json`,
+          `/reports/dtr?userId=me&month=${month}&year=${year}&format=json`, // Bug 3 fix — endpoint is /reports/dtr not /analytics/dtr
         );
         setDtrSummary(dtrRes.data?.summary || null);
 

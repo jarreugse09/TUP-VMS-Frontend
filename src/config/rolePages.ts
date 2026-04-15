@@ -214,6 +214,9 @@ const getRolePageKey = (user?: RbacUserLike | null): RolePageKey => {
   }
 
   const effectiveRole = getEffectiveRole(user).toLowerCase();
+  
+  // Bug 8 fix — fallback for security in case subRole string is anomalous in JWT
+  if (subRole === 'security' || effectiveRole === 'security') return 'security_head';
   if (effectiveRole === 'student') return 'student';
   if (effectiveRole === 'visitor') return 'visitor';
 

@@ -7,6 +7,7 @@ import {
   Typography,
   Checkbox,
   Alert,
+  DatePicker,
 } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
@@ -235,25 +236,61 @@ export const PasswordFields: React.FC<PasswordFieldsProps> = () => (
 /* ================= BASE FIELDS ================= */
 
 export const BaseNameFields: React.FC = () => (
-  <TwoCol>
-    <Form.Item
-      label="Full Name"
-      name="name"
-      rules={[{ required: true, message: 'Full name is required' }]}
-    >
-      <Input placeholder="Full name" id="reg-name" />
-    </Form.Item>
-    <Form.Item
-      label="Email Address"
-      name="email"
-      rules={[
-        { required: true, type: 'email', message: 'Valid email is required' },
-      ]}
-    >
-      <Input placeholder="you@tup.edu.ph" id="reg-email" />
-    </Form.Item>
-  </TwoCol>
+  <>
+    <TwoCol>
+      <Form.Item
+        label="First Name"
+        name="firstName"
+        rules={[{ required: true, message: 'First name is required' }]}
+      >
+        <Input placeholder="First name" id="reg-first-name" />
+      </Form.Item>
+      <Form.Item
+        label="Surname"
+        name="surname"
+        rules={[{ required: true, message: 'Surname is required' }]}
+      >
+        <Input placeholder="Surname" id="reg-surname" />
+      </Form.Item>
+    </TwoCol>
+    <TwoCol>
+      <Form.Item
+        label="Birthdate"
+        name="birthdate"
+        rules={[{ required: true, message: 'Birthdate is required' }]}
+      >
+        <DatePicker
+          placeholder="MM/DD/YYYY"
+          format="MM/DD/YYYY"
+          style={{ width: '100%' }}
+          id="reg-birthdate"
+        />
+      </Form.Item>
+      <Form.Item
+        label="Email Address"
+        name="email"
+        rules={[
+          { required: true, type: 'email', message: 'Valid email is required' },
+        ]}
+      >
+        <Input placeholder="you@tup.edu.ph" id="reg-email" />
+      </Form.Item>
+    </TwoCol>
+  </>
 );
+
+export const toIsoBirthdate = (value: unknown) => {
+  if (
+    value &&
+    typeof value === 'object' &&
+    'toISOString' in value &&
+    typeof value.toISOString === 'function'
+  ) {
+    return value.toISOString();
+  }
+
+  return '';
+};
 
 /* ================= CONSENT CHECKBOX ================= */
 

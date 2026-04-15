@@ -21,6 +21,27 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+// Global 401/403 handling - redirect to login on token expiry/invalid
+let isRedirecting = false;
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const status = error?.response?.status;
+    if ((status === 401 || status === 403) && !isRedirecting) {
+      isRedirecting = true;
+      const currentPath = window.location.pathname;
+      if (currentPath !== '/login' && currentPath !== '/') {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        window.location.href = '/login';
+      } else {
+        isRedirecting = false;
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
 export const getWebSocketUrl = (token: string) => {
   const normalizedBase = String(API_BASE_URL || "").replace(/\/$/, "");
   const origin =

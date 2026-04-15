@@ -180,16 +180,19 @@ export const useAlerts = (options: boolean | UseAlertsOptions = true) => {
         }
     });
 
-    // Initial fetch
+    // Bug 5 fix — also depend on `user` directly so this re-fires after
+    // AuthContext rehydrates from localStorage (avoids empty alerts on direct nav)
     useEffect(() => {
         if (!enabled) {
             setAlerts([]);
             setUnreadCount(0);
             return;
         }
-        fetchAlerts();
-        fetchUnreadCount();
-    }, [enabled, fetchAlerts, fetchUnreadCount]);
+        if (user) {
+            fetchAlerts();
+            fetchUnreadCount();
+        }
+    }, [enabled, user, fetchAlerts, fetchUnreadCount]);
 
     return {
         alerts,

@@ -86,7 +86,12 @@ export const useChat = (options: UseChatOptions = {}) => {
       }
 
       try {
-        await sendMessageApi(payload);
+        const newMessage = await sendMessageApi(payload);
+        setMessages((previous) => {
+          const exists = previous.some((entry) => entry._id === newMessage._id);
+          if (exists) return previous;
+          return [...previous, newMessage];
+        });
       } catch (error) {
         console.error("Failed to send chat message:", error);
       }

@@ -56,7 +56,7 @@ const ManageUsers = () => {
   const isMobile = !screens.md;
   const isTablet = Boolean(screens.md && !screens.xl);
   const { user } = useAuth();
-  const canRegister = ['superadmin', 'hr_head', 'hr_staff'].includes(
+  const canRegister = ['superadmin', 'hr_head', 'hr_staff', 'security_head'].includes( // Bug 2 fix — backend already authorizes security_head
     user?.subRole || '',
   );
 

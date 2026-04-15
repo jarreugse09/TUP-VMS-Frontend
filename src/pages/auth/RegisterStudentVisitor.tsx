@@ -12,6 +12,7 @@ import {
   BaseNameFields,
   ConsentCheckbox,
   StatusAlerts,
+  toIsoBirthdate,
 } from './RegisterBase';
 import { Typography } from 'antd';
 
@@ -30,7 +31,9 @@ const RegisterStudentVisitor: React.FC = () => {
     setError(null);
     try {
       await api.post('/auth/register/student-visitor', {
-        name: values.name,
+        firstName: values.firstName,
+        surname: values.surname,
+        birthdate: toIsoBirthdate(values.birthdate),
         email: values.email,
         password: values.password,
         consentGiven: values.consentGiven,
@@ -61,7 +64,7 @@ const RegisterStudentVisitor: React.FC = () => {
           <StatusAlerts success={success} error={error} />
 
           {success ? (
-            <Button type="primary" block onClick={() => navigate('/login')}>
+            <Button type="primary" block onClick={() => navigate('/auth/student/login')}>
               Go to Login
             </Button>
           ) : (
@@ -101,7 +104,7 @@ const RegisterStudentVisitor: React.FC = () => {
               </Form.Item>
 
               <FooterLink>
-                <a onClick={() => navigate('/login')}>
+                <a onClick={() => navigate('/auth/student/login')}>
                   Already have an account? Sign in
                 </a>
               </FooterLink>

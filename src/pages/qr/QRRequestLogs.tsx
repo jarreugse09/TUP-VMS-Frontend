@@ -58,6 +58,7 @@ const QRRequestLogs = () => {
   const isStudent = user?.role === 'Student';
   const isVisitor = user?.role === 'Visitor';
   const canSubmitOwn = isStudent || isVisitor;
+  const isRestrictedRole = isStudent || isVisitor;
 
   useEffect(() => {
     const handleResize = () => setWindowWidth(window.innerWidth);
@@ -146,18 +147,22 @@ const QRRequestLogs = () => {
     return false;
   };
 
-  const columns: ColumnsType<QRRequestRecord> = [
+  const baseColumns: ColumnsType<QRRequestRecord> = [
     {
       title: 'Requester', key: 'requester',
-      render: (_, r) => r.requesterId
-        ? <Text strong>{r.requesterId.firstName} {r.requesterId.surname}</Text>
-        : <Text type="secondary">—</Text>,
+      render: (_, r) => isRestrictedRole ? '—' : (
+        r.requesterId
+          ? <Text strong>{r.requesterId.firstName} {r.requesterId.surname}</Text>
+          : <Text type="secondary">—</Text>
+      ),
     },
     {
       title: 'Role', key: 'role',
-      render: (_, r) => r.requesterId ? (
-        <Tag>{r.requesterId.role}{r.requesterId.subRole ? ` / ${r.requesterId.subRole}` : ''}</Tag>
-      ) : '—',
+      render: (_, r) => isRestrictedRole ? '—' : (
+        r.requesterId ? (
+          <Tag>{r.requesterId.role}{r.requesterId.subRole ? ` / ${r.requesterId.subRole}` : ''}</Tag>
+        ) : '—'
+      ),
     },
     { title: 'Reason', dataIndex: 'reason', ellipsis: true },
     {
@@ -171,9 +176,11 @@ const QRRequestLogs = () => {
     },
     {
       title: 'Reviewed By', key: 'reviewer',
-      render: (_, r) => r.reviewedBy ? `${r.reviewedBy.firstName} ${r.reviewedBy.surname}` : '—',
+      render: (_, r) => isRestrictedRole ? '—' : (
+        r.reviewedBy ? `${r.reviewedBy.firstName} ${r.reviewedBy.surname}` : '—'
+      ),
     },
-    { title: 'Reviewed At', dataIndex: 'reviewedAt', render: fmtDt },
+    { title: 'Reviewed At', dataIndex: 'reviewedAt', render: (_, r) => isRestrictedRole ? '—' : fmtDt(r.reviewedAt) },
     {
       title: 'Actions', key: 'actions',
       render: (_, r) => canReviewRecord(r) ? (
@@ -186,6 +193,14 @@ const QRRequestLogs = () => {
       ) : null,
     },
   ];
+
+  const columns: ColumnsType<QRRequestRecord> = useMemo(() => {
+    if (isRestrictedRole) {
+      const hideKeys = new Set(['requester', 'role', 'reviewer', 'reviewedAt']);
+      return baseColumns.filter(col => !hideKeys.has(col.key as string));
+    }
+    return baseColumns;
+  }, [isRestrictedRole]);
 
   return (
     <>
@@ -235,21 +250,29 @@ const QRRequestLogs = () => {
       <Modal open={modalOpen} onCancel={() => setModalOpen(false)} footer={null} width={Math.min(600, windowWidth - 32)} centered title="QR Request Detail">
         {selected && (
           <Descriptions bordered size="small" column={1}>
-            <Descriptions.Item label="Requester">
-              {selected.requesterId ? `${selected.requesterId.firstName} ${selected.requesterId.surname}` : '—'}
-            </Descriptions.Item>
-            <Descriptions.Item label="Role">
-              {selected.requesterId?.role}{selected.requesterId?.subRole ? ` / ${selected.requesterId.subRole}` : ''}
-            </Descriptions.Item>
+            {!isRestrictedRole && (
+              <>
+                <Descriptions.Item label="Requester">
+                  {selected.requesterId ? `${selected.requesterId.firstName} ${selected.requesterId.surname}` : '—'}
+                </Descriptions.Item>
+                <Descriptions.Item label="Role">
+                  {selected.requesterId?.role}{selected.requesterId?.subRole ? ` / ${selected.requesterId.subRole}` : ''}
+                </Descriptions.Item>
+              </>
+            )}
             <Descriptions.Item label="Reason">{selected.reason}</Descriptions.Item>
             <Descriptions.Item label="Status">
               <Tag color={statusColor[selected.status]}>{selected.status.toUpperCase()}</Tag>
             </Descriptions.Item>
             <Descriptions.Item label="Requested At">{fmtDt(selected.createdAt)}</Descriptions.Item>
-            <Descriptions.Item label="Reviewed By">
-              {selected.reviewedBy ? `${selected.reviewedBy.firstName} ${selected.reviewedBy.surname}` : '—'}
-            </Descriptions.Item>
-            <Descriptions.Item label="Reviewed At">{fmtDt(selected.reviewedAt)}</Descriptions.Item>
+            {!isRestrictedRole && (
+              <>
+                <Descriptions.Item label="Reviewed By">
+                  {selected.reviewedBy ? `${selected.reviewedBy.firstName} ${selected.reviewedBy.surname}` : '—'}
+                </Descriptions.Item>
+                <Descriptions.Item label="Reviewed At">{fmtDt(selected.reviewedAt)}</Descriptions.Item>
+              </>
+            )}
           </Descriptions>
         )}
       </Modal>

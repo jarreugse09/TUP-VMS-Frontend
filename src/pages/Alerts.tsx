@@ -17,6 +17,8 @@ import {
   Empty,
   Row,
   Col,
+  Spin,
+  Tooltip,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import {
@@ -74,14 +76,18 @@ const Alerts = () => {
   const [filterCameraSource, setFilterCameraSource] = useState<string>('all');
   const [filterDetectionLabel, setFilterDetectionLabel] = useState<string>('all');
   const [filterDetectedObject, setFilterDetectedObject] = useState<string>('all');
-  const [filterDateRange, setFilterDateRange] = useState<[Dayjs | null, Dayjs | null] | null>(null);
+  const [filterDateRange, setFilterDateRange] = useState<[Dayjs | null, Dayjs | null] | null>([dayjs().startOf('day'), dayjs().endOf('day')]);
   const [searchText, setSearchText] = useState('');
   const [selectedAlert, setSelectedAlert] = useState<AlertRecord | null>(null);
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [statusUpdating, setStatusUpdating] = useState<string | null>(null);
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
   const { user } = useAuth();
-  
+
+  // Bug 5 fix — wait for AuthContext to rehydrate from localStorage
+  // before mounting hooks that fire fetch on mount
+  if (!user) return <Spin style={{ display: 'block', margin: '80px auto' }} />;
+
   const canRespond = user?.subRole === "security_head" || user?.subRole === "superadmin";
 
   useEffect(() => {
@@ -284,17 +290,21 @@ const Alerts = () => {
       title: 'Title',
       dataIndex: 'title',
       key: 'title',
+      width: 220,           // Bug 10 fix — constrain width so column doesn't overflow
+      ellipsis: { showTitle: false },
       render: (title: string, record: AlertRecord) => (
-        <Space>
-          {record.severity === 'critical' || record.severity === 'high' ? (
-            <WarningOutlined
-              style={{ color: getSeverityColor(record.severity) }}
-            />
-          ) : (
-            <BellOutlined />
-          )}
-          <Text strong={!record.isRead}>{title}</Text>
-        </Space>
+        <Tooltip title={title} placement="topLeft">
+          <Space>
+            {record.severity === 'critical' || record.severity === 'high' ? (
+              <WarningOutlined
+                style={{ color: getSeverityColor(record.severity) }}
+              />
+            ) : (
+              <BellOutlined />
+            )}
+            <Text strong={!record.isRead} ellipsis style={{ maxWidth: 170 }}>{title}</Text>
+          </Space>
+        </Tooltip>
       ),
     },
     {
@@ -362,10 +372,11 @@ const Alerts = () => {
     );
   }, [alerts]);
 
+  // Bug 9 fix — backend already allows top_management
   return (
     <RoleGuard
       allowedRoles={[]}
-      allowedSubRoles={['superadmin', 'security_head', 'security_staff']}
+      allowedSubRoles={['superadmin', 'security_head', 'security_staff', 'top_management']}
     >
       <div className="p-3 sm:p-4 md:p-6 lg:p-8">
       {criticalUnacknowledged && (
